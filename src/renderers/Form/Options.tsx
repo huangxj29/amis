@@ -153,6 +153,11 @@ export interface FormOptionsControl extends FormBaseControl {
   editApi?: SchemaApi;
 
   /**
+   * 编辑时调用的初始化 API
+   */
+  initEditApi?: SchemaApi;
+
+  /**
    * 选项修改的表单项
    */
   editControls?: Array<SchemaObject>;
@@ -227,6 +232,7 @@ export interface OptionsProps
   addApi?: Api;
   addControls?: Array<any>;
   editApi?: Api;
+  initEditApi?: Api;
   editControls?: Array<any>;
   deleteApi?: Api;
   deleteConfirmText?: string;
@@ -980,6 +986,7 @@ export function registerOptionsControl(config: OptionsConfig) {
         labelField,
         onOpenDialog,
         editApi,
+        initEditApi = null,
         env,
         source,
         data,
@@ -1014,6 +1021,7 @@ export function registerOptionsControl(config: OptionsConfig) {
               body: {
                 type: 'form',
                 api: editApi,
+                initApi: initEditApi,
                 controls: editControls
               }
             },

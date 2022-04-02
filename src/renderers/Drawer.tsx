@@ -159,7 +159,7 @@ export default class Drawer extends React.Component<DrawerProps> {
     overlay: true,
     closeOnEsc: false,
     closeOnOutside: false,
-    showErrorMsg: true
+    showErrorMsg: false
   };
 
   reaction: any;
