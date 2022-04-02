@@ -616,7 +616,7 @@ leftOptions 动态加载，默认 source 接口是返回 options 部分，而 le
 | ---------------- | ----------------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | options          | `Array<object>`或`Array<string>`                      |              | [选项组](./options#%E9%9D%99%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-options)                                                                                                                                   |
 | source           | `string`或 [API](../../../docs/types/api)             |              | [动态选项组](./options#%E5%8A%A8%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-source)                                                                                                                                |
-| delimeter        | `string`                                              | `false`      | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                                                                                                                   |
+| delimiter        | `string`                                              | `false`      | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                                                                                                                   |
 | joinValues       | `boolean`                                             | `true`       | [拼接值](./options#%E6%8B%BC%E6%8E%A5%E5%80%BC-joinvalues)                                                                                                                                                  |
 | extractValue     | `boolean`                                             | `false`      | [提取值](./options#%E6%8F%90%E5%8F%96%E5%A4%9A%E9%80%89%E5%80%BC-extractvalue)                                                                                                                              |
 | searchable       | `boolean`                                             | `false`      | 当设置为 `true` 时表示可以通过输入部分内容检索出选项。                                                                                                                                                      |
@@ -633,3 +633,17 @@ leftOptions 动态加载，默认 source 接口是返回 options 部分，而 le
 | rightMode        | `string`                                              |              | 当展示形式为 `associated` 时用来配置右边的选择形式，可选：`list`、`table`、`tree`、`chained`。                                                                                                              |
 | menuTpl          | `string` \| [SchemaNode](../../docs/types/schemanode) |              | 用来自定义选项展示                                                                                                                                                                                          |
 | valueTpl         | `string` \| [SchemaNode](../../docs/types/schemanode) |              | 用来自定义值的展示                                                                                                                                                                                          |
+
+## 事件表
+
+| 事件名称           | 事件参数                                        | 说明                  |
+|-------------------|------------------------------------------------|----------------------|
+| change            |  `value: string` 时间值            |  值变化                           |
+
+## 动作表
+
+| 动作名称           | 动作配置                 | 说明                    |
+|-------------------|-------------------------|------------------------|
+| clear             | -                       | 清空                    |
+| reset             | -            | 值重置                   |
+| selectAll             | -            | 全选                   |

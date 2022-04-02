@@ -1,12 +1,12 @@
+// 最早基于 react-datetime 2.16.2 版本，后来大部分都自己写了
+
 import moment from 'moment';
-// @ts-ignore
-import DaysView from 'react-datetime/src/DaysView';
 import React from 'react';
 import Downshift from 'downshift';
 import findIndex from 'lodash/findIndex';
 import {LocaleProps, localeable} from '../../locale';
 import {ClassNamesFn} from '../../theme';
-import {isMobile, convertArrayValueToMoment} from "../../utils/helper";
+import {isMobile, convertArrayValueToMoment} from '../../utils/helper';
 import Picker from '../Picker';
 import {PickerOption} from '../PickerColumn';
 import {DateType} from './Calendar';
@@ -29,7 +29,9 @@ interface CustomDaysViewProps extends LocaleProps {
   onChange: (value: moment.Moment) => void;
   onConfirm?: (value: number[], types: DateType[]) => void;
   setDateTimeState: (state: any) => void;
+  showTime: () => void;
   setTime: (type: string, amount: number) => void;
+  scrollToTop: (type: string, amount: number, i: number, lable?: string) => void;
   subtractTime: (
     amount: number,
     type: string,
@@ -61,18 +63,101 @@ interface CustomDaysViewProps extends LocaleProps {
   getDateBoundary: (currentDate: moment.Moment) => any;
 }
 
-export class CustomDaysView extends DaysView {
-  props: CustomDaysViewProps;
-  state: { columns: { options: PickerOption[] }[]; types: DateType[]; pickerValue: number[]};
-  setState: (arg0: any) => () => any;
-  getDaysOfWeek: (locale: any) => any;
-  renderDays: () => JSX.Element;
+export class CustomDaysView extends React.Component<CustomDaysViewProps> {
+  state: {
+    columns: {options: PickerOption[]}[];
+    types: DateType[];
+    pickerValue: number[];
+    uniqueTag: any;
+  };
+
+  getDaysOfWeek(locale: any) {
+    var days = locale._weekdaysMin,
+      first = locale.firstDayOfWeek(),
+      dow: any[] = [],
+      i = 0;
+    days.forEach(function (day: any) {
+      dow[(7 + i++ - first) % 7] = day;
+    });
+
+    return dow;
+  }
+
+  alwaysValidDate() {
+    return 1;
+  }
+
+  renderDays() {
+    let date = this.props.viewDate,
+      selected = this.props.selectedDate && this.props.selectedDate.clone(),
+      prevMonth = date.clone().subtract(1, 'months'),
+      currentYear = date.year(),
+      currentMonth = date.month(),
+      weeks = [],
+      days = [],
+      renderer = this.props.renderDay || this.renderDay,
+      isValid = this.props.isValidDate || this.alwaysValidDate,
+      classes,
+      isDisabled,
+      dayProps,
+      currentDate;
+
+    // Go to the last week of the previous month
+    prevMonth.date(prevMonth.daysInMonth()).startOf('week');
+    let lastDay = prevMonth.clone().add(42, 'd');
+
+    while (prevMonth.isBefore(lastDay)) {
+      classes = 'rdtDay';
+      currentDate = prevMonth.clone();
+
+      if (
+        (prevMonth.year() === currentYear &&
+          prevMonth.month() < currentMonth) ||
+        prevMonth.year() < currentYear
+      )
+        classes += ' rdtOld';
+      else if (
+        (prevMonth.year() === currentYear &&
+          prevMonth.month() > currentMonth) ||
+        prevMonth.year() > currentYear
+      )
+        classes += ' rdtNew';
+
+      if (selected && prevMonth.isSame(selected, 'day'))
+        classes += ' rdtActive';
+
+      if (prevMonth.isSame(moment(), 'day')) classes += ' rdtToday';
+
+      isDisabled = !isValid(currentDate, selected);
+      if (isDisabled) classes += ' rdtDisabled';
+
+      dayProps = {
+        'key': prevMonth.format('M_D'),
+        'data-value': prevMonth.date(),
+        'className': classes
+      };
+
+      if (!isDisabled) (dayProps as any).onClick = this.updateSelectedDate;
+
+      days.push(renderer(dayProps, currentDate, selected));
+
+      if (days.length === 7) {
+        weeks.push(
+          React.createElement('tr', {key: prevMonth.format('M_D')}, days)
+        );
+        days = [];
+      }
+
+      prevMonth.add(1, 'd');
+    }
+
+    return weeks;
+  }
 
   constructor(props: any) {
     super(props);
-
-    const {selectedDate, viewDate, timeFormat} =  props;
-    const currentDate = (selectedDate || viewDate || moment());
+    const {selectedDate, viewDate, timeFormat} = props;
+    const currentDate = selectedDate || moment();
 
     const types: DateType[] = ['year', 'month', 'date'];
     timeFormat.split(':').forEach((format: string) => {
@@ -83,7 +168,7 @@ export class CustomDaysView extends DaysView {
         : /s/.test(format)
         ? 'seconds'
         : '';
-      type && types.push(type)
+      type && types.push(type);
     });
 
     const dateBoundary = this.props.getDateBoundary(currentDate);
@@ -91,8 +176,40 @@ export class CustomDaysView extends DaysView {
     this.state = {
       columns,
       types,
-      pickerValue: currentDate.toArray()
+      pickerValue: currentDate.toArray(),
+      uniqueTag: 0,
     }
+  }
+
+  componentWillMount() {
+    this.setState({uniqueTag: (new Date()).valueOf()})
+  }
+
+  componentDidMount() {
+    const {
+      timeFormat,
+      selectedDate,
+      viewDate,
+      isEndDate,
+    } = this.props;
+    const formatMap = {
+      hours: 'HH',
+      minutes: 'mm',
+      seconds: 'ss'
+    };
+    const date = selectedDate || (isEndDate ? viewDate.endOf('day') : viewDate);
+    timeFormat.split(':').forEach((format, i) => {
+      const type = /h/i.test(format)
+        ? 'hours'
+        : /m/.test(format)
+        ? 'minutes'
+        : /s/.test(format)
+        ? 'seconds'
+        : '';
+      if (type) {
+        this.scrollToTop(type, parseInt(date.format(formatMap[type]), 10), i, 'init')
+      }
+    })
   }
 
   updateSelectedDate = (event: React.MouseEvent<any>) => {
@@ -129,6 +246,18 @@ export class CustomDaysView extends DaysView {
     this.props.updateSelectedDate(event, true);
   };
 
+  showTime = () =>{
+    const {selectedDate, viewDate, timeFormat} = this.props
+    return (
+      <div 
+        key="stb"
+        className="rdtShowTime"
+      >
+        {(selectedDate || viewDate || moment()).format(timeFormat)}
+      </div>
+    )
+  }
+
   setTime = (
     type: 'hours' | 'minutes' | 'seconds' | 'milliseconds',
     value: number
@@ -144,6 +273,19 @@ export class CustomDaysView extends DaysView {
     if (!this.props.requiredConfirm) {
       this.props.onChange(date);
     }
+  };
+
+  scrollToTop = (
+    type: 'hours' | 'minutes' | 'seconds' | 'milliseconds',
+    value: number,
+    i: number,
+    label?: string,
+  ) => {
+    let elf: any = document.getElementById(`${this.state.uniqueTag}-${i}-input`);
+    elf.parentNode.scrollTo({
+      top: value * 28,
+      behavior: label === 'init' ? 'auto' : 'smooth'
+    })
   };
 
   confirm = () => {
@@ -205,7 +347,10 @@ export class CustomDaysView extends DaysView {
             if (moment(schedule[i].startTime).isSame(currentDate, 'day')) {
               showSchedule.push(schedule[i]);
             } else if (currentDate.weekday() === 0) {
-              const width = Math.min(moment(schedule[i].endTime).diff(currentDate, 'days') + 1, 7);
+              const width = Math.min(
+                moment(schedule[i].endTime).diff(currentDate, 'days') + 1,
+                7
+              );
               // 周一重新设置日程
               showSchedule.push({
                 ...schedule[i],
@@ -221,7 +366,7 @@ export class CustomDaysView extends DaysView {
                 className: 'bg-transparent',
                 content: '',
                 height: schedule[i].height
-              })
+              });
             }
           }
           [0, 1, 2].forEach((i: number) => {
@@ -334,6 +479,8 @@ export class CustomDaysView extends DaysView {
     const date = selectedDate || (isEndDate ? viewDate.endOf('day') : viewDate);
     const inputs: Array<React.ReactNode> = [];
 
+    inputs.push(this.showTime())
+
     timeFormat.split(':').forEach((format, i) => {
       const type = /h/i.test(format)
         ? 'hours'
@@ -359,7 +506,7 @@ export class CustomDaysView extends DaysView {
             key={i + 'input'}
             inputValue={date.format(formatMap[type])}
           >
-            {({isOpen, getInputProps, openMenu, closeMenu}) => {
+            {({getInputProps, openMenu, closeMenu}) => {
               const inputProps = getInputProps({
                 onFocus: () => openMenu(),
                 onChange: (e: any) =>
@@ -378,53 +525,55 @@ export class CustomDaysView extends DaysView {
                   )
               });
               return (
-                <div className={cx('CalendarInputWrapper')}>
-                  <input
+                <div className={cx('CalendarInputWrapper', 'CalendarInputWrapperMT')}>
+                  {/* <input
                     type="text"
                     value={date.format(formatMap[type])}
                     className={cx('CalendarInput')}
                     min={min}
                     max={max}
                     {...inputProps}
-                  />
-                  {isOpen ? (
-                    <div className={cx('CalendarInput-sugs')}>
-                      {options.map(option => {
-                        return (
-                          <div
-                            key={option.value}
-                            className={cx('CalendarInput-sugsItem', {
-                              'is-highlight':
-                                option.value === date.format(formatMap[type])
-                            })}
-                            onClick={() => {
-                              this.setTime(type, parseInt(option.value, 10));
-                              closeMenu();
-                            }}
-                          >
-                            {option.value}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
+                  /> */}
+                  <div 
+                    className={cx(
+                      'CalendarInput-sugs',
+                      type === 'hours' ? 'CalendarInput-sugsHours' : 'CalendarInput-sugsTimes'
+                    )} 
+                    id={`${this.state.uniqueTag}-${i}-input`}
+                  >
+                    {options.map(option => {
+                      return (
+                        <div
+                          key={option.value}
+                          className={cx(
+                            'CalendarInput-sugsItem', 
+                            {'is-highlight': option.value === date.format(formatMap[type])}
+                          )}
+                          onClick={() => {
+                            this.setTime(type, parseInt(option.value, 10));
+                            this.scrollToTop(type, parseInt(option.value, 10), i);
+                            closeMenu();
+                          }}
+                        >
+                          {option.value}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             }}
           </Downshift>
         );
-
-        inputs.push(<span key={i + 'divider'}>:</span>);
+        inputs.push(<span key={i + 'divider'}></span>);
       }
     });
-
     inputs.length && inputs.pop();
-
     return <div>{inputs}</div>;
   };
 
   renderFooter = () => {
-    if (!this.props.timeFormat && !this.props.requiredConfirm) {
+    if (!this.props.requiredConfirm) {
       return null;
     }
 
@@ -434,7 +583,6 @@ export class CustomDaysView extends DaysView {
       <tfoot key="tf">
         <tr>
           <td colSpan={7}>
-            {this.props.timeFormat ? this.renderTimes() : null}
             {this.props.requiredConfirm ? (
               <div key="button" className="rdtActions">
                 <a
@@ -459,7 +607,7 @@ export class CustomDaysView extends DaysView {
 
   onPickerConfirm = (value: number[]) => {
     this.props.onConfirm && this.props.onConfirm(value, this.state.types);
-  }
+  };
 
   onPickerChange = (value: number[], index: number) => {
     const {selectedDate, viewDate} = this.props;
@@ -467,20 +615,25 @@ export class CustomDaysView extends DaysView {
     // 变更年份、月份的时候，需要更新columns
     if (index === 1 || index === 0) {
       const currentDate = (selectedDate || viewDate || moment()).clone();
-  
+
       // 只需计算year 、month
-      const selectDate = convertArrayValueToMoment(value, ['year', 'month'], currentDate);
+      const selectDate = convertArrayValueToMoment(
+        value,
+        ['year', 'month'],
+        currentDate
+      );
       const dateBoundary = this.props.getDateBoundary(selectDate);
       this.setState({
         columns: this.props.getColumns(this.state.types, dateBoundary),
         pickerValue: value
       });
     }
-  }
+  };
 
   renderPicker = () => {
-    const {translate: __} =  this.props;
-    const title = this.state.types.length > 3 ? __('Date.titleTime') : __('Date.titleDate');
+    const {translate: __} = this.props;
+    const title =
+      this.state.types.length > 3 ? __('Date.titleTime') : __('Date.titleDate');
     return (
       <Picker
         translate={this.props.translate}
@@ -491,80 +644,87 @@ export class CustomDaysView extends DaysView {
         onChange={this.onPickerChange}
         onConfirm={this.onPickerConfirm}
         onClose={this.cancel}
-        />
+      />
     );
   };
 
   render() {
-    const {viewDate: date, useMobileUI, embed} = this.props;
-    const footer = this.renderFooter();
+    const {viewDate: date, useMobileUI, embed, timeFormat, classnames: cx} = this.props;
     const locale = date.localeData();
     const __ = this.props.translate;
     if (isMobile() && useMobileUI && !embed) {
-      return (
-        <div className="rdtYears">
-          {this.renderPicker()}
-        </div>
-      );
+      return <div className="rdtYears">{this.renderPicker()}</div>;
     }
 
     const tableChildren = [
-      this.props.hideHeader ? null : <thead key="th">
-        <tr>
-          <th colSpan={7}>
-            <div className="rdtHeader">
-              <a
-                className="rdtPrev"
-                onClick={this.props.subtractTime(1, 'years')}
-              >
-                &laquo;
-              </a>
-              <a
-                className="rdtPrev"
-                onClick={this.props.subtractTime(1, 'months')}
-              >
-                &lsaquo;
-              </a>
-
-              <div className="rdtCenter">
-                <a className="rdtSwitch" onClick={this.props.showView('years')}>
-                  {date.format(__('dateformat.year'))}
+      this.props.hideHeader ? null : (
+        <thead key="th">
+          <tr>
+            <th colSpan={7}>
+              <div className="rdtHeader">
+                <a
+                  className="rdtPrev"
+                  onClick={this.props.subtractTime(1, 'years')}
+                >
+                  &laquo;
                 </a>
                 <a
-                  className="rdtSwitch"
-                  onClick={this.props.showView('months')}
+                  className="rdtPrev"
+                  onClick={this.props.subtractTime(1, 'months')}
                 >
-                  {date.format(__('MMM'))}
+                  &lsaquo;
+                </a>
+
+                <div className="rdtCenter">
+                  <a
+                    className="rdtSwitch"
+                    onClick={this.props.showView('years')}
+                  >
+                    {date.format(__('dateformat.year'))}
+                  </a>
+                  <a
+                    className="rdtSwitch"
+                    onClick={this.props.showView('months')}
+                  >
+                    {date.format(__('MMM'))}
+                  </a>
+                </div>
+
+                <a
+                  className="rdtNext"
+                  onClick={this.props.addTime(1, 'months')}
+                >
+                  &rsaquo;
+                </a>
+                <a className="rdtNext" onClick={this.props.addTime(1, 'years')}>
+                  &raquo;
                 </a>
               </div>
-
-              <a className="rdtNext" onClick={this.props.addTime(1, 'months')}>
-                &rsaquo;
-              </a>
-              <a className="rdtNext" onClick={this.props.addTime(1, 'years')}>
-                &raquo;
-              </a>
-            </div>
-          </th>
-        </tr>
-        <tr>
-          {this.getDaysOfWeek(locale).map((day: number, index: number) => (
-            <th key={day + index} className="dow">
-              {day}
             </th>
-          ))}
-        </tr>
-      </thead>,
+          </tr>
+          <tr>
+            {this.getDaysOfWeek(locale).map((day: number, index: number) => (
+              <th key={day + index} className="dow">
+                {day}
+              </th>
+            ))}
+          </tr>
+        </thead>
+      ),
 
       <tbody key="tb">{this.renderDays()}</tbody>
     ];
 
-    footer && tableChildren.push(footer);
-
     return (
-      <div className="rdtDays">
-        <table>{tableChildren}</table>
-      </div>
+      <>
+        <div className={timeFormat ? 'rdtDays' : ''}>
+          <table className={timeFormat ? 'rdtDaysPart' : ''}>{tableChildren}</table>
+          {timeFormat ? (
+            <div className={timeFormat.toLowerCase().indexOf('s') > 0 ? "rdtTimePartWithS" : "rdtTimePart"}>{this.renderTimes()}</div>
+          ) : null}
+        </div>
+        <table>{this.renderFooter()}</table>
+      </>
     );
   }
 }

@@ -2,7 +2,7 @@
  * @file 所有列表选择类控件的父级，比如 Select、Radios、Checkboxes、
  * List、ButtonGroup 等等
  */
-import {Api, PlainObject, Schema} from '../../types';
+import {Api, PlainObject, Schema, Action} from '../../types';
 import {isEffectiveApi, isApiOutdated, isValidApi} from '../../utils/api';
 import {isAlive} from 'mobx-state-tree';
 import {
@@ -212,6 +212,7 @@ export interface OptionsControlProps
   setLoading: (value: boolean) => void;
   reloadOptions: (setError?: boolean) => void;
   deferLoad: (option: Option) => void;
+  leftDeferLoad: (option: Option, leftOptions: Option) => void;
   expandTreeOptions: (nodePathArr: any[]) => void;
   onAdd?: (
     idx?: number | Array<number>,
@@ -271,7 +272,7 @@ export function registerOptionsControl(config: OptionsConfig) {
       multiple: false,
       placeholder: 'Select.placeholder',
       resetValue: '',
-      deleteConfirmText: '确定要删除？',
+      deleteConfirmText: 'deleteConfirm',
       ...Control.defaultProps
     };
     static propsList: any = (Control as any).propsList
@@ -459,6 +460,28 @@ export function registerOptionsControl(config: OptionsConfig) {
       this.toDispose = [];
     }
 
+    async dispatchOptionEvent(eventName: string, eventData: any = '') {
+      const {dispatchEvent, options, data} = this.props;
+      const rendererEvent = await dispatchEvent(
+        eventName,
+        createObject(data, {
+          value: eventData,
+          options
+        })
+      );
+      // 返回阻塞标识
+      return !!rendererEvent?.prevented;
+    }
+
+    doAction(action: Action, data: object, throwErrors: boolean) {
+      const {resetValue, onChange} = this.props;
+      const actionType = action?.actionType as string;
+
+      if (!!~['clear', 'reset'].indexOf(actionType)) {
+        onChange(resetValue ?? '');
+      }
+    }
+
     syncAutoFill(value: any) {
       const {autoFill, multiple, onBulkChange, data} = this.props;
       const formItem = this.props.formItem as IFormItemStore;
@@ -566,7 +589,7 @@ export function registerOptionsControl(config: OptionsConfig) {
     }
 
     @autobind
-    handleToggle(
+    async handleToggle(
       option: Option,
       submitOnChange?: boolean,
       changeImmediately?: boolean
@@ -582,7 +605,9 @@ export function registerOptionsControl(config: OptionsConfig) {
         value
       );
 
-      onChange && onChange(newValue, submitOnChange, changeImmediately);
+      const isPrevented = await this.dispatchOptionEvent('change', newValue);
+      isPrevented ||
+        (onChange && onChange(newValue, submitOnChange, changeImmediately));
     }
 
     /**
@@ -637,7 +662,7 @@ export function registerOptionsControl(config: OptionsConfig) {
     }
 
     @autobind
-    handleToggleAll() {
+    async handleToggleAll() {
       const {value, onChange, formItem} = this.props;
 
       if (!formItem) {
@@ -649,7 +674,8 @@ export function registerOptionsControl(config: OptionsConfig) {
           ? []
           : formItem.filteredOptions.concat();
       const newValue = this.formatValueArray(valueArray);
-      onChange && onChange(newValue);
+      const isPrevented = await this.dispatchOptionEvent('change', newValue);
+      isPrevented || (onChange && onChange(newValue));
     }
 
     toggleValue(option: Option, originValue?: any) {
@@ -748,7 +774,7 @@ export function registerOptionsControl(config: OptionsConfig) {
     }
 
     @autobind
-    deferLoad(option: Option) {
+    async deferLoad(option: Option) {
       const {deferApi, source, env, formItem, data} = this.props;
       const api = option.deferApi || deferApi || source;
 
@@ -760,7 +786,34 @@ export function registerOptionsControl(config: OptionsConfig) {
         return;
       }
 
-      formItem?.deferLoadOptions(option, api, createObject(data, option));
+      const json = await formItem?.deferLoadOptions(
+        option,
+        api,
+        createObject(data, option)
+      );
+      // 触发事件通知,加载完成
+      this.dispatchOptionEvent('loadFinished', json);
+    }
+
+    @autobind
+    leftDeferLoad(option: Option, leftOptions: Option) {
+      const {deferApi, source, env, formItem, data} = this.props;
+      const api = option.deferApi || deferApi || source;
+
+      if (!api) {
+        env.notify(
+          'error',
+          '请在选项中设置 `deferApi` 或者表单项中设置 `deferApi`，用来加载子选项。'
+        );
+        return;
+      }
+
+      formItem?.deferLoadLeftOptions(
+        option,
+        leftOptions,
+        api,
+        createObject(data, option)
+      );
     }
 
     @autobind
@@ -952,10 +1005,18 @@ export function registerOptionsControl(config: OptionsConfig) {
           [valueField || 'value']: result[labelField || 'label']
         };
       }
+      // 触发事件通知
+      const isPrevented = await this.dispatchOptionEvent('add', {
+        ...result,
+        idx
+      });
+      if (isPrevented) {
+        return;
+      }
 
       // 如果是懒加载的，只懒加载当前节点。
       if (parent?.defer) {
-        this.deferLoad(parent);
+        await this.deferLoad(parent);
       } else if (source && addApi) {
         // 如果配置了 source 且配置了 addApi 直接重新拉取接口就够了
         // 不能不判断 addApi 就刷新，因为有些场景就是临时添加的。
@@ -1057,6 +1118,12 @@ export function registerOptionsControl(config: OptionsConfig) {
         return;
       }
 
+      // 触发事件通知
+      const isPrevented = await this.dispatchOptionEvent('edit', result);
+      if (isPrevented) {
+        return;
+      }
+
       if (source && editApi) {
         this.reload();
       } else {
@@ -1097,9 +1164,15 @@ export function registerOptionsControl(config: OptionsConfig) {
 
       // 如果配置了 deleteConfirmText 让用户先确认。
       const confirmed = deleteConfirmText
-        ? await env.confirm(filter(deleteConfirmText, ctx))
+        ? await env.confirm(filter(__(deleteConfirmText), ctx))
         : true;
       if (!confirmed) {
+        return;
+      }
+
+      // 触发事件通知
+      const isPrevented = await this.dispatchOptionEvent('delete', ctx);
+      if (isPrevented) {
         return;
       }
 
@@ -1186,6 +1259,7 @@ export function registerOptionsControl(config: OptionsConfig) {
           syncOptions={this.syncOptions}
           reloadOptions={this.reload}
           deferLoad={this.deferLoad}
+          leftDeferLoad={this.leftDeferLoad}
           expandTreeOptions={this.expandTreeOptions}
           creatable={
             creatable !== false && isEffectiveApi(addApi) ? true : creatable

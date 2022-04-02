@@ -11,7 +11,8 @@ import {
   guid,
   isEmpty,
   autobind,
-  getVariable
+  getVariable,
+  createObject
 } from '../../utils/helper';
 import {IIRendererStore, IRendererStore} from '../../store';
 import {ScopedContext, IScopedContext} from '../../Scoped';
@@ -23,6 +24,7 @@ import hoistNonReactStatic from 'hoist-non-react-statics';
 import {withRootStore} from '../../WithRootStore';
 import {FormBaseControl, FormItemWrap} from './Item';
 import {Api} from '../../types';
+import {TableStore} from '../../store/table';
 
 export interface ControlOutterProps extends RendererProps {
   formStore?: IFormStore;
@@ -62,6 +64,7 @@ export interface ControlOutterProps extends RendererProps {
     submit?: boolean,
     changePristine?: boolean
   ) => void;
+  formItemDispatchEvent: (type: string, data: any) => void;
 }
 
 export interface ControlProps {
@@ -195,10 +198,13 @@ export function wrapControl<
 
             // 如果没有初始值，通过 onChange 设置过去
             if (
-              this.props.data === this.props.scope &&
               onChange &&
               typeof propValue === 'undefined' &&
-              typeof store?.getValueByName(model.name, false) === 'undefined'
+              typeof store?.getValueByName(model.name, false) === 'undefined' &&
+              // todo 后续再优化这个判断，
+              // 目前 input-table 中默认值会给冲掉，所以加上这个判断
+              // 对应 issue 为 https://github.com/baidu/amis/issues/2674
+              store?.storeType !== TableStore.name
             ) {
               onChange(model.tmpValue, model.name, false, true);
             }
@@ -349,7 +355,7 @@ export function wrapControl<
               this.model.clearValueOnHidden &&
                 this.model.form?.deleteValueByName(this.model.name);
 
-              rootStore.removeStore(this.model);
+              isAlive(rootStore) && rootStore.removeStore(this.model);
             }
             delete this.model;
           }
@@ -406,9 +412,9 @@ export function wrapControl<
             }
           }
 
-          validate() {
-            const {formStore: form, data} = this.props;
-
+          async validate() {
+            const {formStore: form, data, formItemDispatchEvent} = this.props;
+            let result;
             if (this.model) {
               if (
                 this.model.unique &&
@@ -419,12 +425,21 @@ export function wrapControl<
                 const group = combo.uniques.get(
                   this.model.name
                 ) as IUniqueGroup;
-                group.items.forEach(item => item.validate(data));
+                const validPromises = group.items.map(item => item.validate(data));
+                result = await Promise.all(validPromises);
               } else {
-                this.model.validate(data, this.hook);
-                form
-                  ?.getItemsByName(this.model.name)
-                  .forEach(item => item !== this.model && item.validate(data));
+                const validPromises = form?.getItemsByName(this.model.name)
+                  .map(item => item.validate(data));
+                if (validPromises && validPromises.length) {
+                  result = await Promise.all(validPromises);
+                }
+              }
+            }
+            if (result && result.length){
+              if (result.indexOf(false) > -1) {
+                formItemDispatchEvent('formItemValidateError', data);
+              } else {
+                formItemDispatchEvent('formItemValidateSucc', data);
               }
             }
           }
@@ -535,8 +550,8 @@ export function wrapControl<
 
             if (
               // 如果配置了 minLength 或者 maxLength 就切成及时验证
-              this.model.rules.minLength ||
-              this.model.rules.maxLength ||
+              // this.model.rules.minLength ||
+              // this.model.rules.maxLength ||
               validateOnChange === true ||
               (validateOnChange !== false && (formSubmited || validated))
             ) {

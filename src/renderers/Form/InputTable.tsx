@@ -189,7 +189,7 @@ export interface TableState {
 
 export default class FormTable extends React.Component<TableProps, TableState> {
   static defaultProps = {
-    placeholder: '空',
+    placeholder: 'placeholder.empty',
     scaffold: {},
     addBtnIcon: 'plus',
     copyBtnIcon: 'copy',
@@ -1082,7 +1082,9 @@ export default class FormTable extends React.Component<TableProps, TableState> {
       prefixRow,
       formInited,
       perPage,
-      classnames: cx
+      classnames: cx,
+      rowClassName,
+      rowClassNameExpr
     } = this.props;
 
     if (formInited === false) {
@@ -1131,7 +1133,9 @@ export default class FormTable extends React.Component<TableProps, TableState> {
             expandConfig,
             canAccessSuperData,
             reUseRow: false,
-            offset
+            offset,
+            rowClassName,
+            rowClassNameExpr
           }
         )}
         {(addable && showAddBtn !== false) || showPager ? (
@@ -1143,7 +1147,7 @@ export default class FormTable extends React.Component<TableProps, TableState> {
                 onClick={() => this.addItem(this.state.items.length)}
               >
                 <Icon icon="plus" className="icon" />
-                <span>{__('Combo.add')}</span>
+                <span>{__('add')}</span>
               </Button>
             ) : null}
 

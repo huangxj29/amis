@@ -10,6 +10,7 @@ import {default as ContextMenu, openContextMenus} from './ContextMenu';
 import AsideNav from './AsideNav';
 import Avatar from './Avatar';
 import Button from './Button';
+import Breadcrumb from './Breadcrumb';
 import Checkbox from './Checkbox';
 import Checkboxes from './Selection';
 import Collapse from './Collapse';
@@ -56,6 +57,7 @@ import ChainedSelection from './ChainedSelection';
 import TableSelection from './TableSelection';
 import TreeSelection from './TreeSelection';
 import AssociatedSelection from './AssociatedSelection';
+import PullRefresh from './PullRefresh';
 
 export {
   NotFound,
@@ -69,6 +71,7 @@ export {
   Alert2,
   AsideNav,
   Button,
+  Breadcrumb,
   Checkbox,
   Checkboxes,
   Collapse,
@@ -115,5 +118,6 @@ export {
   ListGroup,
   NumberInput,
   ArrayInput,
-  AnchorNav
+  AnchorNav,
+  PullRefresh
 };

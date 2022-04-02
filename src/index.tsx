@@ -65,6 +65,7 @@ import './renderers/CRUD';
 import './renderers/Pagination';
 import './renderers/Cards';
 import './renderers/Card';
+import './renderers/Card2';
 import './renderers/Custom';
 import './renderers/Date';
 import './renderers/Dialog';
@@ -175,6 +176,7 @@ import './renderers/TableView';
 import './renderers/Code';
 import './renderers/WebComponent';
 import './renderers/GridNav';
+import './renderers/TooltipWrapper';
 
 import Scoped, {ScopedContext} from './Scoped';
 

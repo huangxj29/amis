@@ -474,6 +474,96 @@ order: 67
 }
 ```
 
+### 背景色阶
+
+> 1.8.0 及以上版本
+
+`backgroundScale` 可以用来根据数据控制自动分配色阶
+
+```schema: scope="body"
+{
+    "type": "service",
+    "data": {
+        "rows": [
+            {
+                "engine": "Trident",
+                "version": "1",
+                "grade": "A"
+            },
+            {
+                "engine": "Trident",
+                "version": "7",
+                "grade": "B"
+            },
+            {
+                "engine": "Trident",
+                "version": "4",
+                "grade": "C"
+            },
+            {
+                "engine": "Trident",
+                "version": "3",
+                "grade": "A"
+            },
+            {
+                "engine": "Trident",
+                "version": "4",
+                "grade": "A"
+            },
+            {
+                "engine": "Gecko",
+                "version": "6",
+                "grade": "A"
+            },
+            {
+                "engine": "Gecko",
+                "version": "2",
+                "grade": "A"
+            },
+            {
+                "engine": "Gecko",
+                "version": "5",
+                "grade": "B"
+            },
+            {
+                "engine": "Gecko",
+                "version": "10",
+                "grade": "D"
+            }
+        ]
+    },
+    "body": [
+        {
+            "type": "table",
+            "source": "$rows",
+            "columns": [
+                {
+                    "name": "engine",
+                    "label": "Engine"
+                },
+                {
+                    "name": "version",
+                    "label": "Version",
+                    backgroundScale: {
+                        min: 0,
+                        max: 10,
+                        colors: ['#FFEF9C', '#FF7127']
+                    }
+                },
+                {
+                    "name": "grade",
+                    "label": "Grade"
+                }
+            ]
+        }
+    ]
+}
+```
+
+`min` 和 `max` 都支持变量，如果为设置会自动计算当前列的最大和最小值。
+
+默认会从当前列的 `name` 属性来获取数据，也可以通过 `backgroundScale.source` 使用变量及公式来获取数据。
+
 ### 默认是否显示
 
 默认 `columnsTogglable` 配置为 `auto`，当列超过 5 列后，就会在工具栏多渲染出来一个列展示与否的开关。你可以设置成 `true` 或者 `false` 来强制开或者关。在列配置中可以通过配置 `toggled` 为 `false` 默认不展示这列，比如下面这个例子中 ID 这一栏。
@@ -623,7 +713,7 @@ order: 67
 
 ### 弹出框（popOver）
 
-可以给列上配置`popOver`属性，会在该列的内容区里，渲染一个图标，点击会显示弹出框，用于展示内容
+可以给列上配置 `popOver` 属性，会在该列的内容区里，渲染一个图标，点击会显示弹出框，用于展示内容
 
 ```schema: scope="body"
 {
@@ -648,104 +738,7 @@ order: 67
 }
 ```
 
-可以结合 truncate 用来优化表格中的长内容展示，比如默认只展示 20 个字符，剩下的点击查看更多出现。
-
-```schema: scope="body"
-{
-    "type": "crud",
-    "api": "/api/mock2/sample?waitSeconds=1",
-    "columns": [
-        {
-            "name": "id",
-            "label": "ID"
-        },
-        {
-            "type": "tpl",
-            "name": "engine",
-            "label": "Rendering engine",
-            "tpl": "${engine|truncate:2}",
-            "popOver": {
-                "trigger": "hover",
-                "position": "left-top",
-                "showIcon": false,
-                "body": {
-                    "type": "tpl",
-                    "tpl": "${engine}"
-                }
-            }
-        }
-    ]
-}
-```
-
-> 示例内容没那么长，直接配置成 2 个字符了。
-
-可以给列上配置`popOverEnableOn`属性，该属性为[表达式](../../docs/concepts/expression)，通过[表达式](../../docs/concepts/expression)配置当前行是否启动`popOver`功能
-
-```schema: scope="body"
-{
-    "type": "crud",
-    "api": "/api/mock2/sample?waitSeconds=1",
-    "columns": [
-        {
-            "name": "id",
-            "label": "ID",
-            "popOver": {
-                "body": {
-                    "type": "tpl",
-                    "tpl": "${id}"
-                }
-            },
-            "popOverEnableOn": "this.id == 1"
-        },
-        {
-            "name": "engine",
-            "label": "Rendering engine",
-            "popOver": {
-                "body": {
-                    "type": "tpl",
-                    "tpl": "${engine}"
-                }
-            }
-        }
-    ]
-}
-```
-
-`popOver` 配置详情：
-
-- `mode` 可配置成 `popOver`、`dialog` 或者 `drawer`。 默认为 `popOver`。
-- `size` 当配置成 `dialog` 或者 `drawer` 的时候有用。
-- `position` 配置弹出位置，只有 `popOver` 模式有用。
-  可选参数：
-
-  - `center`
-
-  - `left-top`
-  - `right-top`
-  - `left-bottom`
-  - `right-bottom`
-
-  atX-atY-myX-myY
-  即：对齐目标的位置-对齐自己的位置
-
-  - `left-top-right-bottom` 在目标位置的左上角显示。
-  - `left-center-right-center` 在目标的左侧显示，垂直对齐。
-  - ...
-
-  固定位置
-
-  - `fixed-center`
-  - `fixed-left-top`
-  - `fixed-right-top`
-  - `fixed-left-bottom`
-  - `fixed-right-bottom`。
-
-- `offset` 默认 `{top: 0, left: 0}`，如果要来一定的偏移请设置这个。
-- `trigger` 触发弹出的条件。可配置为 `click` 或者 `hover`。默认为 `click`。
-- `showIcon` 是否显示图标。默认会有个放大形状的图标出现在列里面。如果配置成 false，则触发事件出现在列上就会触发弹出。
-- `title` 弹出框的标题。
-- `body` 弹出框的内容。
+popOver 的其它配置请参考 [popover](./popover)
 
 ### 表头样式
 

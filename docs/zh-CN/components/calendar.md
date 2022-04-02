@@ -10,9 +10,12 @@ order: 36
 
 ## 基本用法
 
+设置 `schedules` 属性
+
 ```schema: scope="body"
 {
     "type": "calendar",
+    "value": "1638288000",
     "schedules": [
       {
         "startTime": "2021-12-11 05:14:00",
@@ -33,6 +36,7 @@ order: 36
 ```schema: scope="body"
 {
     "type": "calendar",
+    "value": "1638288000",
     "schedules": [
       {
         "startTime": "2021-12-11 05:14:00",
@@ -53,6 +57,7 @@ order: 36
 ```schema: scope="body"
 {
     "type": "calendar",
+    "value": "1638288000",
     "scheduleClassNames": ["bg-success", "bg-info"],
     "schedules": [
       {
@@ -74,6 +79,7 @@ order: 36
 ```schema: scope="body"
 {
     "type": "calendar",
+    "value": "1638288000",
     "schedules": [
       {
         "startTime": "2021-12-11 05:14:00",
@@ -131,6 +137,7 @@ order: 36
     "body": [
       {
         "type": "calendar",
+        "value": "1638288000",
         "schedules": "${schedules}"
       }
     ]
@@ -142,6 +149,7 @@ order: 36
 ```schema: scope="body"
 {
     "type": "calendar",
+    "value": "1638288000",
     "largeMode": true,
     "schedules": [
       {
@@ -192,3 +200,15 @@ order: 36
 | scheduleClassNames | `Array<string>`                                                                           | `['bg-warning', 'bg-danger', 'bg-success', 'bg-info', 'bg-secondary']` | 日历中展示日程的颜色，参考[背景色](https://baidu.gitee.io/amis/zh-CN/style/background/background-color)                                                                                                                         |
 | scheduleAction     | `SchemaNode`                                                                              |                                                                        | 自定义日程展示                                                                                                                                                                                                                  |
 | largeMode          | `boolean`                                                                                 | `false`                                                                | 放大模式                                                                                                                                                                                                                        |
+## 事件表
+
+| 事件名称           | 事件参数                                        | 说明                  |
+|-------------------|------------------------------------------------|----------------------|
+| change            |  `value: string` 时间值            |  值变化                           |
+
+## 动作表
+
+| 动作名称           | 动作配置                 | 说明                    |
+|-------------------|-------------------------|------------------------|
+| clear             | -                       | 清空                    |
+| reset             | -                       | 值重置                   |

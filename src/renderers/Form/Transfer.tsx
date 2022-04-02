@@ -4,7 +4,7 @@ import {
   FormOptionsControl
 } from './Options';
 import React from 'react';
-import Transfer from '../../components/Transfer';
+import Transfer, {Transfer as BaseTransfer} from '../../components/Transfer';
 import type {Option} from './Options';
 import {
   autobind,
@@ -27,6 +27,7 @@ import {
   ItemRenderStates as ResultItemRenderStates,
   ResultList
 } from '../../components/ResultList';
+import {Action} from '../../types';
 
 /**
  * Transfer
@@ -127,8 +128,10 @@ export interface BaseTransferProps
 export class BaseTransferRenderer<
   T extends OptionsControlProps = BaseTransferProps
 > extends React.Component<T> {
+  tranferRef?: BaseTransfer;
+
   @autobind
-  handleChange(value: Array<Option> | Option, optionModified?: boolean) {
+  async handleChange(value: Array<Option> | Option, optionModified?: boolean) {
     const {
       onChange,
       joinValues,
@@ -136,6 +139,7 @@ export class BaseTransferRenderer<
       valueField,
       extractValue,
       options,
+      dispatchEvent,
       setOptions
     } = this.props;
     let newValue: any = value;
@@ -178,6 +182,16 @@ export class BaseTransferRenderer<
 
     (newOptions.length > options.length || optionModified) &&
       setOptions(newOptions, true);
+
+    // 触发渲染器事件
+    const rendererEvent = await dispatchEvent('change', {
+      value: newValue,
+      options
+    });
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
     onChange(newValue);
   }
 
@@ -188,7 +202,15 @@ export class BaseTransferRenderer<
 
   @autobind
   async handleSearch(term: string, cancelExecutor: Function) {
-    const {searchApi, options, labelField, valueField, env, data} = this.props;
+    const {
+      searchApi,
+      options,
+      labelField,
+      valueField,
+      env,
+      data,
+      translate: __
+    } = this.props;
 
     if (searchApi) {
       try {
@@ -201,7 +223,7 @@ export class BaseTransferRenderer<
         );
 
         if (!payload.ok) {
-          throw new Error(payload.msg || '搜索请求异常');
+          throw new Error(__(payload.msg || 'networkError'));
         }
 
         const result =
@@ -301,6 +323,33 @@ export class BaseTransferRenderer<
     );
   }
 
+  @autobind
+  getRef(ref: BaseTransfer) {
+    this.tranferRef = ref;
+  }
+
+  @autobind
+  onSelectAll(options: Option[]) {
+    const {dispatchEvent} = this.props;
+    dispatchEvent('selectAll', options);
+  }
+
+  // 动作
+  doAction(action: Action, data: object, throwErrors: boolean) {
+    const {resetValue, onChange} = this.props;
+    switch (action.actionType) {
+      case 'clear':
+        onChange('');
+        break;
+      case 'reset':
+        onChange(resetValue);
+        break;
+      case 'selectAll':
+        this.tranferRef?.selectAll();
+        break;
+    }
+  }
+
   render() {
     const {
       className,
@@ -365,6 +414,8 @@ export class BaseTransferRenderer<
           resultTitle={resultTitle}
           optionItemRender={this.optionItemRender}
           resultItemRender={this.resultItemRender}
+          onSelectAll={this.onSelectAll}
+          onRef={this.getRef}
         />
 
         <Spinner overlay key="info" show={loading} />

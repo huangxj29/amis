@@ -3,10 +3,14 @@ import {FormItem, FormControlProps, FormBaseControl} from './Item';
 import cx from 'classnames';
 import {filterDate, parseDuration} from '../../utils/tpl-builtin';
 import 'moment/locale/zh-cn';
+import includes from 'lodash/includes';
 import DateRangePicker, {
   DateRangePicker as BaseDateRangePicker
 } from '../../components/DateRangePicker';
-import {isMobile} from '../../utils/helper';
+import {isMobile, createObject, autobind} from '../../utils/helper';
+import {Action} from '../../types';
+
+import type {ShortCuts} from '../../components/DatePicker';
 
 /**
  * DateRange 日期范围控件
@@ -73,6 +77,11 @@ export interface DateRangeControlSchema extends FormBaseControl {
    * 开启后变成非弹出模式，即内联模式。
    */
   embed?: boolean;
+
+  /**
+   * 日期范围快捷键
+   */
+  ranges?: string | Array<ShortCuts>;
 }
 
 export interface DateRangeProps
@@ -92,6 +101,8 @@ export default class DateRangeControl extends React.Component<DateRangeProps> {
     joinValues: true,
     delimiter: ','
   };
+
+  dateRef?: BaseDateRangePicker;
 
   constructor(props: DateRangeProps) {
     super(props);
@@ -161,6 +172,43 @@ export default class DateRangeControl extends React.Component<DateRangeProps> {
     }
   }
 
+  @autobind
+  getRef(ref: BaseDateRangePicker) {
+    this.dateRef = ref;
+  }
+
+  // 派发有event的事件
+  @autobind
+  dispatchEvent(e: React.SyntheticEvent<HTMLElement>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  // 动作
+  doAction(action: Action, data: object, throwErrors: boolean) {
+    const {resetValue} = this.props;
+
+    if (action.actionType === 'clear') {
+      this.dateRef?.clear();
+      return;
+    }
+
+    if (action.actionType === 'reset' && resetValue) {
+      this.dateRef?.reset();
+    }
+  }
+
+  // 值的变化
+  @autobind
+  async handleChange(nextValue: any) {
+    const {dispatchEvent, data} = this.props;
+    const dispatcher = dispatchEvent('change', createObject(data, nextValue));
+    if (dispatcher?.prevented) {
+      return;
+    }
+    this.props.onChange(nextValue);
+  }
+
   render() {
     const {
       className,
@@ -178,8 +226,19 @@ export default class DateRangeControl extends React.Component<DateRangeProps> {
       ...rest
     } = this.props;
     const mobileUI = useMobileUI && isMobile();
+    const comptType = this.props?.type;
+
     return (
-      <div className={cx(`${ns}DateRangeControl`, className)}>
+      <div
+        className={cx(
+          `${ns}DateRangeControl`,
+          {
+            'is-date': /date-/.test(comptType),
+            'is-datetime': /datetime-/.test(comptType)
+          },
+          className
+        )}
+      >
         <DateRangePicker
           {...rest}
           useMobileUI={useMobileUI}
@@ -187,14 +246,20 @@ export default class DateRangeControl extends React.Component<DateRangeProps> {
           popOverContainer={
             mobileUI && env && env.getModalContainer
               ? env.getModalContainer
+              : mobileUI
+              ? undefined
               : rest.popOverContainer
           }
+          onRef={this.getRef}
           data={data}
           format={format}
           minDate={minDate ? filterDate(minDate, data, format) : undefined}
           maxDate={maxDate ? filterDate(maxDate, data, format) : undefined}
           minDuration={minDuration ? parseDuration(minDuration) : undefined}
           maxDuration={maxDuration ? parseDuration(maxDuration) : undefined}
+          onChange={this.handleChange}
+          onFocus={this.dispatchEvent}
+          onBlur={this.dispatchEvent}
         />
       </div>
     );

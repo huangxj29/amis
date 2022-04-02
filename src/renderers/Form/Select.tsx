@@ -9,7 +9,7 @@ import {
 import Select, {normalizeOptions} from '../../components/Select';
 import find from 'lodash/find';
 import debouce from 'lodash/debounce';
-import {Api} from '../../types';
+import {Api, Action} from '../../types';
 import {isEffectiveApi, isApiOutdated} from '../../utils/api';
 import {isEmpty, createObject, autobind, isMobile} from '../../utils/helper';
 import {dataMapping} from '../../utils/tpl-builtin';
@@ -94,6 +94,13 @@ export interface SelectProps extends OptionsControlProps {
   useMobileUI?: boolean;
 }
 
+export type SelectRendererEvent =
+  | 'change'
+  | 'blur'
+  | 'focus'
+  | 'add'
+  | 'edit'
+  | 'delete';
 export default class SelectControl extends React.Component<SelectProps, any> {
   static defaultProps: Partial<SelectProps> = {
     clearable: false,
@@ -144,7 +151,24 @@ export default class SelectControl extends React.Component<SelectProps, any> {
     this.input && this.input.focus();
   }
 
-  changeValue(value: Option | Array<Option> | void) {
+  async dispatchEvent(eventName: SelectRendererEvent, eventData: any = {}) {
+    const event = 'on' + eventName.charAt(0).toUpperCase() + eventName.slice(1);
+    const {dispatchEvent, options, data} = this.props;
+    // 触发渲染器事件
+    const rendererEvent = await dispatchEvent(
+      eventName,
+      createObject(data, {
+        options,
+        ...eventData
+      })
+    );
+    if (rendererEvent?.prevented) {
+      return;
+    }
+    this.props[event](eventData);
+  }
+
+  async changeValue(value: Option | Array<Option> | string | void) {
     const {
       joinValues,
       extractValue,
@@ -154,7 +178,9 @@ export default class SelectControl extends React.Component<SelectProps, any> {
       valueField,
       onChange,
       setOptions,
-      options
+      options,
+      data,
+      dispatchEvent
     } = this.props;
 
     let newValue: string | Option | Array<Option> | void = value;
@@ -197,6 +223,17 @@ export default class SelectControl extends React.Component<SelectProps, any> {
 
     // 不设置没法回显
     additonalOptions.length && setOptions(options.concat(additonalOptions));
+
+    const rendererEvent = await dispatchEvent(
+      'change',
+      createObject(data, {
+        value: newValue,
+        options
+      })
+    );
+    if (rendererEvent?.prevented) {
+      return;
+    }
 
     onChange(newValue);
   }
@@ -298,6 +335,15 @@ export default class SelectControl extends React.Component<SelectProps, any> {
     );
   }
 
+  doAction(action: Action, data: object, throwErrors: boolean): any {
+    const {resetValue} = this.props;
+    const actionType = action?.actionType as string;
+
+    if (!!~['clear', 'reset'].indexOf(actionType)) {
+      this.changeValue(resetValue ?? '');
+    }
+  }
+
   render() {
     let {
       autoComplete,
@@ -344,6 +390,8 @@ export default class SelectControl extends React.Component<SelectProps, any> {
             popOverContainer={
               mobileUI && env && env.getModalContainer
                 ? env.getModalContainer
+                : mobileUI
+                ? undefined
                 : rest.popOverContainer
             }
             borderMode={borderMode}
@@ -358,6 +406,13 @@ export default class SelectControl extends React.Component<SelectProps, any> {
             creatable={creatable}
             searchable={searchable || !!autoComplete}
             onChange={this.changeValue}
+            onBlur={(e: any) => this.dispatchEvent('blur', e)}
+            onFocus={(e: any) => this.dispatchEvent('focus', e)}
+            onAdd={() => this.dispatchEvent('add')}
+            onEdit={(item: any) => this.dispatchEvent('edit', {value: item})}
+            onDelete={(item: any) =>
+              this.dispatchEvent('delete', {value: item})
+            }
             loading={loading}
             noResultsText={noResultsText}
             renderMenu={menuTpl ? this.renderMenu : undefined}
@@ -395,6 +450,7 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
       showArrow,
       deferLoad,
       disabled,
+      clearable,
       selectTitle,
       selectMode,
       multiple,
@@ -428,6 +484,7 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
           className={className}
           value={selectedOptions}
           disabled={disabled}
+          clearable={clearable}
           options={options}
           onChange={this.handleChange}
           option2value={this.option2value}

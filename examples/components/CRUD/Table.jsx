@@ -68,6 +68,8 @@ export default {
     keepItemSelectionOnPageChange: true,
     maxKeepItemSelectionLength: 11,
     labelTpl: '${id} ${engine}',
+    orderBy: 'id',
+    orderDir: 'asc',
     filter: {
       title: '条件搜索',
       submitText: '',
@@ -212,7 +214,8 @@ export default {
               value: '6'
             }
           ]
-        }
+        },
+        classNameExpr: "<%= data.version < 5 ? 'bg-danger' : '' %>"
       },
       {
         type: 'text',
@@ -282,8 +285,7 @@ export default {
                   },
                   {
                     type: 'html',
-                    html:
-                      '<p>添加其他 <span>Html 片段</span> 需要支持变量替换（todo）.</p>'
+                    html: '<p>添加其他 <span>Html 片段</span> 需要支持变量替换（todo）.</p>'
                   }
                 ]
               }

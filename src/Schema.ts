@@ -52,11 +52,13 @@ import {DialogSchema, DialogSchemaBase} from './renderers/Dialog';
 import {DrawerSchema} from './renderers/Drawer';
 import {SearchBoxSchema} from './renderers/SearchBox';
 import {SparkLineSchema} from './renderers/SparkLine';
+import {TooltipWrapperSchema} from './renderers/TooltipWrapper';
 import {PaginationWrapperSchema} from './renderers/PaginationWrapper';
 import {PaginationSchema} from './renderers/Pagination';
 import {AnchorNavSchema} from './renderers/AnchorNav';
 import {AvatarSchema} from './renderers/Avatar';
 import {StepsSchema} from './renderers/Steps';
+import {SpinnerSchema} from './renderers/Spinner';
 import {TimelineSchema} from './renderers/Timeline';
 import {ArrayControlSchema} from './renderers/Form/InputArray';
 import {ButtonGroupControlSchema} from './renderers/Form/ButtonGroupSelect';
@@ -130,6 +132,7 @@ export type SchemaType =
   | 'button-toolbar'
   | 'breadcrumb'
   | 'card'
+  | 'card2'
   | 'cards'
   | 'carousel'
   | 'chart'
@@ -149,6 +152,7 @@ export type SchemaType =
   | 'month'
   | 'static-month' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
   | 'dialog'
+  | 'spinner'
   | 'divider'
   | 'dropdown-button'
   | 'drawer'
@@ -331,7 +335,8 @@ export type SchemaType =
   | 'native-date'
   | 'native-time'
   | 'native-number'
-  | 'code';
+  | 'code'
+  | 'tooltip-wrapper';
 
 export type SchemaObject =
   | PageSchema
@@ -382,6 +387,7 @@ export type SchemaObject =
   | ServiceSchema
   | SparkLineSchema
   | StatusSchema
+  | SpinnerSchema
   | TableSchema
   | TabsSchema
   | TasksSchema
@@ -389,6 +395,7 @@ export type SchemaObject =
   | VideoSchema
   | WizardSchema
   | WrapperSchema
+  | TooltipWrapperSchema
   | FormSchema
   | AnchorNavSchema
   | StepsSchema
@@ -592,6 +599,13 @@ export interface SchemaApiObject {
    * 如果设置了值，同一个接口，相同参数，指定的时间（单位：ms）内请求将直接走缓存。
    */
   cache?: number;
+
+  /**
+   * 强制将数据附加在 query，默认只有 api 地址中没有用变量的时候 crud 查询接口才会
+   * 自动附加数据到 query 部分，如果想强制附加请设置这个属性。
+   * 对于那种临时加了个变量但是又不想全部参数写一遍的时候配置很有用。
+   */
+  forceAppendDataToQuery?: boolean;
 
   /**
    * qs 配置项
@@ -833,3 +847,53 @@ export interface FeedbackDialog extends DialogSchemaBase {
 }
 
 export type RootSchema = PageSchema;
+
+export interface ToastSchemaBase extends BaseSchema {
+  /**
+   * 轻提示内容
+   */
+  items: Array<{
+    title?: SchemaCollection;
+    body: SchemaCollection;
+    level: 'info' | 'success' | 'error' | 'warning';
+    id: string;
+    position?:
+      | 'top-right'
+      | 'top-center'
+      | 'top-left'
+      | 'bottom-center'
+      | 'bottom-left'
+      | 'bottom-right'
+      | 'center';
+    closeButton?: boolean;
+    showIcon?: boolean;
+    timeout?: number;
+  }>;
+
+  /**
+   * 弹出位置
+   */
+  position:
+    | 'top-right'
+    | 'top-center'
+    | 'top-left'
+    | 'bottom-center'
+    | 'bottom-left'
+    | 'bottom-right'
+    | 'center';
+
+  /**
+   * 是否展示关闭按钮
+   */
+  closeButton: boolean;
+
+  /**
+   * 是否展示图标
+   */
+  showIcon?: boolean;
+
+  /**
+   * 持续时间
+   */
+  timeout: number;
+}

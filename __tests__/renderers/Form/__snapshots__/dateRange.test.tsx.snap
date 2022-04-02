@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Renderer:date 1`] = `
+exports[`Renderer:dateRange 1`] = `
 <div>
   <div
     class="cxd-Panel cxd-Panel--default cxd-Panel--form"
@@ -44,25 +44,39 @@ exports[`Renderer:date 1`] = `
                 class="cxd-TplField"
               >
                 <span>
-                  date
+                  date-range
                 </span>
               </span>
             </span>
           </label>
           <div
-            class="cxd-DateControl cxd-Form-control"
+            class="cxd-DateRangeControl is-date cxd-Form-control"
           >
             <div
-              class="cxd-DatePicker"
+              class="cxd-DateRangePicker"
               tabindex="0"
             >
+              <input
+                autocomplete="off"
+                class="cxd-DateRangePicker-input isActive"
+                placeholder="选择开始时间"
+                type="text"
+                value="2019-06-06"
+              />
               <span
-                class="cxd-DatePicker-value"
+                class="cxd-DateRangePicker-input-separator"
               >
-                2019-06-07
+                ~
               </span>
+              <input
+                autocomplete="off"
+                class="cxd-DateRangePicker-input"
+                placeholder="选择结束时间"
+                type="text"
+                value="2019-06-26"
+              />
               <a
-                class="cxd-DatePicker-clear"
+                class="cxd-DateRangePicker-clear"
               >
                 <icon-mock
                   classname="icon icon-input-clear"
@@ -70,7 +84,7 @@ exports[`Renderer:date 1`] = `
                 />
               </a>
               <a
-                class="cxd-DatePicker-toggler"
+                class="cxd-DateRangePicker-toggler"
               >
                 <icon-mock
                   classname="icon icon-clock"

@@ -329,7 +329,7 @@ body {
 .Doc {
   height: 100%;
 
-  .anchor {
+  a.anchor {
     padding-top: 100px;
     margin-top: -100px;
   }
@@ -1042,6 +1042,7 @@ body.dark {
     align-items: stretch;
     flex-direction: column;
     flex-grow: 1;
+    // overflow: hidden;
 
     > div {
       flex: 1;

@@ -7,20 +7,17 @@ import {render as amisRender} from '../../../src/index';
 import {makeEnv} from '../../helper';
 import moment from 'moment';
 
-test('Renderer:dateRange', async () => {
-  const {container}: any = render(
+test('Renderer:inputYear click', async () => {
+  const {container, findByPlaceholderText, findByText} = render(
     amisRender(
       {
         type: 'form',
         api: '/api/xxx',
-        controls: [
+        body: [
           {
-            type: 'date-range',
-            name: 'a',
-            label: 'date-range',
-            value: '1559750400,1561564799',
-            minDate: '1559664000',
-            maxDate: '1561737600'
+            type: 'input-year',
+            name: 'year',
+            label: '年'
           }
         ],
         title: 'The form',
@@ -31,13 +28,19 @@ test('Renderer:dateRange', async () => {
     )
   );
 
-  const input = container.querySelector('.cxd-DateRangePicker-value');
-  expect(input?.innerHTML).toEqual(
-    `${moment(1559750400, 'X').format('YYYY-MM-DD')} 至 ${moment(
-      1561564799,
-      'X'
-    ).format('YYYY-MM-DD')}`
-  );
+  const inputDate = await findByPlaceholderText('请选择年');
 
-  expect(container).toMatchSnapshot();
+  fireEvent.click(inputDate);
+
+  const thisYearText = moment().format('YYYY');
+
+  const thisYear = await findByText(thisYearText);
+
+  fireEvent.click(thisYear);
+
+  const value = document.querySelector(
+    '.cxd-DatePicker input'
+  ) as HTMLInputElement;
+
+  expect(value.value).toEqual(thisYearText);
 });

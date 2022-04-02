@@ -1,4 +1,5 @@
 import React from 'react';
+import {findDOMNode} from 'react-dom';
 import PopOverContainer from '../PopOverContainer';
 import ListSelection from '../GroupedSelection';
 import ResultBox from '../ResultBox';
@@ -15,10 +16,11 @@ export interface ConditionFieldProps extends ThemeProps, LocaleProps {
   disabled?: boolean;
   fieldClassName?: string;
   searchable?: boolean;
+  popOverContainer?: any;
 }
 
 export interface ConditionFieldState {
-  options: Array<any>;
+  searchText: string;
 }
 
 const option2value = (item: any) => item.name;
@@ -30,45 +32,50 @@ export class ConditionField extends React.Component<
   constructor(props: ConditionFieldProps) {
     super(props);
     this.state = {
-      options: props.options
+      searchText: ''
     };
     this.onSearch = this.onSearch.bind(this);
+    this.filterOptions = this.filterOptions.bind(this);
   }
 
   onSearch(text: string) {
     let txt = text.toLowerCase();
 
-    this.setState({
-      options: this.props.options
-        .map((item: any) => {
-          if (item.children) {
-            let children = item.children.filter((child: any) => {
-              return (
-                child.name.toLowerCase().includes(txt) ||
-                child.label.toLowerCase().includes(txt)
-              );
-            });
-            return children.length > 0
-              ? Object.assign({}, item, {children}) // 需要copy一份，防止覆盖原始数据
-              : false;
-          } else {
-            return item.name.toLowerCase().includes(txt) ||
-              item.label.toLowerCase().includes(txt)
-              ? item
-              : false;
-          }
-        })
-        .filter((item: any) => {
-          return !!item;
-        })
-    });
+    this.setState({searchText: txt});
+  }
+
+  filterOptions(options: any[]) {
+    const txt = this.state.searchText;
+    if (!txt) {
+      return this.props.options;
+    }
+    return options
+      .map((item: any) => {
+        if (item.children) {
+          let children = item.children.filter((child: any) => {
+            return (
+              child.name.toLowerCase().includes(txt) ||
+              child.label.toLowerCase().includes(txt)
+            );
+          });
+          return children.length > 0
+            ? Object.assign({}, item, {children}) // 需要copy一份，防止覆盖原始数据
+            : false;
+        } else {
+          return item.name.toLowerCase().includes(txt) ||
+            item.label.toLowerCase().includes(txt)
+            ? item
+            : false;
+        }
+      })
+      .filter((item: any) => {
+        return !!item;
+      });
   }
 
   // 选了值，还原options
   onPopClose(e: React.MouseEvent, onClose: () => void) {
-    this.setState({
-      options: this.props.options
-    });
+    this.setState({searchText: ''});
     onClose();
   }
 
@@ -81,10 +88,13 @@ export class ConditionField extends React.Component<
       fieldClassName,
       disabled,
       translate: __,
-      searchable
+      searchable,
+      popOverContainer
     } = this.props;
+
     return (
       <PopOverContainer
+        popOverContainer={popOverContainer || (() => findDOMNode(this))}
         popOverRender={({onClose}) => (
           <>
             {searchable ? (
@@ -93,7 +103,7 @@ export class ConditionField extends React.Component<
             <ListSelection
               multiple={false}
               onClick={e => this.onPopClose(e, onClose)}
-              options={this.state.options}
+              options={this.filterOptions(this.props.options)}
               value={[value]}
               option2value={option2value}
               onChange={(value: any) =>

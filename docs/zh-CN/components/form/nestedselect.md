@@ -124,6 +124,101 @@ order: 31
 }
 ```
 
+## 只允许选中叶子节点
+
+> 1.8.0 及以上版本，如果是之前版本可以在对应的节点上不设置 value 实现
+
+在单选时，可以通过 `onlyLeaf` 来设置只允许选择叶子节点，即便分支节点有 `value` 也不会被选中。
+
+```schema: scope="body"
+{
+  "type": "form",
+  "api": "/api/mock2/form/saveForm",
+  "body": [
+    {
+      "type": "nested-select",
+      "name": "nestedSelect",
+      "label": "级联选择器",
+      "onlyLeaf": true,
+      "options": [
+        {
+          "label": "A",
+          "value": "a"
+        },
+        {
+          "label": "B",
+          "value": "b",
+          "children": [
+            {
+              "label": "B-1",
+              "value": "b-1"
+            },
+            {
+              "label": "B-2",
+              "value": "b-2"
+            },
+            {
+              "label": "B-3",
+              "value": "b-3"
+            }
+          ]
+        },
+        {
+          "label": "C",
+          "value": "c"
+        }
+      ]
+    }
+  ]
+}
+```
+
+在多选时，也可以通过 `onlyLeaf` 来设置只允许选择叶子节点，即便分支节点有 `value` 也不会有选中动作。
+
+```schema: scope="body"
+{
+  "type": "form",
+  "api": "/api/mock2/form/saveForm",
+  "body": [
+    {
+      "type": "nested-select",
+      "name": "nestedSelect",
+      "label": "级联选择器",
+      "onlyLeaf": true,
+      "multiple": true,
+      "options": [
+        {
+          "label": "A",
+          "value": "a"
+        },
+        {
+          "label": "B",
+          "value": "b",
+          "children": [
+            {
+              "label": "B-1",
+              "value": "b-1"
+            },
+            {
+              "label": "B-2",
+              "value": "b-2"
+            },
+            {
+              "label": "B-3",
+              "value": "b-3"
+            }
+          ]
+        },
+        {
+          "label": "C",
+          "value": "c"
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## 选中父节点是否自动选中子节点
 
 默认选中父节点会自动选中子节点，可以设置`"cascade": true`，不自动选中子节点
@@ -505,7 +600,7 @@ order: 31
 | ----------------- | ----------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
 | options           | `Array<object>`或`Array<string>`          |                      | [选项组](./options#%E9%9D%99%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-options)                   |
 | source            | `string`或 [API](../../../docs/types/api) |                      | [动态选项组](./options#%E5%8A%A8%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-source)                |
-| delimeter         | `boolean`                                 | `false`              | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                   |
+| delimiter         | `boolean`                                 | `false`              | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                   |
 | labelField        | `boolean`                                 | `"label"`            | [选项标签字段](./options#%E9%80%89%E9%A1%B9%E6%A0%87%E7%AD%BE%E5%AD%97%E6%AE%B5-labelfield) |
 | valueField        | `boolean`                                 | `"value"`            | [选项值字段](./options#%E9%80%89%E9%A1%B9%E5%80%BC%E5%AD%97%E6%AE%B5-valuefield)            |
 | joinValues        | `boolean`                                 | `true`               | [拼接值](./options#%E6%8B%BC%E6%8E%A5%E5%80%BC-joinvalues)                                  |
@@ -518,4 +613,20 @@ order: 31
 | searchPromptText  | `string`                                  | `"输入内容进行检索"` | 搜索框占位文本                                                                              |
 | noResultsText     | `string`                                  | `"未找到任何结果"`   | 无结果时的文本                                                                              |
 | multiple          | `boolean`                                 | `false`              | 可否多选                                                                                    |
-| hideNodePathLabel | `boolean`                                 | `false`              | 是否隐藏选择框中已选择节点的路径 label 信息                                                 |
+| hideNodePathLabel | `boolean`                                 | `false`              | 是否隐藏选择框中已选择节点的路径 label 信息    
+| onlyLeaf | `boolean`                                 | `false`              | 只允许选择叶子节点                                                 |
+
+## 事件表
+
+| 事件名称 | 事件参数                           | 说明                 |
+| -------- | ---------------------------------- | -------------------- |
+| change   | `value: string \| Option[]` 选中值 | 选中值发生变化时触发 |
+| blur     | `(event: Event)` 原始事件          | 失去焦点时触发       |
+| focus    | `(event: Event)` 原始事件          | 获得焦点时触发       |
+
+## 动作表
+
+| 动作名称 | 动作配置 | 说明 |
+| -------- | -------- | ---- |
+| clear    | -        | 清空 |
+| reset    | -        | 重置 |

@@ -17,6 +17,7 @@ import {
 } from '../../utils/api';
 import Button from '../../components/Button';
 import {Icon} from '../../components/icons';
+import TooltipWrapper from '../../components/TooltipWrapper';
 import DropZone from 'react-dropzone';
 import {FileRejection} from 'react-dropzone';
 import {dataMapping} from '../../utils/tpl-builtin';
@@ -27,6 +28,7 @@ import {
   SchemaUrlPath
 } from '../../Schema';
 import merge from 'lodash/merge';
+import omit from 'lodash/omit';
 
 /**
  * File 文件上传控件
@@ -213,6 +215,11 @@ export interface FileControlSchema extends FormBaseControl {
     uploaded: string;
     ready: string;
   };
+
+  /**
+   * 是否为拖拽上传
+   */
+  drag?: boolean;
 }
 
 export interface FileProps
@@ -275,6 +282,8 @@ export function getNameFromUrl(url: string) {
 
   return url;
 }
+export type InputFileRendererEvent = 'change' | 'success' | 'fail' | 'remove';
+export type InputFileRendererAction = 'clear';
 
 export default class FileControl extends React.Component<FileProps, FileState> {
   static defaultProps: Partial<FileProps> = {
@@ -305,7 +314,8 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       uploaded: '已上传',
       ready: ''
     },
-    asBase64: false
+    asBase64: false,
+    drag: false
   };
 
   state: FileState;
@@ -476,13 +486,13 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
     [].slice.call(files, 0, allowed).forEach((file: FileX) => {
       if (maxSize && file.size > maxSize) {
-        this.props.env.alert(
-          __('File.maxSize', {
-            filename: file[nameField as keyof typeof file] || file.name,
-            actualSize: ImageControl.formatFileSize(file.size),
-            maxSize: ImageControl.formatFileSize(maxSize)
-          })
-        );
+        // this.props.env.alert(
+        //   __('File.maxSize', {
+        //     filename: file[nameField as keyof typeof file] || file.name,
+        //     actualSize: ImageControl.formatFileSize(file.size),
+        //     maxSize: ImageControl.formatFileSize(maxSize)
+        //   })
+        // );
         file.state = 'invalid';
       } else {
         file.state = 'pending';
@@ -509,7 +519,6 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         }
       }
     );
-    // 添加文件触发
     this.dispatchEvent('change');
   }
 
@@ -596,7 +605,11 @@ export default class FileControl extends React.Component<FileProps, FileState> {
   }
 
   handleSelect() {
-    this.dropzone.current && this.dropzone.current.open();
+    const {disabled, multiple, maxLength} = this.props;
+    !disabled &&
+      !(multiple && maxLength && this.state.files.length >= maxLength) &&
+      this.dropzone.current &&
+      this.dropzone.current.open();
   }
 
   startUpload(retry: boolean = false) {
@@ -711,7 +724,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
           uploading: false
         },
         () => {
-          this.onChange(!!this.resolve);
+          this.onChange(!!this.resolve, false);
 
           if (this.resolve) {
             this.resolve(
@@ -796,7 +809,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       },
       onProgress
     )
-      .then(ret => {
+      .then(async ret => {
         if ((ret.status && (ret as any).status !== '0') || !ret.data) {
           throw new Error(ret.msg || __('File.errorRetry'));
         }
@@ -805,7 +818,14 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         let value =
           (ret.data as any).value || (ret.data as any).url || ret.data;
 
-        this.dispatchEvent('success', file);
+        const dispatcher = await this.dispatchEvent('success', {
+          ...file,
+          value,
+          state: 'uploaded'
+        });
+        if (dispatcher?.prevented) {
+          return;
+        }
         cb(null, file, {
           ...(isPlainObject(ret.data) ? ret.data : null),
           value: value,
@@ -813,8 +833,11 @@ export default class FileControl extends React.Component<FileProps, FileState> {
           id: file.id
         });
       })
-      .catch(error => {
-        this.dispatchEvent('fail', file);
+      .catch(async error => {
+        const dispatcher = await this.dispatchEvent('fail', {file, error});
+        if (dispatcher?.prevented) {
+          return;
+        }
         cb(error.message || __('File.errorRetry'), file);
       });
   }
@@ -823,7 +846,10 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     const files = this.state.files.concat();
     const removeFile = files[index];
     // 触发移出文件事件
-    await this.dispatchEvent('remove', removeFile);
+    const dispatcher = await this.dispatchEvent('remove', removeFile);
+    if (dispatcher?.prevented) {
+      return;
+    }
     this.removeFileCanelExecutor(file, true);
     files.splice(index, 1);
 
@@ -838,7 +864,6 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       },
       isUploading ? this.tick : this.onChange
     );
-    this.dispatchEvent('change');
   }
 
   clearError() {
@@ -847,7 +872,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     });
   }
 
-  onChange(changeImmediately?: boolean) {
+  async onChange(changeImmediately?: boolean, isFileChange = true) {
     const {
       multiple,
       onChange,
@@ -881,19 +906,28 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     } else {
       value = typeof resetValue === 'undefined' ? '' : resetValue;
     }
+    if (isFileChange) {
+      const dispatcher = await this.dispatchEvent('change');
+      if (dispatcher?.prevented) {
+        return;
+      }
+    }
 
     onChange((this.emitValue = value), undefined, changeImmediately);
     this.syncAutoFill();
   }
 
   syncAutoFill() {
-    const {autoFill, multiple, onBulkChange, data} = this.props;
-    if (!isEmpty(autoFill) && onBulkChange) {
+    const {autoFill, multiple, onBulkChange, data, name} = this.props;
+    // 排除自身的字段，否则会无限更新state
+    const excludeSelfAutoFill = omit(autoFill, name || '');
+
+    if (!isEmpty(excludeSelfAutoFill) && onBulkChange) {
       const files = this.state.files.filter(
         file => ~['uploaded', 'init', 'ready'].indexOf(file.state as string)
       );
       const toSync = dataMapping(
-        autoFill,
+        excludeSelfAutoFill,
         multiple
           ? {
               items: files
@@ -1188,18 +1222,32 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     }
   }
 
-  async dispatchEvent(
-    e: string,
-    data?: Array<FileX | FileValue> | FileX | FileValue
-  ) {
+  async dispatchEvent(e: string, data?: Record<string, any>) {
     const {dispatchEvent} = this.props;
-    data = data ? data : this.state.files;
-    return dispatchEvent(e, createObject(this.props.data, data));
+    const getEventData = (item: Record<string, any>) => ({
+      name: item.path || item.name,
+      value: item.value,
+      state: item.state,
+      error: item.error
+    });
+    const value = data
+      ? getEventData(data)
+      : this.state.files.map(item => getEventData(item));
+    return dispatchEvent(
+      e,
+      createObject(this.props.data, {
+        file: value
+      })
+    );
   }
 
-  doAction(action: Action, data: object, throwErrors: boolean = false): any {
+  // 动作
+  doAction(action: Action, data: object, throwErrors: boolean) {
+    const {onChange} = this.props;
     if (action.actionType === 'clear') {
-      this.setState({files: []});
+      this.setState({files: []}, () => {
+        onChange('');
+      });
     }
   }
 
@@ -1209,6 +1257,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       accept,
       disabled,
       maxLength,
+      maxSize,
       multiple,
       autoUpload,
       description,
@@ -1221,7 +1270,8 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       translate: __,
       render,
       downloadUrl,
-      templateUrl
+      templateUrl,
+      drag
     } = this.props;
     let {files, uploading, error} = this.state;
     const nameField = this.props.nameField || 'name';
@@ -1269,39 +1319,56 @@ export default class FileControl extends React.Component<FileProps, FileState> {
                 onClick: preventEvent
               })}
               className={cx('FileControl-dropzone', {
-                disabled,
+                'disabled':
+                  disabled ||
+                  (multiple && !!maxLength && files.length >= maxLength),
                 'is-empty': !files.length,
                 'is-active': isDragActive
               })}
             >
               <input disabled={disabled} {...getInputProps()} />
 
-              {isDragActive ? (
-                <div className={cx('FileControl-acceptTip')}>
-                  {__('File.dragDrop')}
+              {drag || isDragActive ? (
+                <div
+                  className={cx('FileControl-acceptTip')}
+                  onClick={this.handleSelect}
+                >
+                  <Icon icon="cloud-upload" className="icon" />
+                  <span>{__('File.dragDrop')}</span>
+                  {maxSize ? (
+                    <div className={cx('FileControl-sizeTip')}>
+                      {__('File.sizeLimit', {maxSize})}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
                 <>
-                  {(multiple && (!maxLength || files.length < maxLength)) ||
-                  !multiple ? (
-                    <Button
-                      level="default"
-                      disabled={disabled}
-                      className={cx('FileControl-selectBtn', btnClassName)}
-                      onClick={this.handleSelect}
-                    >
-                      <Icon icon="upload" className="icon" />
-                      <span>
-                        {!multiple && files.length
-                          ? __('File.repick')
-                          : multiple && files.length
-                          ? __('File.continueAdd')
-                          : btnLabel
-                          ? btnLabel
-                          : __('File.upload')}
-                      </span>
-                    </Button>
-                  ) : null}
+                  <Button
+                    level="default"
+                    disabled={disabled}
+                    className={cx('FileControl-selectBtn', {
+                      btnClassName,
+                      'is-disabled':
+                        multiple && !!maxLength && files.length >= maxLength
+                    })}
+                    tooltip={
+                      multiple && maxLength && files.length >= maxLength
+                        ? __('File.maxLength', {maxLength})
+                        : ''
+                    }
+                    onClick={this.handleSelect}
+                  >
+                    <Icon icon="upload" className="icon" />
+                    <span>
+                      {!multiple && files.length
+                        ? __('File.repick')
+                        : multiple && files.length
+                        ? __('File.continueAdd')
+                        : btnLabel
+                        ? btnLabel
+                        : __('File.upload')}
+                    </span>
+                  </Button>
 
                   {description
                     ? render('desc', description!, {
@@ -1311,91 +1378,101 @@ export default class FileControl extends React.Component<FileProps, FileState> {
                         )
                       })
                     : null}
-
-                  {Array.isArray(files) ? (
-                    <ul className={cx('FileControl-list')}>
-                      {files.map((file, index) => (
-                        <li key={file.id}>
-                          <div
-                            className={cx('FileControl-itemInfo', {
-                              'is-invalid':
-                                file.state === 'invalid' ||
-                                file.state === 'error'
-                            })}
-                          >
-                            <Icon icon="file" className="icon" />
-                            {(file as FileValue)[urlField] ||
-                            (file as FileValue)[valueField] ||
-                            downloadUrl ? (
-                              <a
-                                className={cx('FileControl-itemInfoText')}
-                                target="_blank"
-                                rel="noopener"
-                                href="#"
-                                onClick={this.handleClickFile.bind(this, file)}
-                              >
-                                {file[nameField as keyof typeof file] ||
-                                  (file as FileValue).filename}
-                              </a>
-                            ) : (
-                              <span className={cx('FileControl-itemInfoText')}>
-                                {file[nameField as keyof typeof file] ||
-                                  (file as FileValue).filename}
-                              </span>
-                            )}
-
-                            {file.state === 'invalid' ||
-                            file.state === 'error' ? (
-                              <>
-                                <Icon icon="fail" className="icon" />
-                                <span className="text-danger">
-                                  {(file as FileValue).error || null}
-                                </span>
-                              </>
-                            ) : null}
-                            {!disabled ? (
-                              <a
-                                data-tooltip={__('Select.clear')}
-                                className={cx('FileControl-clear')}
-                                onClick={() => this.removeFile(file, index)}
-                              >
-                                <Icon icon="close" className="icon" />
-                              </a>
-                            ) : null}
-                          </div>
-                          {file.state === 'uploading' ||
-                          file.state === 'uploaded' ? (
-                            <div className={cx('FileControl-progressInfo')}>
-                              <div className={cx('FileControl-progress')}>
-                                <span
-                                  style={{
-                                    width: `${
-                                      file.state === 'uploaded'
-                                        ? 100
-                                        : (file.progress || 0) * 100
-                                    }%`
-                                  }}
-                                />
-                              </div>
-
-                              {file.state === 'uploaded' ? (
-                                <Icon icon="success" className="icon" />
-                              ) : (
-                                <span>
-                                  {Math.round((file.progress || 0) * 100)}%
-                                </span>
-                              )}
-                            </div>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
                 </>
               )}
             </div>
           )}
         </DropZone>
+
+        {maxSize && !drag ? (
+          <div className={cx('FileControl-sizeTip')}>
+            {__('File.sizeLimit', {maxSize})}
+          </div>
+        ) : null}
+
+        {Array.isArray(files) ? (
+          <ul className={cx('FileControl-list')}>
+            {files.map((file, index) => {
+              const filename =
+                file[nameField as keyof typeof file] ||
+                (file as FileValue).filename;
+
+              return (
+                <li key={file.id}>
+                  <TooltipWrapper
+                    placement="bottom"
+                    tooltipClassName={cx('FileControl-list-tooltip')}
+                    tooltip={
+                      file.state === 'invalid' || file.state === 'error'
+                        ? (file as FileValue).error ||
+                          (maxSize && file.size > maxSize
+                            ? __('File.maxSize', {
+                                filename: file.name,
+                                actualSize: ImageControl.formatFileSize(
+                                  file.size
+                                ),
+                                maxSize: ImageControl.formatFileSize(maxSize)
+                              })
+                            : '')
+                        : ''
+                    }
+                  >
+                    <div
+                      className={cx('FileControl-itemInfo', {
+                        'is-invalid':
+                          file.state === 'invalid' || file.state === 'error'
+                      })}
+                    >
+                      <span className={cx('FileControl-itemInfoIcon')}>
+                        <Icon icon="file" className="icon" />
+                      </span>
+
+                      {(file as FileValue)[urlField] ||
+                      (file as FileValue)[valueField] ||
+                      downloadUrl ? (
+                        <a
+                          className={cx('FileControl-itemInfoText')}
+                          target="_blank"
+                          rel="noopener"
+                          href="#"
+                          onClick={this.handleClickFile.bind(this, file)}
+                        >
+                          {filename}
+                        </a>
+                      ) : (
+                        <span className={cx('FileControl-itemInfoText')}>
+                          {filename}
+                        </span>
+                      )}
+
+                      {!disabled ? (
+                        <a
+                          data-tooltip={__('Select.clear')}
+                          data-position="left"
+                          className={cx('FileControl-clear')}
+                          onClick={() => this.removeFile(file, index)}
+                        >
+                          <Icon icon="close" className="icon" />
+                        </a>
+                      ) : null}
+                    </div>
+                  </TooltipWrapper>
+
+                  {file.state === 'uploading' ? (
+                    <div className={cx('FileControl-progressInfo')}>
+                      <div className={cx('FileControl-progress')}>
+                        <span
+                          style={{width: `${(file.progress || 0) * 100}%`}}
+                        />
+                      </div>
+                      <span>{Math.round((file.progress || 0) * 100)}%</span>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
 
         {failed ? (
           <div className={cx('FileControl-sum')}>

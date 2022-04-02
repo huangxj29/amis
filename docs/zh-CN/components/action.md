@@ -319,12 +319,12 @@ icon 也可以是 url 地址，比如
 
 **属性表**
 
-| 属性名   | 类型                                                                                     | 默认值 | 说明                                                                                                                                      |
-| -------- | ---------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| api      | [Api](../../docs/types/api)                                                              | -      | 请求地址，参考 [api](../../docs/types/api) 格式说明。                                                                                     |
-| redirect | [模板字符串](../../docs/concepts/template#%E6%A8%A1%E6%9D%BF%E5%AD%97%E7%AC%A6%E4%B8%B2) | -      | 指定当前请求结束后跳转的路径，可用 `${xxx}` 取值。                                                                                        |
+| 属性名   | 类型                                                                                     | 默认值 | 说明                                                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| api      | [Api](../../docs/types/api)                                                              | -      | 请求地址，参考 [api](../../docs/types/api) 格式说明。                                                                                  |
+| redirect | [模板字符串](../../docs/concepts/template#%E6%A8%A1%E6%9D%BF%E5%AD%97%E7%AC%A6%E4%B8%B2) | -      | 指定当前请求结束后跳转的路径，可用 `${xxx}` 取值。                                                                                     |
 | feedback | `DialogObject`                                                                           | -      | 如果 ajax 类型的，当 ajax 返回正常后，还能接着弹出一个 dialog 做其他交互。返回的数据可用于这个 dialog 中。格式可参考[Dialog](./Dialog) |
-| messages | `object`                                                                                 | -      | `success`：ajax 操作成功后提示，可以不指定，不指定时以 api 返回为准。`failed`：ajax 操作失败提示。                                        |
+| messages | `object`                                                                                 | -      | `success`：ajax 操作成功后提示，可以不指定，不指定时以 api 返回为准。`failed`：ajax 操作失败提示。                                     |
 
 ## 下载请求
 
@@ -806,7 +806,7 @@ props.onAction(event, {
 }
 ```
 
-## 键盘快捷键触发
+## 全局键盘快捷键触发
 
 > 1.3.0 版本新增功能
 
@@ -826,6 +826,10 @@ props.onAction(event, {
 ```
 
 除了 ctrl 和 command 还支持 shift、alt。
+
+其它键盘特殊按键的命名列表：backspace, tab, clear, enter, return, esc, escape, space, up, down, left, right, home, end, pageup, pagedown, del, delete, f1 - f19, num_0 - num_9, num_multiply, num_add, num_enter, num_subtract, num_decimal, num_divide。
+
+> 注意这个主要用于实现页面级别快捷键，如果要实现回车提交功能，请将 `input-text` 放在 `form` 里，而不是给 button 配一个 `enter` 的快捷键。
 
 ## Action 作为容器组件
 
@@ -862,6 +866,46 @@ action 还可以使用 `body` 来渲染其他组件，让那些不支持行为�
 
 在这种模式下不支持按钮的各种配置项，比如 `label`、`size`、`icon` 等，因为它只作为容器组件，没有展现。
 
+## 按钮提示
+
+通过 `tooltip` 来设置提示
+
+```schema: scope="body"
+{
+  "label": "弹框",
+  "type": "button",
+  "actionType": "link",
+  "link": "../index",
+  "tooltip": "点击链接跳转"
+}
+```
+
+如果按钮是 disabled，需要使用 `disabledTip`
+
+```schema: scope="body"
+{
+  "label": "弹框",
+  "type": "button",
+  "actionType": "link",
+  "disabled": true,
+  "link": "../index",
+  "disabledTip": "禁用了"
+}
+```
+
+还可以通过 `tooltipPlacement` 设置弹出位置
+
+```schema: scope="body"
+{
+  "label": "弹框",
+  "type": "button",
+  "actionType": "link",
+  "link": "../index",
+  "tooltipPlacement": "right",
+  "tooltip": "点击链接跳转"
+}
+```
+
 ## 通用属性表
 
 所有`actionType`都支持的通用配置项
@@ -888,3 +932,15 @@ action 还可以使用 `body` 来渲染其他组件，让那些不支持行为�
 | tooltipPlacement   | `string`                             | `top`       | 如果配置了`tooltip`或者`disabledTip`，指定提示信息位置，可配置`top`、`bottom`、`left`、`right`。                                                                            |
 | close              | `boolean` or `string`                | -           | 当`action`配置在`dialog`或`drawer`的`actions`中时，配置为`true`指定此次操作完后关闭当前`dialog`或`drawer`。当值为字符串，并且是祖先层弹框的名字的时候，会把祖先弹框关闭掉。 |
 | required           | `Array<string>`                      | -           | 配置字符串数组，指定在`form`中进行操作之前，需要指定的字段名的表单项通过验证                                                                                                |
+
+## 事件表
+
+| 事件名称   | 事件参数                                      | 说明     |
+| ---------- | --------------------------------------------- | -------- |
+| click      | [动作](../../docs/concepts/event-action#动作) | 点击     |
+| mouseenter | -                                             | 鼠标移入 |
+| mouseleave | -                                             | 鼠标移出 |
+
+## 动作表
+
+暂无

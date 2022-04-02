@@ -962,7 +962,7 @@ leftOptions 动态加载，默认 source 接口是返回 options 部分，而 le
 | options          | `Array<object>`或`Array<string>`                                                  |              | [选项组](./options#%E9%9D%99%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-options)                                                                                                                                    |
 | source           | [API](../../../docs/types/api) 或 [数据映射](../../../docs/concepts/data-mapping) |              | [动态选项组](./options#%E5%8A%A8%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-source)                                                                                                                                 |
 | autoComplete     | [API](../../../docs/types/api)                                                    |              | [自动提示补全](./options#%E8%87%AA%E5%8A%A8%E8%A1%A5%E5%85%A8-autocomplete)                                                                                                                                  |
-| delimeter        | `string`                                                                          | `false`      | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                                                                                                                    |
+| delimiter        | `string`                                                                          | `false`      | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                                                                                                                    |
 | labelField       | `string`                                                                          | `"label"`    | [选项标签字段](./options#%E9%80%89%E9%A1%B9%E6%A0%87%E7%AD%BE%E5%AD%97%E6%AE%B5-labelfield)                                                                                                                  |
 | valueField       | `string`                                                                          | `"value"`    | [选项值字段](./options#%E9%80%89%E9%A1%B9%E5%80%BC%E5%AD%97%E6%AE%B5-valuefield)                                                                                                                             |
 | joinValues       | `boolean`                                                                         | `true`       | [拼接值](./options#%E6%8B%BC%E6%8E%A5%E5%80%BC-joinvalues)                                                                                                                                                   |
@@ -993,3 +993,22 @@ leftOptions 动态加载，默认 source 接口是返回 options 部分，而 le
 | leftOptions      | `Array<Object>`                                                                   |              | 当展示形式为 `associated` 时用来配置左边的选项集。                                                                                                                                                           |
 | leftMode         | `string`                                                                          |              | 当展示形式为 `associated` 时用来配置左边的选择形式，支持 `list` 或者 `tree`。默认为 `list`。                                                                                                                 |
 | rightMode        | `string`                                                                          |              | 当展示形式为 `associated` 时用来配置右边的选择形式，可选：`list`、`table`、`tree`、`chained`。                                                                                                               |
+
+## 事件表
+
+| 事件名称 | 事件参数                           | 说明                 |
+| -------- | ---------------------------------- | -------------------- |
+| change   | `value: string \| Option[]` 选中值 | 选中值发生变化时触发 |
+| blur     | `(event: Event)` 原始事件          | 失去焦点时触发       |
+| focus    | `(event: Event)` 原始事件          | 获得焦点时触发       |
+| add      | -                                  | 新增选项的时候触发   |
+| edit     | `value: Option` 修改的选项         | 编辑选项时触发       |
+| delete   | `value: Option` 删除的选项         | 删除选项时触发       |
+
+## 动作表
+
+| 动作名称 | 动作配置                     | 说明 |
+| -------- | ---------------------------- | ---- |
+| clear    | -                            | 清空 |
+| reset    | `resetValue: boolean` 重置值 | 重置 |
+

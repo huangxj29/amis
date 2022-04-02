@@ -61,7 +61,7 @@ test('Renderer:Form', async () => {
 
   fireEvent.click(getByText('Submit'));
   await resultPromise;
-  await wait(100);
+  await wait(300);
 
   expect(fetcher).toHaveBeenCalled();
   expect(fetcher.mock.calls[0][0]).toMatchSnapshot();
@@ -100,16 +100,13 @@ test('Renderer:Form:valdiate', async () => {
   );
 
   fireEvent.click(getByText('Submit'));
-  await wait(100);
+  await wait(300);
 
   expect(container).toMatchSnapshot();
   expect(onSubmit).not.toHaveBeenCalled();
 
-  await wait(100);
-  expect(notify).toHaveBeenCalledWith(
-    'error',
-    '依赖的部分字段没有通过验证\n这是必填项'
-  );
+  await wait(300);
+  expect(notify).toHaveBeenCalledWith('error', '依赖的部分字段没有通过验证');
 
   const input = container.querySelector('input[name=a]');
   expect(input).toBeTruthy();
@@ -118,11 +115,11 @@ test('Renderer:Form:valdiate', async () => {
       value: '123'
     }
   });
-  await wait(300); // 有 250 秒左右的节流
+  await wait(500); // 有 250 秒左右的节流
   fireEvent.click(getByText('Submit'));
   expect(container).toMatchSnapshot();
 
-  await wait(100);
+  await wait(300);
   expect(onSubmit).toHaveBeenCalled();
   expect(onSubmit.mock.calls[0][0]).toMatchSnapshot();
 });
@@ -169,7 +166,7 @@ test('Renderer:Form:remoteValidate', async () => {
   );
 
   fireEvent.click(getByText('Submit'));
-  await wait(100);
+  await wait(300);
   expect(container).toMatchSnapshot();
 });
 
@@ -223,21 +220,18 @@ test('Renderer:Form:onValidate', async () => {
   );
 
   fireEvent.click(getByText('Submit'));
-  await wait(100);
+  await wait(300);
 
   expect(container).toMatchSnapshot();
   expect(onSubmit).not.toHaveBeenCalled();
   expect(onValidate).toHaveBeenCalled();
   expect(onValidate.mock.calls[0][0]).toMatchSnapshot();
 
-  await wait(100);
-  expect(notify).toHaveBeenCalledWith(
-    'error',
-    '依赖的部分字段没有通过验证\na is wrong\nb is wrong\nb is wrong 2'
-  );
+  await wait(300);
+  expect(notify).toHaveBeenCalledWith('error', '依赖的部分字段没有通过验证');
 
   fireEvent.click(getByText('Submit'));
-  await wait(100);
+  await wait(300);
 
   expect(container).toMatchSnapshot();
   expect(onSubmit).toHaveBeenCalled();

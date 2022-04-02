@@ -731,7 +731,7 @@ order: 59
 
 > since 1.2.4
 
-配置`enableNodePath: true`后, 可以将`value`格式转换成节点路径模式，`pathSeparator`设置路径分隔符，建议将该属性的值和拼接符`delimeter`区分开。节点路径模式下，`value`中所有节点的父节点都会自动加载数据并回显。不同配置属性的节点路径模式`value`如下:
+配置`enableNodePath: true`后, 可以将`value`格式转换成节点路径模式，`pathSeparator`设置路径分隔符，建议将该属性的值和拼接符`delimiter`区分开。节点路径模式下，`value`中所有节点的父节点都会自动加载数据并回显。不同配置属性的节点路径模式`value`如下:
 
 ```
     a
@@ -804,7 +804,7 @@ true        false        true       [{label: 'A/B/C', value: 'a/b/c'},{label: 'A
 | source                 | `string`或 [API](../../../../docs/types/api) |                  | [动态选项组](./options#%E5%8A%A8%E6%80%81%E9%80%89%E9%A1%B9%E7%BB%84-source)                                        |
 | autoComplete           | [API](../../../../docs/types/api)            |                  | [自动提示补全](./options#%E8%87%AA%E5%8A%A8%E8%A1%A5%E5%85%A8-autocomplete)                                         |
 | multiple               | `boolean`                                    | `false`          | 是否多选                                                                                                            |
-| delimeter              | `string`                                     | `false`          | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                           |
+| delimiter              | `string`                                     | `false`          | [拼接符](./options#%E6%8B%BC%E6%8E%A5%E7%AC%A6-delimiter)                                                           |
 | labelField             | `string`                                     | `"label"`        | [选项标签字段](./options#%E9%80%89%E9%A1%B9%E6%A0%87%E7%AD%BE%E5%AD%97%E6%AE%B5-labelfield)                         |
 | valueField             | `string`                                     | `"value"`        | [选项值字段](./options#%E9%80%89%E9%A1%B9%E5%80%BC%E5%AD%97%E6%AE%B5-valuefield)                                    |
 | iconField              | `string`                                     | `"icon"`         | 图标值字段                                                                                                          |
@@ -835,3 +835,24 @@ true        false        true       [{label: 'A/B/C', value: 'a/b/c'},{label: 'A
 | treeContainerClassName | `string`                                     |                  | tree 最外层容器类名                                                                                                 |
 | enableNodePath         | `boolean`                                    | `false`          | 是否开启节点路径模式                                                                                                |
 | pathSeparator          | `string`                                     | `/`              | 节点路径的分隔符，`enableNodePath`为`true`时生效                                                                    |
+
+
+## 事件表
+
+| 事件名称        | 事件参数                        | 说明                 |
+|--------------- |------------------------        |----------------------|
+| change         | value: `string` 更新后的数据     | 选中值更改 |
+| add            | value: `string` 新增节点信息     | 新增选项 |
+| edit           | value: `string` 编辑节点信息     | 编辑选项 |
+| delete         | value: `string` 删除节点信息     | 删除选项 |
+| loadFinished   | value: `json` 懒加载返回的数据    | 懒加载完成触发 |
+
+
+## 动作表
+
+| 动作名称        | 动作配置                                            | 说明                 |
+|----------------|-------------------------------------------------- |---------------------|
+| expand         | openLevel: `number`<br />initiallyOpen为false时生效| 配置展开层级 |
+| collapse       | -                                                 |  关闭树|
+| clear          | -                                                 | 清除数据 |
+| reset          | -                                                 | 重置数据 |

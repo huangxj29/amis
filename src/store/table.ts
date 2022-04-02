@@ -54,7 +54,7 @@ export const Column = types
     breakpoint: types.optional(types.frozen(), undefined),
     pristine: types.optional(types.frozen(), undefined),
     remark: types.optional(types.frozen(), undefined),
-    className: ''
+    className: types.union(types.string, types.frozen())
   })
   .actions(self => ({
     toggleToggle() {
@@ -899,12 +899,12 @@ export const TableStore = iRendererStore
           : {
               item
             };
-        const id = guid();
+        const id = item.__id ?? guid();
 
         return {
           // id: String(item && (item as any)[self.primaryField] || `${pindex}-${depth}-${key}`),
-          id: id,
-          parentId,
+          id: String(id),
+          parentId: String(parentId),
           key: String(`${pindex}-${depth}-${index}`),
           path: `${path}${index}`,
           depth: depth,
@@ -940,7 +940,15 @@ export const TableStore = iRendererStore
       // self.expandedRows.clear();
 
       let arr: Array<SRow> = rows.map((item, index) => {
-        let id = getEntryId ? getEntryId(item, index) : guid();
+        if (!isObject(item)) {
+          item = {
+            item
+          };
+        }
+
+        let id = String(
+          getEntryId ? getEntryId(item, index) : item.__id ?? guid()
+        );
         return {
           // id: getEntryId ? getEntryId(item, key) : String(item && (item as any)[self.primaryField] || `${key}-1-${key}`),
           id: id,
