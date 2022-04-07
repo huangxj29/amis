@@ -15,7 +15,8 @@
     "build": "sh build.sh",
     "prettier": "prettier --write '{src,scss,examples}/**/**/*.{js,jsx,ts,tsx,scss,json}'",
     "deploy-gh-page": "sh ./deploy-gh-pages.sh",
-    "build-schemas": "ts-node -O '{\"target\":\"es6\"}' scripts/build-schemas.ts"
+    "build-schemas": "ts-node -O '{\"target\":\"es6\"}' scripts/build-schemas.ts",
+    "dist": "sh build/build.sh"
   },
   "repository": {
     "type": "git",
