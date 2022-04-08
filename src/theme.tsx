@@ -124,7 +124,7 @@ export interface ThemeOutterProps {
   classnames?: ClassNamesFn;
 }
 
-export let defaultTheme: string = 'cxd';
+export let defaultTheme: string = 'antd';
 export const ThemeContext = React.createContext('');
 
 export function themeable<

@@ -528,9 +528,9 @@ export function render(
   (window as any).amisStore = store; // 为了方便 debug.
   const env = getEnv(store);
 
-  let theme = props.theme || options.theme || 'cxd';
+  let theme = props.theme || options.theme || 'antd';
   if (theme === 'default') {
-    theme = 'cxd';
+    theme = 'antd';
   }
   env.theme = getTheme(theme);
 

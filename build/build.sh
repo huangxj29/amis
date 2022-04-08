@@ -17,11 +17,11 @@ echo ':root { --animation-duration: 0s;}' >>build/dist/ie11-patch.css
 cat build/dist/sdk.css build/dist/ie11-patch.css | ./node_modules/.bin/postcss >build/dist/sdk-ie11.css
 cat build/dist/ang.css build/dist/ie11-patch.css | ./node_modules/.bin/postcss >build/dist/ang-ie11.css
 cat build/dist/dark.css build/dist/ie11-patch.css | ./node_modules/.bin/postcss >build/dist/dark-ie11.css
-cat build/dist/antd.css build/dist/ie11-patch.css | ./node_modules/.bin/postcss >build/dist/antd-ie11.css
+cat build/dist/ctx.css build/dist/ie11-patch.css | ./node_modules/.bin/postcss >build/dist/ctx-ie11.css
 
-# 默认变成 cxd 了，所以要拷贝一份兼容之前的引用
-cp build/dist/sdk.css build/dist/cxd.css
-cp build/dist/sdk-ie11.css build/dist/cxd-ie11.css
+# 默认变成 antd 了，所以要拷贝一份兼容之前的引用
+cp build/dist/sdk.css build/dist/antd.css
+cp build/dist/sdk-ie11.css build/dist/antd-ie11.css
 
 cp ./lib/helper.css build/dist/helper.css
 cp ./lib/helper.css.map build/dist/helper.css.map

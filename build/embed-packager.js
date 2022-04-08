@@ -225,7 +225,7 @@ module.exports = function (ret, pack, settings, opt) {
       .join('\n');
 
     contents = prefixCss(contents, '.amis-scope');
-    let cssFile = fis.file(root, (theme === 'cxd' ? 'sdk' : theme) + '.css');
+    let cssFile = fis.file(root, (theme === 'antd' ? 'sdk' : theme) + '.css');
     cssFile.setContent(contents);
     ret.pkg[cssFile.subpath] = cssFile;
   });

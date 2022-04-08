@@ -253,13 +253,13 @@ fis.on('compile:optimizer', function (file) {
         /function\sfilterUrl\(url\)\s\{\s*return\s*url;/m,
         function () {
           return `var _path = '';
-     try {
-       throw new Error()
-     } catch (e) {
-       _path = (/((?:https?|file):.*?)\\n/.test(e.stack) && RegExp.$1).replace(/\\/[^\\/]*$/, '');
-     }
-     function filterUrl(url) {
-       return _path + url.substring(1);`;
+      try {
+        throw new Error()
+      } catch (e) {
+        _path = (/((?:https?|file):.*?)\\n/.test(e.stack) && RegExp.$1).replace(/\\/[^\\/]*$/, '');
+      }
+      function filterUrl(url) {
+        return _path + url.substring(1);`;
         }
       );
 
@@ -388,6 +388,14 @@ fis.match('/node_modules/react/**', {
 fis.match('/node_modules/react-dom/**', {
   moduleId: 'react-dom',
   release: false
+});
+
+fis.match('/node_modules/react-dom/client.js', {
+  release: true,
+  isMod: true,
+  moduleId: function (m, path) {
+    return fis.util.md5(package.version + 'amis-sdk' + path);
+  },
 });
 
 fis.match('*', {
