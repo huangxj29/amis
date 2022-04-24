@@ -71,7 +71,7 @@ function convertModule(content) {
       window["amis"] = factory(window["React"], window["ReactDOM"]);
   })(this, function (_EXTERNAL_MODULE_react, _EXTERNAL_MODULE_react_dom) {`
   content = content.replace('// _INSERT_TAG', str)
-  content += `return {...amis.require("amis"),...amis.require("amis/embed")} })`
+  content += `return {...amis.require("amis"),...amis.require("amis/embed"),require: amis.require,define: amis.define} })`
   return content;
 }
 
