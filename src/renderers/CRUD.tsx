@@ -399,7 +399,9 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     filterDefaultVisible: true,
     loadDataOnce: false,
     loadDataOnceFetchOnFilter: true,
-    autoFillHeight: false
+    autoFillHeight: false,
+    alwaysShowPagination: true,
+    perPage: 20
   };
 
   control: any;
