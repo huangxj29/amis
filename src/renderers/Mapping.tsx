@@ -202,7 +202,7 @@ export const MappingField = withStore(props =>
             ? map['1']
             : key === false && map['0']
             ? map['0']
-            : map['*'])) !== undefined
+            : map['*'] ?? key )) !== undefined
       ) {
         viewValue = render('tpl', value);
       }
