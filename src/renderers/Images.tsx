@@ -9,6 +9,7 @@ import {
 import Image, {ImageThumbProps, imagePlaceholder} from './Image';
 import {autobind, getPropValue} from '../utils/helper';
 import {BaseSchema, SchemaClassName, SchemaUrlPath} from '../Schema';
+import {Icon} from '../components/icons';
 
 /**
  * 图片集展示控件。
@@ -86,6 +87,13 @@ export interface ImagesSchema extends BaseSchema {
    * 列表 CSS 类名
    */
   listClassName?: SchemaClassName;
+
+  /**
+   * 是否展示删除图标
+   */
+  deleteAble?: boolean;
+
+  onDelete?: (item: any, props: ImagesProps) => void
 }
 
 export interface ImagesProps
@@ -147,6 +155,11 @@ export class ImagesField extends React.Component<ImagesProps> {
       );
   }
 
+  removeFile(item: any) {
+    const { onDelete } = this.props
+    onDelete && onDelete(item, this.props)
+  }
+
   render() {
     const {
       className,
@@ -163,7 +176,8 @@ export class ImagesField extends React.Component<ImagesProps> {
       src,
       originalSrc,
       listClassName,
-      options
+      options,
+      deleteAble
     } = this.props;
 
     let value: any;
@@ -212,6 +226,16 @@ export class ImagesField extends React.Component<ImagesProps> {
                 thumbRatio={thumbRatio}
                 enlargeAble={enlargeAble!}
                 onEnlarge={this.handleEnlarge}
+                overlays={deleteAble ? (
+                    <a
+                      onClick={this.removeFile.bind(
+                        this,
+                        item
+                      )}
+                    >
+                      <Icon icon="remove" className="icon" />
+                    </a>
+                  ) : undefined}
               />
             ))}
           </div>

@@ -12,6 +12,7 @@ import {
 } from '../Schema';
 import {ActionSchema} from './Action';
 import {FormSchemaHorizontal} from './Form/index';
+import {Collapse} from '../components/Collapse';
 
 /**
  * Panel渲染器。
@@ -86,6 +87,15 @@ export interface PanelSchema extends BaseSchema {
    * 如果是水平排版，这个属性可以细化水平排版的左右宽度占比。
    */
   subFormHorizontal?: FormSchemaHorizontal;
+
+  /**
+   * 是否可折叠
+   */
+  collapsedAble?: boolean;
+  /**
+   * 初始状态是否折叠
+   */
+  collapsed?: boolean;
 }
 
 export interface PanelProps
@@ -112,6 +122,8 @@ export default class Panel extends React.Component<PanelProps> {
     // footerClassName: 'Panel-footer bg-light lter Wrapper',
     // actionsClassName: 'Panel-footer',
     // bodyClassName: 'Panel-body'
+    collapsedAble: true,
+    collapsed: false,
   };
 
   parentNode?: any;
@@ -232,6 +244,7 @@ export default class Panel extends React.Component<PanelProps> {
 
   render() {
     const {
+      id,
       type,
       className,
       data,
@@ -249,6 +262,8 @@ export default class Panel extends React.Component<PanelProps> {
       affixFooter,
       classPrefix: ns,
       classnames: cx,
+      collapsedAble,
+      collapsed,
       ...rest
     } = this.props;
 
@@ -286,36 +301,75 @@ export default class Panel extends React.Component<PanelProps> {
     ) : null;
 
     return (
+      // <div className={cx(`Panel`, className || `Panel--default`)}>
+      //   {header ? (
+      //     <div className={cx(headerClassName || `Panel-heading`)}>
+      //       {render('header', header, subProps)}
+      //     </div>
+      //   ) : title ? (
+      //     <div className={cx(headerClassName || `Panel-heading`)}>
+      //       <h3 className={cx(`Panel-title`)}>
+      //         {render('title', title, subProps)}
+      //       </h3>
+      //     </div>
+      //   ) : null}
+
+      //   <div className={bodyClassName || `${ns}Panel-body`}>
+      //     {this.renderBody()}
+      //   </div>
+
+      //   {footerDom}
+
+      //   {affixFooter && footerDoms.length ? (
+      //     <div
+      //       ref={this.affixDom}
+      //       className={cx(
+      //         'Panel-fixedBottom Panel-footerWrap',
+      //         footerWrapClassName
+      //       )}
+      //     >
+      //       {footerDoms}
+      //     </div>
+      //   ) : null}
+      // </div>
       <div className={cx(`Panel`, className || `Panel--default`)}>
-        {header ? (
-          <div className={cx(headerClassName || `Panel-heading`)}>
-            {render('header', header, subProps)}
-          </div>
-        ) : title ? (
-          <div className={cx(headerClassName || `Panel-heading`)}>
+        <Collapse
+          id={id}
+          classnames={cx}
+          classPrefix={ns}
+          collapsable={collapsedAble}
+          collapsed={collapsed}
+          headingComponent='div'
+          headingClassName={cx(headerClassName || `Panel-heading`)}
+          header={header ? (render('header', header, subProps)) 
+            : title ? (
             <h3 className={cx(`Panel-title`)}>
-              {render('title', title, subProps)}
-            </h3>
-          </div>
-        ) : null}
+                {render('title', title, subProps)}
+              </h3>
+          ) : null}
+          showArrow={false}
+          body={
+            <div>
+              <div className={bodyClassName || `${ns}Panel-body`}>
+                {this.renderBody()}
+              </div>
 
-        <div className={bodyClassName || `${ns}Panel-body`}>
-          {this.renderBody()}
-        </div>
+              {footerDom}
 
-        {footerDom}
-
-        {affixFooter && footerDoms.length ? (
-          <div
-            ref={this.affixDom}
-            className={cx(
-              'Panel-fixedBottom Panel-footerWrap',
-              footerWrapClassName
-            )}
-          >
-            {footerDoms}
-          </div>
-        ) : null}
+              {affixFooter && footerDoms.length ? (
+                <div
+                  ref={this.affixDom}
+                  className={cx(
+                    'Panel-fixedBottom Panel-footerWrap',
+                    footerWrapClassName
+                  )}
+                >
+                  {footerDoms}
+                </div>
+              ) : null}
+            </div>
+          }
+        ></Collapse>
       </div>
     );
   }
