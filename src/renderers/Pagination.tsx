@@ -109,6 +109,8 @@ export default class Pagination extends React.Component<
     const {lastPage} = this.props;
     let value = e.currentTarget.value;
 
+    if (isNaN(value)) return
+
     if (/^\d+$/.test(value) && parseInt(value, 10) > lastPage) {
       value = String(lastPage);
     }
@@ -267,6 +269,7 @@ export default class Pagination extends React.Component<
               onChange={this.handlePageChange}
               onKeyUp={(e: any) =>
                 e.keyCode == 13 &&
+                e.currentTarget.value &&
                 onPageChange(parseInt(e.currentTarget.value, 10))
               }
               value={pageNum}
