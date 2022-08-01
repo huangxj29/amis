@@ -32,9 +32,10 @@ export interface AlertState {
 }
 
 export class Alert extends React.Component<AlertProps, AlertState> {
-  static instance: any = null;
+  // 使用数组保存alert实例，防止多页签模式，关闭页签导致instance为空，
+  static instance: any = [];
   static getInstance() {
-    if (!Alert.instance) {
+    if (Alert.instance.length === 0) {
       console.warn('Alert 组件应该没有被渲染，所以隐性的渲染到 body 了');
       const container = document.body;
       const div = document.createElement('div');
@@ -42,7 +43,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
       render(<FinnalAlert />, div);
     }
 
-    return Alert.instance;
+    return Alert.instance[0];
   }
 
   _resolve: (value: any) => void;
@@ -64,7 +65,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     this.handleFormSubmit = this.handleFormSubmit.bind(this);
     this.scopeRef = this.scopeRef.bind(this);
 
-    Alert.instance = this;
+    Alert.instance.push(this);
   }
 
   static defaultProps = {
@@ -86,7 +87,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
   }
 
   componentWillUnmount() {
-    Alert.instance = null;
+    Alert.instance = Alert.instance.filter((item: this) => item !== this);
   }
 
   schemaSope: any;
