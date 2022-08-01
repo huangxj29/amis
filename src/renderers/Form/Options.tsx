@@ -882,6 +882,14 @@ export function registerOptionsControl(config: OptionsConfig) {
         );
     }
 
+    // 单选输入框显示value 而不是 label的问题
+    @autobind
+    setSearchFilteredOptions(options: Array<any>) {
+      const formItem = this.props.formItem as IFormItemStore;
+      formItem &&
+        formItem.setSearchFilteredOptions(options, this.props.data);
+    }
+
     @autobind
     syncOptions() {
       const formItem = this.props.formItem as IFormItemStore;
@@ -1256,6 +1264,7 @@ export function registerOptionsControl(config: OptionsConfig) {
           loading={formItem ? formItem.loading : false}
           setLoading={this.setLoading}
           setOptions={this.setOptions}
+          setSearchFilteredOptions={this.setSearchFilteredOptions}
           syncOptions={this.syncOptions}
           reloadOptions={this.reload}
           deferLoad={this.deferLoad}

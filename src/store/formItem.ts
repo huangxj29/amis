@@ -86,6 +86,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
     validateApi: types.optional(types.frozen(), ''),
     selectedOptions: types.optional(types.frozen(), []),
     filteredOptions: types.optional(types.frozen(), []),
+    searchFilteredOptions: types.optional(types.frozen(), []),
     dialogSchema: types.frozen(),
     dialogOpen: false,
     dialogData: types.frozen(),
@@ -177,7 +178,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
 
         selected.forEach((item, index) => {
           const matched = findTree(
-            self.filteredOptions,
+            [...self.filteredOptions, ...self.searchFilteredOptions],
             optionValueCompare(item, self.valueField || 'value')
           );
 
@@ -485,6 +486,41 @@ export const FormItemStore = StoreNode.named('FormItemStore')
 
         onChange(value);
       }
+    }
+
+    // 单选输入框显示value 而不是 label的问题
+    function setSearchFilteredOptions(options: Array<object>, data?: Object) {
+      options = filterTree(options, item => item);
+      // 判断数据的是否符合规则
+      let searchFilteredOptions = options
+      .filter((item: any) => {
+        return item.visibleOn
+          ? evalExpression(item.visibleOn, data) !== false
+          : item.hiddenOn
+          ? evalExpression(item.hiddenOn, data) !== true
+          : item.visible !== false || item.hidden !== true;
+      })
+      .map((item: any, index) => {
+        const disabled = evalExpression(item.disabledOn, data);
+        const newItem = item.disabledOn ? {
+                ...item,
+                disabled: disabled
+              }
+          : item;
+
+        return newItem;
+      });
+      let  result = searchFilteredOptions.concat(self.searchFilteredOptions || [])
+      // 过滤掉相同的 ，每次请求的数据不一样，但之前已经选的数据还需要保存
+      const key = self.valueField || 'value';
+      result = result.reduce(function (tempArr, item) {
+        if (!~tempArr.findIndex((ele: any) => ele[key] === item[key])) {
+            tempArr.push(item)
+        }
+        return tempArr
+      }, [])
+
+      self.searchFilteredOptions = result
     }
 
     let loadCancel: Function | null = null;
@@ -1166,7 +1202,8 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       changeTmpValue,
       changeEmitedValue,
       addSubFormItem,
-      removeSubFormItem
+      removeSubFormItem,
+      setSearchFilteredOptions
     };
   });
 
