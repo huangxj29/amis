@@ -813,7 +813,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       });
   }
 
-  handleFilterReset(values: object) {
+  handleFilterReset(values: object, type?: string) {
     const {store, syncLocation, env, pageField, perPageField} = this.props;
 
     store.updateQuery(
@@ -826,7 +826,13 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       true
     );
     this.lastQuery = store.query;
-    this.search();
+    const { isJLResetApi, isJLClearApi } = this.props;
+    if(type === 'reset' && isJLResetApi) {
+        this.search();
+    }
+    if(type === 'clear' && isJLClearApi ) {
+      this.search();
+    }
   }
 
   handleFilterSubmit(

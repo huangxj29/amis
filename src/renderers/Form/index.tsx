@@ -324,7 +324,7 @@ export interface FormProps
   lazyLoad?: boolean;
   simpleMode?: boolean;
   onInit?: (values: object, props: any) => any;
-  onReset?: (values: object) => void;
+  onReset?: (values: object, type?: string) => void;
   onSubmit?: (values: object, action: any) => any;
   onChange?: (values: object, diff: object, props: any) => any;
   onFailed?: (reason: string, errors: any) => any;
@@ -1126,10 +1126,11 @@ export default class Form extends React.Component<FormProps, object> {
         });
     } else if (action.type === 'reset' || action.actionType === 'reset') {
       store.setCurrentAction(action);
-      store.reset(onReset);
+      store.reset((val) => onReset && onReset(val, 'reset'));
     } else if (action.actionType === 'clear') {
       store.setCurrentAction(action);
-      store.clear(onReset);
+      store.clear((val) => onReset && onReset(val,'clear'));
+      // store.clear(onReset);
     } else if (action.actionType === 'validate') {
       store.setCurrentAction(action);
       this.validate(true);
