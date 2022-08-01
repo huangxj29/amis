@@ -5,6 +5,7 @@ import Copyable from '../Copyable';
 import PopOverable from '../PopOver';
 import {observer} from 'mobx-react';
 import omit = require('lodash/omit');
+import pick = require('lodash/pick');
 import {filter} from '../../utils/tpl';
 import {Badge} from '../../components/Badge';
 import ColorScale from '../../utils/ColorScale';
@@ -62,6 +63,7 @@ export class TableCell extends React.Component<RendererProps> {
       row,
       showBadge,
       itemBadge,
+      isJLItemScope = true,
       ...rest
     } = this.props;
     const schema = {
@@ -81,7 +83,7 @@ export class TableCell extends React.Component<RendererProps> {
           ...omit(rest, Object.keys(schema)),
           inputOnly: true,
           value,
-          data
+          data: isJLItemScope ? pick(data, ...Object.keys(data)) : data
         });
 
     if (width) {
