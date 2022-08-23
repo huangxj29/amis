@@ -28,7 +28,7 @@ order: 60
 
 它意味着将进度条分成了 5 份，`前20%`将会添加`bg-danger` css 类名到进度条上，`20%~40%`，将会添加`bg-warning`，以此类推，你可以自定义`map`来配置想要的进度效果
 
-若配置为`[{value: 30, color: "#007bff"}, {value: 60, color: "#F96D3E"}]`, 表示为 value 小于`30`的区间显示`#007bff`, 大于等于`30`则显示`#F96D3E`
+若配置为`[{value: 30, color: "#007bff"}, {value: 60, color: "#F96D3E"}]`, 表示为 value 小于等于`30`的区间显示`#007bff`, 大于`30`则显示`#F96D3E`
 
 ```schema
 {
@@ -212,19 +212,51 @@ List 的内容、Card 卡片的内容配置同上
 }
 ```
 
-## 圆形进度条设置线条宽度
+## 设置线条宽度
 
 可设置 strokeWidth 调整线条宽度
 
 ```schema
 {
     "type": "page",
-    "body": {
-        "type": "progress",
-        "value": 60,
-        "mode": "dashboard",
-        "strokeWidth": 3
-    }
+    "body": [
+        {
+            "type": "progress",
+            "value": 60,
+            "mode": "line",
+            "strokeWidth": 4
+        },
+        {
+            "type": "progress",
+            "value": 60,
+            "mode": "line",
+            "strokeWidth": 8
+        },
+        {
+            "type": "progress",
+            "value": 60,
+            "mode": "line",
+            "strokeWidth": 12
+        },
+        {
+            "type": "progress",
+            "value": 60,
+            "mode": "dashboard",
+            "strokeWidth": 4
+        },
+        {
+            "type": "progress",
+            "value": 60,
+            "mode": "dashboard",
+            "strokeWidth": 8
+        },
+        {
+            "type": "progress",
+            "value": 60,
+            "mode": "dashboard",
+            "strokeWidth": 12
+        },
+    ]
 }
 ```
 

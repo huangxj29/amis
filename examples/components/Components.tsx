@@ -76,6 +76,13 @@ export const components = [
         )
       },
       {
+        label: 'Pagination分页',
+        path: '/zh-CN/components/pagination',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/pagination.md').then(wrapDoc)
+        )
+      },
+      {
         label: 'PaginationWrapper 分页容器',
         path: '/zh-CN/components/pagination-wrapper',
         component: React.lazy(() =>
@@ -370,6 +377,13 @@ export const components = [
         )
       },
       {
+        label: 'InputKVS 键值对象',
+        path: '/zh-CN/components/form/input-kvs',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/form/input-kvs.md').then(wrapDoc)
+        )
+      },
+      {
         label: 'InputFormula 公式编辑器',
         path: '/zh-CN/components/form/input-formula',
         component: React.lazy(() =>
@@ -551,7 +565,7 @@ export const components = [
       },
 
       {
-        label: 'Chart 单选框',
+        label: 'ChartRadios 图表单选框',
         path: '/zh-CN/components/form/chart-radios',
         component: React.lazy(() =>
           import('../../docs/zh-CN/components/form/chart-radios.md').then(
@@ -734,6 +748,26 @@ export const components = [
             wrapDoc
           )
         )
+      },
+
+      {
+        label: 'JsonSchema',
+        path: '/zh-CN/components/form/json-schema',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/form/json-schema.md').then(
+            wrapDoc
+          )
+        )
+      },
+
+      {
+        label: 'JsonSchema Editor',
+        path: '/zh-CN/components/form/json-schema-editor',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/form/json-schema-editor.md').then(
+            wrapDoc
+          )
+        )
       }
     ]
   },
@@ -756,6 +790,13 @@ export const components = [
           import('../../docs/zh-CN/components/table.md').then(wrapDoc)
         )
       },
+      // {
+      //   label: 'Table v2 表格',
+      //   path: '/zh-CN/components/table-v2',
+      //   component: React.lazy(() =>
+      //     import('../../docs/zh-CN/components/table-v2.md').then(wrapDoc)
+      //   )
+      // },
       {
         label: 'Table View 表格视图',
         path: '/zh-CN/components/table-view',
@@ -988,6 +1029,13 @@ export const components = [
         )
       },
       {
+        label: 'Tag 标签',
+        path: '/zh-CN/components/tag',
+        component: React.lazy(() =>
+          import('../../docs/zh-CN/components/tag.md').then(wrapDoc)
+        )
+      },
+      {
         label: 'Video 视频',
         path: '/zh-CN/components/video',
         component: React.lazy(() =>
@@ -1098,7 +1146,7 @@ export const components = [
 
 export default class Components extends React.PureComponent<any> {
   componentDidMount() {
-    this.props.setNavigations(components);
+    this.props.setNavigations(components, false);
   }
 
   componentDidUpdate(preProps: any) {

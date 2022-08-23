@@ -1,6 +1,6 @@
-@import '../scss/mixins';
-@import '../scss/functions';
-@import '../scss/variables';
+@import 'node_modules/amis-ui/scss/mixins';
+@import 'node_modules/amis-ui/scss/functions';
+@import 'node_modules/amis-ui/scss/variables';
 
 body {
   background-color: #fff !important;
@@ -371,6 +371,10 @@ body {
 
   &-nav {
     width: 180px;
+
+    a {
+      width: initial !important;
+    }
   }
 
   &-toc {
@@ -1036,6 +1040,10 @@ body.dark {
     color: #fff;
   }
 
+  &-edit-btn {
+    font-size: 14px;
+  }
+
   &-preview {
     position: relative;
     display: flex;
@@ -1043,6 +1051,7 @@ body.dark {
     flex-direction: column;
     flex-grow: 1;
     // overflow: hidden;
+    width: calc(100% - 350px);
 
     > div {
       flex: 1;
@@ -1053,6 +1062,22 @@ body.dark {
     border-left: 1px solid #ddd;
     width: 350px;
     flex-shrink: 0;
+  }
+
+  &--mini {
+    display: block;
+    position: relative;
+    > a {
+      cursor: pointer;
+      display: block;
+      text-align: right;
+      position: absolute;
+      right: 0;
+      top: -20px;
+    }
+    .Playgroud-preview {
+      width: 100%;
+    }
   }
 }
 

@@ -15,6 +15,7 @@ order: 9
 ```schema: scope="body"
 {
     "type": "form",
+    "debug": true,
     "api": "/api/mock2/form/saveForm",
     "body": [
         {
@@ -43,6 +44,119 @@ order: 9
     ]
 }
 ```
+
+## 结果是数组模式
+
+默认是拼接成字符串，如果希望结果是数组，可以设置 `"joinValues": false`
+
+```schema: scope="body"
+{
+    "type": "form",
+    "api": "/api/mock2/form/saveForm",
+    "debug": true,
+    "body": [
+        {
+        "name": "checkboxes",
+        "type": "checkboxes",
+        "label": "复选框",
+        "joinValues": false,
+        "options": [
+            {
+                "label": "OptionA",
+                "value": "a"
+            },
+            {
+                "label": "OptionB",
+                "value": "b"
+            },
+            {
+                "label": "OptionC",
+                "value": "c"
+            },
+            {
+                "label": "OptionD",
+                "value": "d"
+            }
+            ]
+        }
+    ]
+}
+```
+
+如果只想提取 value，需要加上 `"extractValue": true`
+
+```schema: scope="body"
+{
+    "type": "form",
+    "api": "/api/mock2/form/saveForm",
+    "debug": true,
+    "body": [
+        {
+        "name": "checkboxes",
+        "type": "checkboxes",
+        "label": "复选框",
+        "joinValues": false,
+        "extractValue": true,
+        "options": [
+            {
+                "label": "OptionA",
+                "value": "a"
+            },
+            {
+                "label": "OptionB",
+                "value": "b"
+            },
+            {
+                "label": "OptionC",
+                "value": "c"
+            },
+            {
+                "label": "OptionD",
+                "value": "d"
+            }
+            ]
+        }
+    ]
+}
+```
+
+## 显示全选
+
+通过 `checkAll` 属性配置全选
+
+```schema: scope="body"
+{
+    "type": "form",
+    "api": "/api/mock2/form/saveForm",
+    "body": [
+        {
+        "name": "checkboxes",
+        "type": "checkboxes",
+        "label": "复选框",
+        "checkAll": true,
+        "options": [
+            {
+                "label": "OptionA",
+                "value": "a"
+            },
+            {
+                "label": "OptionB",
+                "value": "b"
+            },
+            {
+                "label": "OptionC",
+                "value": "c"
+            },
+            {
+                "label": "OptionD",
+                "value": "d"
+            }
+            ]
+        }
+    ]
+}
+```
+
 ## 按钮模式
 
 ```schema: scope="body"
@@ -232,23 +346,25 @@ order: 9
 {
   "type": "form",
   "mode": "horizontal",
+  "debug": true,
   "body": [
     {
       "type": "checkboxes",
       "name": "checkboxes",
       "label": "城市选择",
       "inline": false,
+      "checkAll": true,
       "options": [
         {
           "label": "A类型",
           "children": [
             {
-              "value": "选项 A-1",
-              "label": "a-1"
+              "label": "选项 A-1",
+              "value": "a-1"
             },
             {
-              "value": "选项 A-2",
-              "label": "a-2"
+              "label": "选项 A-2",
+              "value": "a-2"
             }
           ]
         },
@@ -256,26 +372,67 @@ order: 9
           "label": "B类型",
           "children": [
             {
-              "value": "选项 B-1",
-              "label": "b-1"
+              "label": "选项 B-1",
+              "value": "b-1"
             },
             {
-              "value": "选项 B-2",
-              "label": "b-2"
+              "label": "选项 B-2",
+              "value": "b-2"
             },
             {
-              "value": "选项 B-3",
-              "label": "b-3"
+              "label": "选项 B-3",
+              "value": "b-3"
             },
             {
-              "value": "选项 B-4",
-              "label": "b-4"
+              "label": "选项 B-4",
+              "value": "b-4"
             }
           ]
         }
       ]
     }
   ]
+}
+```
+
+## 自定义选项渲染
+
+> 2.0.0 及以上版本
+
+```schema: scope="body"
+{
+    "type": "form",
+    "api": "/api/mock2/form/saveForm",
+    "body": [
+        {
+            "name": "checkboxes",
+            "type": "checkboxes",
+            "label": "复选框",
+            "menuTpl": "<span class='label label-${klass}'>${label}</span>",
+            "options": [
+                {
+                    "label": "OptionA",
+                    "value": "a",
+                    "klass": "success"
+                },
+                {
+                    "label": "OptionB",
+                    "value": "b",
+                    "klass": "danger"
+                },
+                {
+                    "label": "OptionC",
+                    "value": "c",
+                    "klass": "warning"
+                },
+                {
+                    "label": "OptionD",
+                    "value": "d",
+                    "klass": "info"
+                }
+            ]
+        }
+    ]
 }
 ```
 
@@ -293,6 +450,7 @@ order: 9
 | joinValues      | `boolean`                                 | `true`       | [拼接值](./options#%E6%8B%BC%E6%8E%A5%E5%80%BC-joinvalues)                                                          |
 | extractValue    | `boolean`                                 | `false`      | [提取值](./options#%E6%8F%90%E5%8F%96%E5%A4%9A%E9%80%89%E5%80%BC-extractvalue)                                      |
 | columnsCount    | `number`                                  | `1`          | 选项按几列显示，默认为一列                                                                                          |
+| menuTpl         | `string`                                  |              | 支持自定义选项渲染                                                                                                  |
 | checkAll        | `boolean`                                 | `false`      | 是否支持全选                                                                                                        |
 | inline          | `boolean`                                 | `true`       | 是否显示为一行                                                                                                      |
 | defaultCheckAll | `boolean`                                 | `false`      | 默认是否全选                                                                                                        |
@@ -308,13 +466,19 @@ order: 9
 
 ## 事件表
 
-| 事件名称 | 事件参数                                                                                           | 说明 |
-| -------- | -------------------------------------------------------------------------------------------------- | ---- |
-| change    |  `value: string \| Option[]` 选中值 | 选中值发生变化时触发 |
+当前组件会对外派发以下事件，可以通过`onEvent`来监听这些事件，并通过`actions`来配置执行的动作，在`actions`中可以通过`event.data.xxx`事件参数变量来获取事件产生的数据，详细请查看[事件动作](../../docs/concepts/event-action)。
+
+| 事件名称 | 事件参数                          | 说明             |
+| -------- | --------------------------------- | ---------------- |
+| change   | `event.data.value: string` 选中值 | 选中值变化时触发 |
 
 ## 动作表
 
-| 动作名称 | 动作配置                                                                                           | 说明 |
-| -------- | -------------------------------------------------------------------------------------------------- | ---- |
-| clear    |  - | 清空 |
-| reset    |  - | 重置 |
+当前组件对外暴露以下特性动作，其他组件可以通过指定`actionType: 动作名称`、`componentId: 该组件id`来触发这些动作，动作配置可以通过`args: {动作配置项名称: xxx}`来配置具体的参数，详细请查看[事件动作](../../docs/concepts/event-action#触发其他组件的动作)。
+
+| 动作名称 | 动作配置                 | 说明                                                    |
+| -------- | ------------------------ | ------------------------------------------------------- |
+| clear    | -                        | 清空                                                    |
+| reset    | -                        | 将值重置为`resetValue`，若没有配置`resetValue`，则清空  |
+| reload   | -                        | 重新加载，调用 `source`，刷新数据域数据刷新（重新加载） |
+| setValue | `value: string` 更新的值 | 更新数据，多个值用`,`分隔                               |

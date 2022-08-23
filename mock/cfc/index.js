@@ -37,12 +37,13 @@ function mockResponse(event, context, callback) {
         body: JSON.stringify(json)
       });
     },
-    send(res) {
+    send(res, headers = {}) {
       callback(null, {
         statusCode: 200,
         headers: {
           ...createHeaders(event.headers),
-          'Content-Type': 'text/javascript'
+          'Content-Type': 'text/javascript',
+          ...headers
         },
         json: false,
         body: res
@@ -54,7 +55,7 @@ function mockResponse(event, context, callback) {
 function createHeaders(headers) {
   let referer = '';
 
-  if (/^(https?\:\/\/[^:\/]+(?:\:\d+)?\/)/i.test(headers['Referer'])) {
+  if (/^(https?\:\/\/[^:\/]+(?:\:\d+)?\/)/i.test(headers['referer'])) {
     referer = RegExp.$1.replace(/\/$/, '');
   }
 
