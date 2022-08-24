@@ -59,6 +59,7 @@ export class TableCell extends React.Component<RendererProps> {
       row,
       showBadge,
       itemBadge,
+      isJLItemScope = true,
       ...rest
     } = this.props;
     const schema = {
@@ -78,7 +79,7 @@ export class TableCell extends React.Component<RendererProps> {
           ...omit(rest, Object.keys(schema)),
           inputOnly: true,
           value,
-          data
+          data: isJLItemScope ? {...data} : data
         });
 
     if (width) {

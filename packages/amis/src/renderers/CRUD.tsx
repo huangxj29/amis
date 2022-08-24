@@ -401,7 +401,9 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     filterDefaultVisible: true,
     loadDataOnce: false,
     loadDataOnceFetchOnFilter: true,
-    autoFillHeight: false
+    autoFillHeight: false,
+    alwaysShowPagination: true,
+    perPage: 20
   };
 
   control: any;
@@ -835,11 +837,11 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
     // 对于带 submit 的 reset(包括 actionType 为 reset-and-submit clear-and-submit 和 form 的 resetAfterSubmit 属性)
     // 不执行 search，否则会多次触发接口请求
-    if (action?.actionType && ['reset-and-submit', 'clear-and-submit', 'submit'].includes(action.actionType)) {
-      return;
-    }
+    // if (action?.actionType && ['reset-and-submit', 'clear-and-submit', 'submit'].includes(action.actionType)) {
+    //   return;
+    // }
 
-    this.search();
+    // this.search();
   }
 
   handleFilterSubmit(

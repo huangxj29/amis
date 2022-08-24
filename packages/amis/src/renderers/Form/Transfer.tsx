@@ -233,6 +233,8 @@ export class BaseTransferRenderer<
       valueField,
       env,
       data,
+      setSearchFilteredOptions,
+      multiple,
       translate: __
     } = this.props;
 
@@ -256,7 +258,7 @@ export class BaseTransferRenderer<
           throw new Error('CRUD.invalidArray');
         }
 
-        return result.map(item => {
+        const res = result.map(item => {
           let resolved: any = null;
           const value = item[valueField || 'value'];
 
@@ -267,6 +269,9 @@ export class BaseTransferRenderer<
 
           return resolved || item;
         });
+        // 单选输入框显示value 而不是 label的问题
+        !multiple && setSearchFilteredOptions(res);
+        return res;
       } catch (e) {
         if (!env.isCancel(e)) {
           env.notify('error', e.message);

@@ -50,6 +50,8 @@ export interface InputDateBaseControlSchema extends FormBaseControlSchema {
    * 边框模式，全边框，还是半边框，或者没边框。
    */
   borderMode?: 'full' | 'half' | 'none';
+
+  title?: string;
 }
 
 /**
@@ -470,6 +472,7 @@ export default class DateControl extends React.PureComponent<
       largeMode,
       render,
       useMobileUI,
+      title,
       ...rest
     } = this.props;
     const mobileUI = useMobileUI && isMobile();
@@ -488,6 +491,7 @@ export default class DateControl extends React.PureComponent<
           },
           className
         )}
+        title={title}
       >
         <DatePicker
           {...rest}

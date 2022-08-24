@@ -156,7 +156,7 @@ export default class Dialog extends React.Component<DialogProps> {
     wrapperComponent: Modal,
     closeOnEsc: false,
     closeOnOutside: false,
-    showErrorMsg: true
+    showErrorMsg: false
   };
 
   reaction: any;

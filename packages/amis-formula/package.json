@@ -5,7 +5,7 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {
-    "build": "npm run clean-dist && NODE_ENV=production rollup -c && npm run genDoc && npm run declaration ",
+    "build": "npm run clean-dist && cross-env NODE_ENV=production rollup -c && npm run genDoc && npm run declaration ",
     "lib": "npm run clean-dist && NODE_ENV=lib rollup -c",
     "clean-dist": "rimraf lib/*",
     "declaration": "tsc --project tsconfig-for-declaration.json --allowJs --declaration --emitDeclarationOnly --declarationDir ./lib --rootDir ./src",
@@ -46,6 +46,7 @@
     "@types/doctrine": "0.0.5",
     "@types/jest": "^28.1.0",
     "@types/lodash": "^4.14.175",
+    "cross-env": "^7.0.3",
     "doctrine": "^3.0.0",
     "jest": "^28.1.0",
     "jest-canvas-mock": "^2.3.0",

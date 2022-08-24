@@ -36,8 +36,8 @@ const themes: {
   [propName: string]: ThemeConfig;
 } = {
   default: {},
-  cxd: {
-    classPrefix: 'cxd-'
+  antd: {
+    classPrefix: 'antd-'
   }
 };
 
@@ -94,11 +94,11 @@ export function getClassPrefix() {
 }
 
 export function getTheme(theme: string): ThemeInstance {
-  const config = themes[theme || 'cxd'];
+  const config = themes[theme || 'antd'];
 
   if (!config.getRendererConfig) {
     config.getRendererConfig = (name?: string) => {
-      const config = themes[theme || 'cxd'];
+      const config = themes[theme || 'antd'];
       return config.renderers && name ? config.renderers[name] : null;
     };
   }
@@ -130,7 +130,7 @@ export interface ThemeOutterProps {
   classnames?: ClassNamesFn;
 }
 
-export let defaultTheme: string = 'cxd';
+export let defaultTheme: string = 'antd';
 export const ThemeContext = React.createContext('');
 
 export function themeable<

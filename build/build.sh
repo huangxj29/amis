@@ -24,11 +24,11 @@ cp build/dist/sdk.css build/dist/antd.css
 cp build/dist/sdk-ie11.css build/dist/antd-ie11.css
 
 cp ./lib/helper.css build/dist/helper.css
-cp ./lib/helper.css.map build/dist/helper.css.map
+# cp ./lib/helper.css.map build/dist/helper.css.map
 cp examples/static/iconfont.* build/dist/
 
 mkdir build/dist/locale
 
 echo "===sdk locale==="
-node scripts/generate-sdk-locale.js src/locale/de-DE.ts >build/dist/locale/de-DE.js
+node scripts/generate-sdk-locale.js packages/amis-ui/src/locale/de-DE.ts >build/dist/locale/de-DE.js
 

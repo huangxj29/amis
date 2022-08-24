@@ -156,6 +156,11 @@ export interface FormOptionsControl extends FormBaseControl {
   editApi?: BaseApiObject | string;
 
   /**
+   * 编辑时调用的初始化 API
+   */
+  initEditApi?: BaseApiObject | string;
+
+  /**
    * 选项修改的表单项
    */
   editControls?: Array<PlainObject>;
@@ -236,6 +241,7 @@ export interface OptionsProps
   addApi?: Api;
   addControls?: Array<any>;
   editApi?: Api;
+  initEditApi?: Api;
   editControls?: Array<any>;
   deleteApi?: Api;
   deleteConfirmText?: string;
@@ -903,6 +909,13 @@ export function registerOptionsControl(config: OptionsConfig) {
         );
     }
 
+    // 单选输入框显示value 而不是 label的问题
+    @autobind
+    setSearchFilteredOptions(options: Array<any>) {
+      const formItem = this.props.formItem as IFormItemStore;
+      formItem && formItem.setSearchFilteredOptions(options, this.props.data);
+    }
+
     @autobind
     syncOptions() {
       const formItem = this.props.formItem as IFormItemStore;
@@ -1069,6 +1082,7 @@ export function registerOptionsControl(config: OptionsConfig) {
         labelField,
         onOpenDialog,
         editApi,
+        initEditApi = null,
         env,
         source,
         data,
@@ -1103,6 +1117,7 @@ export function registerOptionsControl(config: OptionsConfig) {
               body: {
                 type: 'form',
                 api: editApi,
+                initApi: initEditApi,
                 controls: editControls
               }
             },
@@ -1276,6 +1291,7 @@ export function registerOptionsControl(config: OptionsConfig) {
           loading={formItem ? formItem.loading : false}
           setLoading={this.setLoading}
           setOptions={this.setOptions}
+          setSearchFilteredOptions={this.setSearchFilteredOptions}
           syncOptions={this.syncOptions}
           reloadOptions={this.reload}
           deferLoad={this.deferLoad}

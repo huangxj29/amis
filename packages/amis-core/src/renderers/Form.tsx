@@ -927,7 +927,7 @@ export default class Form extends React.Component<FormProps, object> {
 
     return (data: any) => {
       onReset && onReset(data, action);
-    }
+    };
   }
 
   async handleAction(
@@ -1144,10 +1144,10 @@ export default class Form extends React.Component<FormProps, object> {
         });
     } else if (action.type === 'reset' || action.actionType === 'reset') {
       store.setCurrentAction(action);
-      store.reset(onReset);
+      store.reset(this.handleReset(action));
     } else if (action.actionType === 'clear') {
       store.setCurrentAction(action);
-      store.clear(onReset);
+      store.clear(this.handleReset(action));
     } else if (action.actionType === 'validate') {
       store.setCurrentAction(action);
       this.validate(true);

@@ -131,6 +131,8 @@ export interface SelectControlSchema extends FormOptionsSchema {
    * 选项的自定义CSS类名
    */
   optionClassName?: SchemaClassName;
+
+  title?: string;
 }
 
 export interface SelectProps extends OptionsControlProps {
@@ -423,6 +425,7 @@ export default class SelectControl extends React.Component<SelectProps, any> {
       selectMode,
       env,
       useMobileUI,
+      title,
       ...rest
     } = this.props;
 
@@ -433,7 +436,10 @@ export default class SelectControl extends React.Component<SelectProps, any> {
     const mobileUI = useMobileUI && isMobile();
 
     return (
-      <div className={cx(`${classPrefix}SelectControl`, className)}>
+      <div
+        className={cx(`${classPrefix}SelectControl`, className)}
+        title={title}
+      >
         {['table', 'list', 'group', 'tree', 'chained', 'associated'].includes(
           selectMode
         ) ? (

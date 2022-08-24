@@ -1006,14 +1006,14 @@ export default class ImageControl extends React.Component<
     );
   }
 
-  sendFile(
+  async sendFile(
     file: FileX,
     cb: (error: null | string, file: FileX, obj?: FileValue) => void,
     onProgress: (progress: number) => void
   ) {
-    const {limit, translate: __} = this.props;
+    const {limit, translate: __, compress} = this.props;
 
-    if (!limit) {
+    if (!limit && compress === false) {
       return this._upload(file, cb, onProgress);
     }
 
@@ -1023,48 +1023,114 @@ export default class ImageControl extends React.Component<
       const height = image.height;
       let error = '';
 
-      if (
-        (limit.width && limit.width != width) ||
-        (limit.height && limit.height != height)
-      ) {
-        error = __('Image.sizeNotEqual', {
-          info: ImageControl.sizeInfo(limit.width, limit.height, __)
-        });
-      } else if (
-        (limit.maxWidth && limit.maxWidth < width) ||
-        (limit.maxHeight && limit.maxHeight < height)
-      ) {
-        error = __('Image.limitMax', {
-          info: ImageControl.sizeInfo(limit.maxWidth, limit.maxHeight, __)
-        });
-      } else if (
-        (limit.minWidth && limit.minWidth > width) ||
-        (limit.minHeight && limit.minHeight > height)
-      ) {
-        error = __('Image.limitMin', {
-          info: ImageControl.sizeInfo(limit.minWidth, limit.minHeight, __)
-        });
-      } else if (
-        limit.aspectRatio &&
-        Math.abs(width / height - limit.aspectRatio) > 0.01
-      ) {
-        error = __(limit.aspectRatioLabel || 'Image.limitRatio', {
-          ratio: (+limit.aspectRatio).toFixed(2)
-        });
-      }
+      if (limit) {
+        if (
+          (limit.width && limit.width != width) ||
+          (limit.height && limit.height != height)
+        ) {
+          error = __('Image.sizeNotEqual', {
+            info: ImageControl.sizeInfo(limit.width, limit.height, __)
+          });
+        } else if (
+          (limit.maxWidth && limit.maxWidth < width) ||
+          (limit.maxHeight && limit.maxHeight < height)
+        ) {
+          error = __('Image.limitMax', {
+            info: ImageControl.sizeInfo(limit.maxWidth, limit.maxHeight, __)
+          });
+        } else if (
+          (limit.minWidth && limit.minWidth > width) ||
+          (limit.minHeight && limit.minHeight > height)
+        ) {
+          error = __('Image.limitMin', {
+            info: ImageControl.sizeInfo(limit.minWidth, limit.minHeight, __)
+          });
+        } else if (
+          limit.aspectRatio &&
+          Math.abs(width / height - limit.aspectRatio) > 0.01
+        ) {
+          error = __(limit.aspectRatioLabel || 'Image.limitRatio', {
+            ratio: (+limit.aspectRatio).toFixed(2)
+          });
+        }
 
-      if (error) {
-        file.state = 'invalid';
-        const dispatcher = await this.dispatchEvent('fail', {file, error});
-        if (dispatcher?.prevented) {
+        if (error) {
+          file.state = 'invalid';
+          const dispatcher = await this.dispatchEvent('fail', {file, error});
+          if (dispatcher?.prevented) {
+            return;
+          }
+          cb(error, file);
           return;
         }
-        cb(error, file);
-      } else {
-        this._upload(file, cb, onProgress);
       }
+
+      if (compress !== false) {
+        file = await this._compress(file, image);
+      }
+
+      this._upload(file, cb, onProgress);
     };
     image.src = (file.preview || file.url) as string;
+  }
+
+  _compress(file: FileX, image: HTMLImageElement): Promise<FileX> {
+    return new Promise((resolve, reject) => {
+      const {compressOptions} = this.props;
+      // 图片原始尺寸
+      const originWidth = image.width;
+      const originHeight = image.height;
+      // 最大尺寸限制
+      const maxWidth = compressOptions?.maxWidth || 1100;
+      const maxHeight = compressOptions?.maxHeight || 1100;
+      // 目标尺寸
+      let targetWidth = originWidth;
+      let targetHeight = originHeight;
+      // 图片尺寸超过最大尺寸的限制
+      if (originWidth > maxWidth || originHeight > maxHeight) {
+        if (originWidth / originHeight > maxWidth / maxHeight) {
+          // 更宽，按照宽度限定尺寸
+          targetWidth = maxWidth;
+          targetHeight = Math.round(maxWidth * (originHeight / originWidth));
+        } else {
+          targetHeight = maxHeight;
+          targetWidth = Math.round(maxHeight * (originWidth / originHeight));
+        }
+      } else {
+        return resolve(file);
+      }
+      // 缩放图片需要的canvas
+      const canvas = document.createElement('canvas') as HTMLCanvasElement;
+      const context = canvas.getContext('2d') as CanvasRenderingContext2D;
+
+      // canvas对图片进行缩放
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      // 清除画布
+      context.clearRect(0, 0, targetWidth, targetHeight);
+      // 图片压缩
+      context.drawImage(image, 0, 0, targetWidth, targetHeight);
+      // canvas转为File
+      canvas.toBlob(
+        blob => {
+          const newFile: FileX = new window.File([blob as Blob], file.name, {
+            type: file.type
+          });
+          Object.keys(file).map(key => {
+            newFile[key] = file[key];
+          });
+          this.setState({
+            files: (this.files = this.files.map(file => {
+              if (file.id === newFile.id) return newFile;
+              return file;
+            }))
+          });
+          resolve(newFile);
+        },
+        file.type || 'image/jpeg',
+        0.95
+      );
+    });
   }
 
   _upload(

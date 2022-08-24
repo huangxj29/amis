@@ -237,6 +237,7 @@ export type ShortCuts =
   | ShortCutDateRange;
 
 export interface DateProps extends LocaleProps, ThemeProps {
+  isEndDate?: boolean;
   viewMode: 'years' | 'months' | 'days' | 'time' | 'quarters';
   className?: string;
   popoverClassName?: string;
@@ -667,6 +668,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
       scheduleClassNames,
       onScheduleClick,
       mobileCalendarMode,
+      isEndDate,
       label
     } = this.props;
 
@@ -823,6 +825,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
               {this.renderShortCuts(shortcuts)}
 
               <Calendar
+                isEndDate={isEndDate}
                 value={date}
                 onChange={this.handleChange}
                 requiredConfirm={viewMode === 'time'}

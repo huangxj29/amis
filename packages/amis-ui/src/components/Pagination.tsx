@@ -243,6 +243,8 @@ export class Pagination extends React.Component<
     const lastPage = this.getLastPage();
     let value = e.currentTarget.value;
 
+    if (isNaN(value)) return;
+
     if (/^\d+$/.test(value) && parseInt(value, 10) > lastPage) {
       value = String(lastPage);
     }
