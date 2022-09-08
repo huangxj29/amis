@@ -69,9 +69,9 @@ function convertModule(content) {
       exports["amis"] = factory(require("react"), require("react-dom"));
     else
       window["amis"] = factory(window["React"], window["ReactDOM"]);
-  })(this, function (_EXTERNAL_MODULE_react, _EXTERNAL_MODULE_react_dom) {`
-  content = content.replace('// _INSERT_TAG', str)
-  content += `return {...amis.require("amis"),...amis.require("amis/embed"),require: amis.require,define: amis.define} })`
+  })(this, function (_EXTERNAL_MODULE_react, _EXTERNAL_MODULE_react_dom) {`;
+  content = content.replace('// _INSERT_TAG', str);
+  content += `return {...amis.require("amis"),...amis.require("amis/embed"),require: amis.require,define: amis.define} })`;
   return content;
 }
 
@@ -150,11 +150,11 @@ module.exports = function (ret, pack, settings, opt) {
     }
     amis.host = d;
     ${contents.replace(
-              /\"url\"\s*\:\s*('|")(\.\/.*?)\1/g,
-              function (_, quote, value) {
-                return `"url": d + ${quote}${value.substring(1)}${quote}`;
-              }
-            )}
+      /\"url\"\s*\:\s*('|")(\.\/.*?)\1/g,
+      function (_, quote, value) {
+        return `"url": d + ${quote}${value.substring(1)}${quote}`;
+      }
+    )}
         })()`;
           }
           jsContents += contents + ';\n';
@@ -218,13 +218,19 @@ module.exports = function (ret, pack, settings, opt) {
   const themes = ['ang', 'cxd', 'dark', 'antd'];
 
   themes.forEach(function (theme) {
-    const rest = themes.filter(a => a !== theme).map(item => item + '.scss');
+    const rest = themes.filter(a => a !== theme).map(item => item + '.css');
     let contents = cssContents
       .filter(item => !rest.includes(item.name))
       .map(item => item.content)
       .join('\n');
 
     contents = prefixCss(contents, '.amis-scope');
+    contents = contents
+      .replace(/\/\*(.|\n)*?\*\//g, '') // 删除注释
+      .replace(/(\n|\t|\s)*/gi, '$1')
+      .replace(/\n|\t|\s(\{|\}|\,|\:|\;)/gi, '$1')
+      .replace(/(\{|\}|\,|\:|\;)\s/gi, '$1');
+
     let cssFile = fis.file(root, (theme === 'antd' ? 'sdk' : theme) + '.css');
     cssFile.setContent(contents);
     ret.pkg[cssFile.subpath] = cssFile;

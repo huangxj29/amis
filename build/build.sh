@@ -3,7 +3,6 @@ set -e
 
 export NODE_ENV=production
 
-
 # 生成 dist
 echo "===fis dist==="
 rm -rf build/dist && ./node_modules/.bin/fis3 release -c -f fis-conf-dist.js
@@ -23,7 +22,7 @@ cat build/dist/cxd.css build/dist/ie11-patch.css | ./node_modules/.bin/postcss >
 cp build/dist/sdk.css build/dist/antd.css
 cp build/dist/sdk-ie11.css build/dist/antd-ie11.css
 
-cp ./lib/helper.css build/dist/helper.css
+cp packages/amis-ui/lib/helper.css build/dist/helper.css
 # cp ./lib/helper.css.map build/dist/helper.css.map
 cp examples/static/iconfont.* build/dist/
 
