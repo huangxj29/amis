@@ -720,7 +720,7 @@ export function wrapControl<
 
             const injectedProps: any = {
               defaultSize: controlWidth,
-              disabled: disabled ?? control.disabled,
+              disabled: disabled || control.disabled,
               formItem: this.model,
               formMode: control.mode || formMode,
               ref: this.controlRef,
