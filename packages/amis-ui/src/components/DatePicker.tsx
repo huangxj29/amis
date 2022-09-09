@@ -289,6 +289,7 @@ export interface DateProps extends LocaleProps, ThemeProps {
   }>;
   scheduleClassNames?: Array<string>;
   largeMode?: boolean;
+  todayActiveStyle?: React.CSSProperties;
   onScheduleClick?: (scheduleData: any) => void;
   useMobileUI?: boolean;
   // 在移动端日期展示有多种形式，一种是picker 滑动选择，一种是日历展开选择，mobileCalendarMode为calendar表示日历展开选择
@@ -666,6 +667,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
       schedules,
       largeMode,
       scheduleClassNames,
+      todayActiveStyle,
       onScheduleClick,
       mobileCalendarMode,
       isEndDate,
@@ -756,6 +758,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
             // utc={utc}
             schedules={schedulesData}
             largeMode={largeMode}
+            todayActiveStyle={todayActiveStyle}
             onScheduleClick={onScheduleClick}
             embed={embed}
             useMobileUI={useMobileUI}
@@ -790,7 +793,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
           ref={this.inputRef}
           placeholder={__(placeholder)}
           autoComplete="off"
-          value={this.state.inputValue}
+          value={this.state.inputValue || ''}
           disabled={disabled}
         />
 

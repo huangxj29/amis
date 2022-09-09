@@ -59,7 +59,7 @@ export class TableCell extends React.Component<RendererProps> {
       row,
       showBadge,
       itemBadge,
-      isJLItemScope = true,
+      canAccessSuperData = false,
       ...rest
     } = this.props;
     const schema = {
@@ -78,8 +78,9 @@ export class TableCell extends React.Component<RendererProps> {
       : render('field', schema, {
           ...omit(rest, Object.keys(schema)),
           inputOnly: true,
-          value,
-          data: isJLItemScope ? {...data} : data
+          /** value没有返回值时设置默认值，避免错误获取到父级数据域的值 */
+          value: canAccessSuperData ? value : value ?? '',
+          data
         });
 
     if (width) {

@@ -28,6 +28,7 @@
   padding-top: var(--Form-label-paddingTop);
   padding-bottom: var(--Form-label-paddingTop);
   margin-bottom: 0;
+  word-break: break-word;
 
   .#{$ns}Form-item--inline > .#{$ns}Form-value > & {
     display: inline-block;
@@ -395,8 +396,11 @@
 }
 
 .#{$ns}Form--debug {
-  word-break: break-all;
-  white-space: pre-wrap;
+  padding: var(--gap-sm);
+  margin-bottom: var(--gap-sm);
+  background-color: rgb(250, 250, 250);
+  border-radius: var(--borderRadius);
+  position: relative;
 }
 
 .#{$ns}Form--quickEdit {

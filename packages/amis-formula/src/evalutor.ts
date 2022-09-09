@@ -230,6 +230,10 @@ export class Evaluator {
   add(ast: {left: any; right: any}) {
     const left = this.evalute(ast.left);
     const right = this.evalute(ast.right);
+    // 如果有一个不是数字就变成字符串拼接
+    if (isNaN(left) || isNaN(right)) {
+      return left + right;
+    }
     return stripNumber(this.formatNumber(left) + this.formatNumber(right));
   }
 
@@ -690,7 +694,7 @@ export class Evaluator {
    *
    * @returns {number} 传入数值四舍五入后的结果
    */
-  fnROUND(a: number, b: number) {
+  fnROUND(a: number, b: number = 2) {
     a = this.formatNumber(a);
     b = this.formatNumber(b);
     const bResult = Math.round(b);
@@ -713,7 +717,7 @@ export class Evaluator {
    *
    * @returns {number} 传入数值向下取整后的结果
    */
-  fnFLOOR(a: number, b: number) {
+  fnFLOOR(a: number, b: number = 2) {
     a = this.formatNumber(a);
     b = this.formatNumber(b);
     const bResult = Math.round(b);
@@ -736,7 +740,7 @@ export class Evaluator {
    *
    * @returns {number} 传入数值向上取整后的结果
    */
-  fnCEIL(a: number, b: number) {
+  fnCEIL(a: number, b: number = 2) {
     a = this.formatNumber(a);
     b = this.formatNumber(b);
     const bResult = Math.round(b);
@@ -1521,8 +1525,12 @@ export class Evaluator {
   }
 
   normalizeDate(raw: any): Date {
+    if (typeof raw === 'number' || !isNaN(raw)) {
+      return new Date(Number(raw));
+    }
+
     if (typeof raw === 'string') {
-      const formats = ['', 'YYYY-MM-DD HH:mm:ss'];
+      const formats = ['', 'YYYY-MM-DD HH:mm:ss', 'X'];
 
       while (formats.length) {
         const format = formats.shift()!;
@@ -1532,8 +1540,6 @@ export class Evaluator {
           return date.toDate();
         }
       }
-    } else if (typeof raw === 'number') {
-      return new Date(raw);
     }
 
     return raw;
@@ -1831,7 +1837,7 @@ export class Evaluator {
    *
    * 示例：
    *
-   * JOIN(['a', 'b', 'c'], '~') 得到 'a~b~c'
+   * JOIN(['a', 'b', 'c'], '=') 得到 'a=b=c'
    *
    * @param {Array<any>} arr 数组
    * @param { String} separator 分隔符
@@ -1903,7 +1909,7 @@ function parseJson(str: string, defaultValue?: any) {
 }
 
 function stripNumber(number: number) {
-  if (typeof number === 'number') {
+  if (typeof number === 'number' && !Number.isInteger(number)) {
     return parseFloat(number.toPrecision(12));
   } else {
     return number;

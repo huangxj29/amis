@@ -16,10 +16,12 @@ labels:
   'help wanted':
     - '\bhelp( wanted)?\b'
   'feat':
-    - '\bfeat\b'
+    - '\bfeat'
   'fix':
-    - '\bfix\b'
+    - '\bfix'
+  'style':
+    - '\bstyle'
   'chore':
-    - '\bchore\b'
+    - '\bchore'
   'doc':
-    - '\bdoc[s]?\b'
+    - '\bdoc[s]?'

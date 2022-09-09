@@ -143,7 +143,7 @@ export class Pagination extends React.Component<
     if (disabled) {
       return;
     }
-    onPageChange?.(page, perPage);
+    onPageChange?.(isNaN(Number(page)) || Number(page) < 1 ? 1 : page, perPage);
   }
 
   /**
@@ -242,8 +242,6 @@ export class Pagination extends React.Component<
   handlePageChange(e: React.ChangeEvent<any>) {
     const lastPage = this.getLastPage();
     let value = e.currentTarget.value;
-
-    if (isNaN(value)) return;
 
     if (/^\d+$/.test(value) && parseInt(value, 10) > lastPage) {
       value = String(lastPage);

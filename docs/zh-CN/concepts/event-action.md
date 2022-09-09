@@ -275,10 +275,10 @@ order: 9
 
 **动作属性**
 
-| 属性名     | 类型                    | 默认值   | 说明                                       |
-| ---------- | ----------------------- | -------- | ------------------------------------------ |
-| actionType | `string`                | `dialog` | 点击后显示一个弹出框                       |
-| dialog     | `string`/`DialogObject` | -        | 指定弹框内容，格式可参考[Dialog](./dialog) |
+| 属性名     | 类型                    | 默认值   | 说明                                                      |
+| ---------- | ----------------------- | -------- | --------------------------------------------------------- |
+| actionType | `string`                | `dialog` | 点击后显示一个弹出框                                      |
+| dialog     | `string`/`DialogObject` | -        | 指定弹框内容，格式可参考[Dialog](../../components/dialog) |
 
 ### 关闭弹窗（模态）
 
@@ -430,10 +430,10 @@ order: 9
 
 **动作属性**
 
-| 属性名     | 类型                    | 默认值   | 说明                                       |
-| ---------- | ----------------------- | -------- | ------------------------------------------ |
-| actionType | `string`                | `drawer` | 点击后显示一个侧边栏                       |
-| drawer     | `string`/`DrawerObject` | -        | 指定弹框内容，格式可参考[Drawer](./drawer) |
+| 属性名     | 类型                    | 默认值   | 说明                                                      |
+| ---------- | ----------------------- | -------- | --------------------------------------------------------- |
+| actionType | `string`                | `drawer` | 点击后显示一个侧边栏                                      |
+| drawer     | `string`/`DrawerObject` | -        | 指定弹框内容，格式可参考[Drawer](../../components/drawer) |
 
 ### 关闭抽屉（模态）
 
@@ -729,7 +729,7 @@ order: 9
 
 > 1.8.0 及以上版本
 
-通过配置`actionType: 'goPage'`实现浏览器页面的前进/后退。
+通过配置`actionType: 'goPage'`实现浏览器页面的前进/后退。只有当历史记录中存在目标页面时才会生效。
 
 ```schema
 {
@@ -745,7 +745,9 @@ order: 9
           actions: [
             {
               actionType: 'goPage',
-              delta: -2
+              args: {
+                delta: -2
+              }
             }
           ]
         }
@@ -1067,6 +1069,7 @@ order: 9
                 content: 'http://www.baidu.com'
               }
             }
+            }
           ]
         }
       }
@@ -1084,6 +1087,7 @@ order: 9
                 copyFormat: 'text/html',
                 content: "<a href='http://www.baidu.com'>link</a> <b>bold</b>"
               }
+            }
             }
           ]
         }
@@ -1124,6 +1128,7 @@ order: 9
                 subject: '这是邮件主题',
                 body: '这是邮件正文'
               }
+            }
             }
           ]
         }
@@ -1363,7 +1368,9 @@ order: 9
 
 > 1.8.0 及以上版本
 
-更新数据即变量赋值，通过配置`actionType: 'setValue'`实现组件`数据域变量更新`，通过它可以实现`组件间联动更新`、`数据回填`，支持`基础类型`、`对象类型`、`数组类型`，数据类型取决于目标组件所需数据值类型，仅支持`form`、`dialog`、`drawer`、`wizard`、`service`、`page`、`app`、`chart`，以及数据`输入类`组件。更多示例请查看[更新数据示例](../../../examples/action/setdata/form)。
+更新数据即更新指定组件数据域中的数据（data），通过配置`actionType: 'setValue'`实现组件`数据域变量更新`，通过它可以实现`组件间联动更新`、`数据回填`，支持`基础类型`、`对象类型`、`数组类型`，数据类型取决于目标组件所需数据值类型，仅支持`form`、`dialog`、`drawer`、`wizard`、`service`、`page`、`app`、`chart`，以及数据`输入类`组件。更多示例请查看[更新数据示例](../../../examples/action/setdata/form)。
+
+> 注意：虽然更新数据可以实现对组件数据域的更新，但如果更新数据动作的数据值来自前面的异步动作（例如 发送 http 请求、自定义 JS（异步）），则后面的动作只能通过事件变量`${event.data.xxx}`来获取异步动作产生的数据，无法通过当前数据域`${xxx}`直接获取更新后的数据。
 
 ```schema
 {
@@ -1390,6 +1397,7 @@ order: 9
               args: {
                 value: '${globalData}'
               }
+            }
             }
           ]
         }
@@ -1436,7 +1444,11 @@ order: 9
 
 ### 自定义 JS
 
-通过配置`actionType: 'custom'`实现自定义 JS。
+通过配置`actionType: 'custom'`实现自定义 JS。JS 中可以访问以下对象和方法：
+
+- context，渲染器上下文
+- doAction() 动作执行方法，用于调用任何 actionType 指定的动作
+- event，事件对象，可以获取事件上下文，以及可以调用 setData()、stopPropagation()、preventDefault()分别实现事件上下文设置、动作干预、事件干预
 
 ```schema
 {
@@ -1462,11 +1474,127 @@ order: 9
 }
 ```
 
-如果是在 js 中也能直接写函数，这个函数可以接收到 3 个参数，分别是：
+#### 支持异步
 
-- context，上下文信息
-- doAction 方法，用于调用其它动作
-- event，事件传递的数据，以及可以禁止
+> 2.0.3 及以上版本
+
+- 方式一：通过返回 Promise 实例的方式
+
+```schema
+{
+  type: 'page',
+  body: [
+    {
+      "type": "form",
+      "title": "表单",
+      "body": [
+        {
+          "label": "编号",
+          "type": "input-text",
+          "name": "pId",
+          "id": "u:e47e2c8e6be8",
+          "mode": "horizontal",
+          "addOn": {
+            "label": "自动获取",
+            "type": "button",
+            "onEvent": {
+              "click": {
+                "actions": [
+                  {
+                    "componentId": "u:52cd013e120f",
+                    "actionType": "disabled"
+                  },
+                  {
+                    "script": "return new Promise((resolve, reject) => {setTimeout(() => {event.setData({...event.data, pId: '01027359'});resolve();}, 3000)})",
+                    "actionType": "custom"
+                  },
+                  {
+                    "componentId": "u:e47e2c8e6be8",
+                    "args": {
+                      "value": "${event.data.pId}"
+                    },
+                    "actionType": "setValue"
+                  },
+                  {
+                    "componentId": "u:52cd013e120f",
+                    "actionType": "enabled"
+                  }
+                ],
+                "weight": 0
+              }
+            },
+            "id": "u:52cd013e120f"
+          }
+        }
+      ],
+      "apiFromAPICenter": false,
+      "id": "u:76203156676b"
+    }
+  ]
+}
+```
+
+- 方式二：通过返回 Thunk 的方式
+
+```schema
+{
+  type: 'page',
+  body: [
+    {
+      "type": "form",
+      "title": "表单",
+      "body": [
+        {
+          "label": "编号",
+          "type": "input-text",
+          "name": "pId",
+          "id": "u:e47e2c8e6be7",
+          "mode": "horizontal",
+          "addOn": {
+            "label": "自动获取",
+            "type": "button",
+            "onEvent": {
+              "click": {
+                "actions": [
+                  {
+                    "componentId": "u:52cd013e120e",
+                    "actionType": "disabled"
+                  },
+                  {
+                    "script": "return (callback) => { setTimeout(() => {event.setData({...event.data, pId: '01027359' });callback();}, 3000) };",
+                    "actionType": "custom"
+                  },
+                  {
+                    "componentId": "u:e47e2c8e6be7",
+                    "args": {
+                      "value": "${event.data.pId}"
+                    },
+                    "actionType": "setValue"
+                  },
+                  {
+                    "componentId": "u:52cd013e120e",
+                    "actionType": "enabled"
+                  }
+                ],
+                "weight": 0
+              }
+            },
+            "id": "u:52cd013e120e"
+          }
+        }
+      ],
+      "apiFromAPICenter": false,
+      "id": "u:76203156676a"
+    }
+  ]
+}
+```
+
+#### 存储数据
+
+有时在执行自定义 JS 的时候，希望该过程中产生的数据可以分享给后面的动作使用，此时可以通过`event.setData()`来实现事件上下文的设置，这样后面动作都可以通过事件上下文来获取共享的数据。
+
+> 注意：直接调用`event.setData()`将修改事件的原有上下文，如果不希望覆盖可以通过`event.setData({...event.data, {xxx: xxx}})`来进行数据的合并。
 
 **动作属性**
 
@@ -1484,6 +1612,7 @@ order: 9
   type: 'page',
   body: [
     {
+>>>>>>> 2.2.0
       type: 'button',
       label: '选中选项卡2',
       level: 'primary',

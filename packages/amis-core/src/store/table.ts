@@ -304,7 +304,8 @@ export const TableStore = iRendererStore
     combineFromIndex: 0,
     formsRef: types.optional(types.array(types.frozen()), []),
     maxKeepItemSelectionLength: 0,
-    keepItemSelectionOnPageChange: false
+    keepItemSelectionOnPageChange: false,
+    searchFormExpanded: false // 用来控制搜索框是否展开了，那个自动根据 searchable 生成的表单 autoGenerateFilter
   })
   .views(self => {
     function getColumnsExceptBuiltinTypes() {
@@ -484,10 +485,15 @@ export const TableStore = iRendererStore
       }
 
       const groups: Array<{
+        /** Group单元格显示名称，从1开始 */
         label: string;
+        /** Group单元格包含的首列的索引值，范围[1, columns.length] */
         index: number;
+        /** Group单元格包含列数 */
         colSpan: number;
+        /** Group单元格包含行数 */
         rowSpan: number;
+        /** Group单元格包含列信息 */
         has: Array<any>;
       }> = [
         {
@@ -519,7 +525,13 @@ export const TableStore = iRendererStore
           prev.has.push(current);
         } else {
           groups.push({
-            label: current.groupName || current.label || ' ', // 如果中间没有配置groupName，那么样式会错乱，这里设置列的label配置，lable也没有则设置一个空字符串
+            /**
+             * 如果中间没有配置groupName，那么样式会错乱，这里设置列的label配置，lable也没有则设置一个空字符串
+             * 注：内部列需要设置为undefined，保证rowSpan在下面计算为2
+             */
+            label: !!~['__checkme', '__expandme'].indexOf(current.type)
+              ? undefined
+              : current.groupName || current.label || ' ',
             colSpan: 1,
             rowSpan: 1,
             index: current.index,
@@ -915,16 +927,15 @@ export const TableStore = iRendererStore
           : 0);
 
       const keys: Array<string> = [];
-      for (let i = 0; i < maxCount; i++) {
-        const column = columns[i];
 
-        // maxCount 可能比实际配置的 columns 还有多。
-        if (!column) {
+      for (let i = 0; i < columns.length; i++) {
+        if (keys.length === maxCount) {
           break;
         }
 
+        const column = columns[i];
+
         if ('__' === column.type.substring(0, 2)) {
-          maxCount++;
           continue;
         }
 
@@ -932,15 +943,12 @@ export const TableStore = iRendererStore
         if (!key) {
           break;
         }
-        keys.push(key);
-      }
 
-      while (fromIndex--) {
-        keys.shift();
-      }
-
-      while (keys.length > maxCount) {
-        keys.pop();
+        if (fromIndex > 0) {
+          fromIndex--;
+        } else {
+          keys.push(key);
+        }
       }
 
       return combineCell(arr, keys);
@@ -1143,6 +1151,13 @@ export const TableStore = iRendererStore
       } else {
         self.selectedRows.replace(getSelectedRows());
       }
+
+    function toggleAll() {
+      if (self.allChecked) {
+        self.selectedRows.clear();
+      } else {
+        self.selectedRows.replace(getSelectedRows());
+      }
     }
 
     // 记录最近一次点击的多选框，主要用于 shift 多选时判断上一个选的是什么
@@ -1329,8 +1344,10 @@ export const TableStore = iRendererStore
       localStorage.setItem(
         key,
         JSON.stringify({
-          // 可显示列index
-          toggledColumnIndex: self.activeToggaleColumns.map(item => item.index),
+          // 可显示列index, 原始配置中存在 toggled: false 的列不持久化
+          toggledColumnIndex: self.activeToggaleColumns
+            .filter(item => !(item.pristine?.toggled === false))
+            .map(item => item.index),
           // 列排序，name，label可能不存在
           columnOrder: self.columnsData.map(
             item => item.name || item.label || item.rawIndex
@@ -1376,6 +1393,13 @@ export const TableStore = iRendererStore
       );
     }
 
+    function setSearchFormExpanded(value: any) {
+      self.searchFormExpanded = !!value;
+    }
+    function toggleSearchFormExpanded() {
+      self.searchFormExpanded = !self.searchFormExpanded;
+    }
+
     return {
       update,
       updateColumns,
@@ -1397,6 +1421,8 @@ export const TableStore = iRendererStore
       addForm,
       toggleAllColumns,
       persistSaveToggledColumns,
+      setSearchFormExpanded,
+      toggleSearchFormExpanded,
 
       // events
       afterCreate() {

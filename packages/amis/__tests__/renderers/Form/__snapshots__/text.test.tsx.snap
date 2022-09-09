@@ -2029,13 +2029,6 @@ exports[`Renderer:text with options 1`] = `
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -2170,15 +2163,6 @@ exports[`Renderer:text with options and multiple and delimiter: first option sel
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {
-  "text": "a"
-}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -2380,13 +2364,6 @@ exports[`Renderer:text with options and multiple and delimiter: options is opene
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -2589,15 +2566,6 @@ exports[`Renderer:text with options and multiple and delimiter: options is opene
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {
-  "text": "a"
-}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -2799,15 +2767,6 @@ exports[`Renderer:text with options and multiple and delimiter: second option se
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {
-  "text": "a-b"
-}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -3012,15 +2971,6 @@ exports[`Renderer:text with options and multiple and delimiter: thrid option cre
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {
-  "text": "a-b-AbCd"
-}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -3212,13 +3162,6 @@ exports[`Renderer:text with options: options is open 1`] = `
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"
@@ -3379,15 +3322,6 @@ exports[`Renderer:text with options: select first option 1`] = `
           style="display: none;"
           type="submit"
         />
-        <pre>
-          <code
-            class="cxd-Form--debug"
-          >
-            {
-  "text": "a"
-}
-          </code>
-        </pre>
         <div
           class="cxd-Form-item cxd-Form-item--normal"
           data-role="form-item"

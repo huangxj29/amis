@@ -162,7 +162,10 @@ export default class TreeSelectControl extends React.Component<
     this.handleFocus = this.handleFocus.bind(this);
     this.handleBlur = this.handleBlur.bind(this);
     this.handleKeyPress = this.handleKeyPress.bind(this);
-    this.handleInputChange = this.handleInputChange.bind(this);
+    this.handleInputChange = debouce(this.handleInputChange.bind(this), 150, {
+      trailing: true,
+      leading: false
+    });
     this.handleInputKeyDown = this.handleInputKeyDown.bind(this);
 
     this.loadRemote = debouce(this.loadRemote.bind(this), 250, {
@@ -226,21 +229,15 @@ export default class TreeSelectControl extends React.Component<
   }
 
   validate(): any {
-    const {value, minLength, maxLength, delimiter, translate: __} = this.props;
+    const {value, minLength, maxLength, delimiter} = this.props;
 
     let curValue = Array.isArray(value)
       ? value
       : (value ? String(value) : '').split(delimiter || ',');
     if (minLength && curValue.length < minLength) {
-      return __(
-        '已选择数量低于设定的最小个数${minLength}，请选择更多的选项。',
-        {minLength}
-      );
+      return `已选择数量低于设定的最小个数${minLength}，请选择更多的选项。`;
     } else if (maxLength && curValue.length > maxLength) {
-      return __(
-        '已选择数量超出设定的最大个数{{maxLength}}，请取消选择超出的选项。',
-        {maxLength}
-      );
+      return `已选择数量超出设定的最大个数${maxLength}，请取消选择超出的选项。`;
     }
   }
 

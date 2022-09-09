@@ -303,7 +303,7 @@ export interface CRUDCommonSchema extends BaseSchema {
   /**
    * 内容区域占满屏幕剩余空间
    */
-  autoFillHeight?: boolean;
+  autoFillHeight?: TableSchema['autoFillHeight'];
 }
 
 export type CRUDCardsSchema = CRUDCommonSchema & {
@@ -837,7 +837,12 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
     // 对于带 submit 的 reset(包括 actionType 为 reset-and-submit clear-and-submit 和 form 的 resetAfterSubmit 属性)
     // 不执行 search，否则会多次触发接口请求
-    // if (action?.actionType && ['reset-and-submit', 'clear-and-submit', 'submit'].includes(action.actionType)) {
+    // if (
+    //   action?.actionType &&
+    //   ['reset-and-submit', 'clear-and-submit', 'submit'].includes(
+    //     action.actionType
+    //   )
+    // ) {
     //   return;
     // }
 
@@ -1104,6 +1109,24 @@ export default class CRUD extends React.Component<CRUDProps, any> {
             columns: store.columns ?? columns
           })
           .then(value => {
+            const {page, lastPage} = store;
+            // 空列表 且 页数已经非法超出，则跳转到最后的合法页数
+            if (
+              !store.data.items.length &&
+              !interval &&
+              page > 1 &&
+              lastPage < page
+            ) {
+              this.search(
+                {
+                  ...store.query,
+                  [pageField || 'page']: lastPage
+                },
+                false,
+                undefined
+              );
+            }
+
             interval &&
               this.mounted &&
               (!stopAutoRefreshWhen ||
@@ -1177,7 +1200,10 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     indexes: Array<string>,
     unModifiedItems?: Array<any>,
     rowsOrigin?: Array<object> | object,
-    resetOnFailed?: boolean
+    options?: {
+      resetOnFailed?: boolean;
+      reload?: string;
+    }
   ) {
     const {
       store,
@@ -1218,8 +1244,10 @@ export default class CRUD extends React.Component<CRUDProps, any> {
           errorMessage: messages && messages.saveSuccess
         })
         .then(() => {
-          reload && this.reloadTarget(reload, data);
-          this.search(undefined, undefined, true, true);
+          const finalReload = options?.reload ?? reload;
+          finalReload
+            ? this.reloadTarget(finalReload, data)
+            : this.search(undefined, undefined, true, true);
         })
         .catch(() => {});
     } else {
@@ -1238,11 +1266,13 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       store
         .saveRemote(quickSaveItemApi, sendData)
         .then(() => {
-          reload && this.reloadTarget(reload, data);
-          this.search(undefined, undefined, true, true);
+          const finalReload = options?.reload ?? reload;
+          finalReload
+            ? this.reloadTarget(finalReload, data)
+            : this.search(undefined, undefined, true, true);
         })
         .catch(() => {
-          resetOnFailed && this.control.reset();
+          options?.resetOnFailed && this.control.reset();
         });
     }
   }
@@ -1912,8 +1942,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
                   key={index}
                   className={cx(
                     'Crud-toolbar-item',
-                    align ? `Crud-toolbar-item--${align}` : '',
-                    toolbar.className
+                    align ? `Crud-toolbar-item--${align}` : ''
+                    // toolbar.className
                   )}
                 >
                   {child}

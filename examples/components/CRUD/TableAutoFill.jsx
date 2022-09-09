@@ -148,11 +148,13 @@ export default {
       {
         name: 'engine',
         label: 'Rendering engine',
-        fixed: 'left'
+        fixed: 'left',
+        searchable: true
       },
       {
         name: 'browser',
         label: 'Browser',
+        width: 500,
         searchable: {
           type: 'select',
           name: 'browser',
@@ -176,7 +178,8 @@ export default {
       },
       {
         name: 'platform',
-        label: 'Platform(s)'
+        label: 'Platform(s)',
+        width: 500
       },
       {
         name: 'version',

@@ -12,7 +12,7 @@ import {str2rules, validate as doValidate} from '../utils/validations';
 import {Api, Payload, fetchOptions} from '../types';
 import {ComboStore, IComboStore, IUniqueGroup} from './combo';
 import {evalExpression} from '../utils/tpl';
-import {isEffectiveApi} from '../utils/api';
+import {buildApi, isEffectiveApi} from '../utils/api';
 import findIndex from 'lodash/findIndex';
 import {
   isArrayChildrenModified,
@@ -287,7 +287,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
 
       rules = {
         ...rules,
-        isRequired: self.required
+        isRequired: self.required || rules?.isRequired
       };
 
       // todo 这个弄个配置由渲染器自己来决定
@@ -571,6 +571,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
         let result: any = null;
 
         if (!json.ok) {
+          const apiObject = buildApi(api, data);
           setErrorFlag !== false &&
             setError(
               self.__('Form.loadOptionsFailed', {
@@ -579,7 +580,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
             );
           getEnv(self).notify(
             'error',
-            self.errors.join('') || `${api}：${json.msg}`,
+            self.errors.join('') || `${apiObject.url}：${json.msg}`,
             json.msgTimeout !== undefined
               ? {
                   closeButton: true,
@@ -1209,6 +1210,11 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       !keepErrors && clearError();
     }
 
+    function resetValidationStatus(tag?: string) {
+      self.validated = false;
+      clearError();
+    }
+
     function openDialog(
       schema: any,
       data: any,
@@ -1267,6 +1273,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       setSubStore,
       getSubStore,
       reset,
+      resetValidationStatus,
       openDialog,
       closeDialog,
       changeTmpValue,

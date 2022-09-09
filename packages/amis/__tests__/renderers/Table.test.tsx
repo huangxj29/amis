@@ -308,55 +308,66 @@ test('Renderer:table children', () => {
   expect(container).toMatchSnapshot();
 });
 
-// 合并单元格
-test('Renderer:table combineNum', () => {
-  const {container} = render(
-    amisRender(
-      {
-        type: 'page',
-        body: {
-          type: 'service',
-          data: {
-            rows
-          },
-          body: [
-            {
-              type: 'table',
-              source: '$rows',
-              combineNum: 1,
-              columnsTogglable: false,
-              columns: [
-                {
-                  name: 'engine',
-                  label: 'Rendering engine'
-                },
-                {
-                  name: 'browser',
-                  label: 'Browser'
-                },
-                {
-                  name: 'platform',
-                  label: 'Platform(s)'
-                },
-                {
-                  name: 'version',
-                  label: 'Engine version'
-                },
-                {
-                  name: 'grade',
-                  label: 'CSS grade'
-                }
-              ]
-            }
-          ]
-        }
+describe('Renderer:table combine', () => {
+  const generateCombineSchema = (tableConfig: Record<string, any> = {}) => ({
+    type: 'page',
+    body: {
+      type: 'service',
+      data: {
+        rows
       },
-      {},
-      makeEnv({})
-    )
-  );
+      body: {
+        type: 'table',
+        source: '$rows',
+        combineNum: 3,
+        columnsTogglable: false,
+        columns: [
+          {
+            name: 'engine',
+            label: 'Rendering engine'
+          },
+          {
+            name: 'browser',
+            label: 'Browser'
+          },
+          {
+            name: 'platform',
+            label: 'Platform(s)'
+          },
+          {
+            name: 'version',
+            label: 'Engine version'
+          },
+          {
+            name: 'grade',
+            label: 'CSS grade'
+          }
+        ],
+        ...tableConfig
+      }
+    }
+  });
+  // 合并单元格
+  test('Renderer:table combineNum only', () => {
+    const {container} = render(
+      amisRender(generateCombineSchema(), {}, makeEnv({}))
+    );
 
-  expect(container).toMatchSnapshot();
+    expect(container).toMatchSnapshot();
+  });
+
+  // 合并单元格
+  test('Renderer:table combineNum with fromIndex', () => {
+    const {container} = render(
+      amisRender(
+        generateCombineSchema({combineNum: 2, combineFromIndex: 1}),
+        {},
+        makeEnv({})
+      )
+    );
+
+    expect(container).toMatchSnapshot();
+  });
 });
 
 // 超级表头

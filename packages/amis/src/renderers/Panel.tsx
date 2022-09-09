@@ -122,7 +122,7 @@ export default class Panel extends React.Component<PanelProps> {
     // actionsClassName: 'Panel-footer',
     // bodyClassName: 'Panel-body'
     collapsedAble: true,
-    collapsed: false,
+    collapsed: false
   };
 
   parentNode?: any;
@@ -338,14 +338,17 @@ export default class Panel extends React.Component<PanelProps> {
           classPrefix={ns}
           collapsable={collapsedAble}
           collapsed={collapsed}
-          headingComponent='div'
+          headingComponent="div"
           headingClassName={cx(headerClassName || `Panel-heading`)}
-          header={header ? (render('header', header, subProps)) 
-            : title ? (
-            <h3 className={cx(`Panel-title`)}>
+          header={
+            header ? (
+              render('header', header, subProps)
+            ) : title ? (
+              <h3 className={cx(`Panel-title`)}>
                 {render('title', title, subProps)}
               </h3>
-          ) : null}
+            ) : null
+          }
           showArrow={false}
           body={
             <div>

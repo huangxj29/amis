@@ -26,7 +26,8 @@ import {
   getTreeDepth,
   flattenTree,
   keyToPath,
-  getVariable
+  getVariable,
+  isObject
 } from '../utils/helper';
 import {reaction} from 'mobx';
 import {
@@ -54,6 +55,7 @@ import isPlainObject from 'lodash/isPlainObject';
 import {normalizeOptions} from '../utils/normalizeOptions';
 import {optionValueCompare} from '../utils/optionValueCompare';
 import {Option} from '../types';
+import {isEqual} from 'lodash';
 
 export {Option};
 
@@ -136,6 +138,11 @@ export interface FormOptionsControl extends FormBaseControl {
   addControls?: Array<PlainObject>;
 
   /**
+   * 控制新增弹框设置项
+   */
+  addDialog?: PlainObject;
+
+  /**
    * 是否可以新增
    */
   creatable?: boolean;
@@ -164,6 +171,12 @@ export interface FormOptionsControl extends FormBaseControl {
    * 选项修改的表单项
    */
   editControls?: Array<PlainObject>;
+
+  /**
+   * 控制编辑弹框设置项
+   */
+
+  editDialog?: PlainObject;
 
   /**
    * 是否可删除
@@ -454,6 +467,8 @@ export function registerOptionsControl(config: OptionsConfig) {
             )
             .then(() => this.normalizeValue());
         }
+      } else if (!isEqual(props.value, prevProps.value) && props.formInited) {
+        this.normalizeValue();
       }
 
       if (prevProps.value !== props.value || formItem?.expressionsInOptions) {
@@ -563,16 +578,38 @@ export function registerOptionsControl(config: OptionsConfig) {
         multiple,
         formItem,
         valueField,
+        delimiter,
         enableNodePath,
         pathSeparator,
         onChange
       } = this.props;
 
-      if (!formItem || joinValues !== false || !formItem.options.length) {
+      if (!formItem || !formItem.options.length) {
         return;
       }
 
-      if (
+      if (joinValues !== false) {
+        // 只处理多选且值为 array 的情况，因为理应为分隔符隔开的字符串
+        if (!(multiple && Array.isArray(value))) return;
+
+        const selectedOptions = formItem.getSelectedOptions(value);
+
+        onChange?.(
+          (multiple
+            ? selectedOptions.concat()
+            : selectedOptions.length
+            ? [selectedOptions[0]]
+            : []
+          )
+            .map((selectedOption: Option) => {
+              return typeof selectedOption === 'string' ||
+                typeof selectedOption === 'number'
+                ? selectedOption
+                : selectedOption[valueField || 'value'];
+            })
+            .join(delimiter || ',')
+        );
+      } else if (
         extractValue === false &&
         (typeof value === 'string' || typeof value === 'number')
       ) {
@@ -582,12 +619,13 @@ export function registerOptionsControl(config: OptionsConfig) {
         extractValue === true &&
         value &&
         !(
-          (Array.isArray(value) &&
+          (multiple &&
+            Array.isArray(value) &&
             value.every(
               val => typeof val === 'string' || typeof val === 'number'
             )) ||
-          typeof value === 'string' ||
-          typeof value === 'number'
+          (!multiple &&
+            (typeof value === 'string' || typeof value === 'number'))
         )
       ) {
         const selectedOptions = formItem
@@ -936,6 +974,7 @@ export function registerOptionsControl(config: OptionsConfig) {
     ) {
       let {
         addControls,
+        addDialog,
         disabled,
         labelField,
         onOpenDialog,
@@ -987,6 +1026,7 @@ export function registerOptionsControl(config: OptionsConfig) {
             {
               type: 'dialog',
               title: createBtnLabel || `新增${optionLabel || '选项'}`,
+              ...addDialog,
               body: {
                 type: 'form',
                 api: addApi,
@@ -1078,6 +1118,7 @@ export function registerOptionsControl(config: OptionsConfig) {
     ) {
       let {
         editControls,
+        editDialog,
         disabled,
         labelField,
         onOpenDialog,
@@ -1114,6 +1155,7 @@ export function registerOptionsControl(config: OptionsConfig) {
               title: __('Options.editLabel', {
                 label: optionLabel || __('Options.label')
               }),
+              ...editDialog,
               body: {
                 type: 'form',
                 api: editApi,
@@ -1184,6 +1226,7 @@ export function registerOptionsControl(config: OptionsConfig) {
         disabled,
         data,
         deleteApi,
+        onDelete,
         env,
         formItem: model,
         source,
@@ -1213,17 +1256,22 @@ export function registerOptionsControl(config: OptionsConfig) {
 
       // 通过 deleteApi 删除。
       try {
-        if (!deleteApi) {
-          throw new Error(__('Options.deleteAPI'));
+        if (deleteApi) {
+          const result = await env.fetcher(deleteApi!, ctx, {
+            method: 'delete'
+          });
+          if (!result.ok) {
+            env.notify('error', result.msg || __('deleteFailed'));
+            return;
+          }
         }
 
-        const result = await env.fetcher(deleteApi!, ctx, {
-          method: 'delete'
-        });
+        // 由外部代码实现删除逻辑
+        if (onDelete) {
+          onDelete(ctx);
+        }
 
-        if (!result.ok) {
-          env.notify('error', result.msg || __('deleteFailed'));
-        } else if (source) {
+        if (source) {
           this.reload();
         } else {
           const options = model.options.concat();

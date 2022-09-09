@@ -526,7 +526,8 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
       useMobileUI,
       popOverContainer,
       maxTagCount,
-      overflowTagPopover
+      overflowTagPopover,
+      placeholder
     } = this.props;
 
     // 目前 LeftOptions 没有接口可以动态加载
@@ -572,6 +573,7 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
           popOverContainer={popOverContainer}
           maxTagCount={maxTagCount}
           overflowTagPopover={overflowTagPopover}
+          placeholder={placeholder}
         />
 
         <Spinner overlay key="info" show={loading} />
