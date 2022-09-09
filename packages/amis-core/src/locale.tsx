@@ -27,13 +27,6 @@ export function extendLocale(name: string, config: LocaleConfig) {
   };
 }
 
-export function extendLocale(name: string, config: LocaleConfig) {
-  locales[name] = {
-    ...(locales[name] || {}),
-    ...config
-  };
-}
-
 const fns: {
   [propName: string]: TranslateFn;
 } = {};

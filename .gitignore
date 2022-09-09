@@ -24,7 +24,6 @@ node_modules
 /schema.json
 /npm
 /mock/cfc/cfc.zip
-.rollup.cache
 
 dist
 tsconfig.tsbuildinfo

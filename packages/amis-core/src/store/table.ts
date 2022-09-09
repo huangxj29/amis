@@ -1151,13 +1151,6 @@ export const TableStore = iRendererStore
       } else {
         self.selectedRows.replace(getSelectedRows());
       }
-
-    function toggleAll() {
-      if (self.allChecked) {
-        self.selectedRows.clear();
-      } else {
-        self.selectedRows.replace(getSelectedRows());
-      }
     }
 
     // 记录最近一次点击的多选框，主要用于 shift 多选时判断上一个选的是什么

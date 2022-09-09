@@ -521,17 +521,12 @@ export class CardRenderer extends React.Component<CardProps> {
         {
           render(
             region,
-            merge(
-              {
-                ...field,
-                field: field,
-                $$id,
-                type: 'card-item-field'
-              },
-              useCardLabel
-                ? {label: false, field: {...field, label: false}}
-                : {}
-            ),
+            {
+              ...field,
+              field: field,
+              $$id,
+              type: 'card-item-field'
+            },
             {
               useCardLabel,
               className: cx('Card-fieldValue', field.className),
