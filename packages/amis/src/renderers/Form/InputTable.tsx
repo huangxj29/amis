@@ -1003,7 +1003,7 @@ export default class FormTable extends React.Component<TableProps, TableState> {
     diff: Array<object> | object,
     rowIndexes: Array<string> | string
   ) {
-    const {perPage} = this.props;
+    const {perPage, onChange} = this.props;
 
     if (~this.state.editIndex) {
       const items = this.state.items.concat();
@@ -1069,7 +1069,15 @@ export default class FormTable extends React.Component<TableProps, TableState> {
       {
         items
       },
-      this.emitValue
+      // this.emitValue
+      () => {
+        // 设置changeImmediately为true，避免inputTable在弹窗中展示时，quickEdit需修改2次才生效
+        onChange(
+          items.filter(item => !item.__isPlaceholder),
+          this.props.$schema.submitOnChange,
+          true
+        );
+      }
     );
   }
 
