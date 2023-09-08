@@ -394,6 +394,26 @@ export default class Tabs extends React.Component<TabsProps, TabsState> {
           prevKey: this.state.activeKey
         });
       }
+    } else if (prevActiveKey !== activeKey) {
+      if (activeKey == null) {
+        return;
+      }
+
+      let newActivedKey = null;
+      const tab = find(localTabs, item => item.hash === activeKey);
+
+      if (tab) {
+        newActivedKey = tab.hash;
+      } else if (typeof activeKey === 'number' && localTabs[activeKey]) {
+        newActivedKey = activeKey;
+      }
+
+      if (newActivedKey) {
+        this.setState({
+          prevKey: prevActiveKey,
+          activeKey: (this.activeKey = newActivedKey)
+        });
+      }
     } else if (
       Array.isArray(localTabs) &&
       Array.isArray(prevState.localTabs) &&
@@ -424,26 +444,6 @@ export default class Tabs extends React.Component<TabsProps, TabsState> {
         prevKey: undefined,
         activeKey: (this.activeKey = activeKey)
       });
-    } else if (prevActiveKey !== activeKey) {
-      if (activeKey == null) {
-        return;
-      }
-
-      let newActivedKey = null;
-      const tab = find(localTabs, item => item.hash === activeKey);
-
-      if (tab) {
-        newActivedKey = tab.hash;
-      } else if (typeof activeKey === 'number' && localTabs[activeKey]) {
-        newActivedKey = activeKey;
-      }
-
-      if (newActivedKey) {
-        this.setState({
-          prevKey: prevActiveKey,
-          activeKey: (this.activeKey = newActivedKey)
-        });
-      }
     }
 
     this.autoJumpToNeighbour(this.activeKey);
