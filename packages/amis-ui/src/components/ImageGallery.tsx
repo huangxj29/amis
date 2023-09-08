@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {createRef} from 'react';
 import debounce from 'lodash/debounce';
 import {themeable, ClassNamesFn, ThemeProps} from 'amis-core';
 import {autobind} from 'amis-core';
@@ -47,6 +47,12 @@ export interface ImageGalleryState {
   scale: number;
   /** 图片旋转角度 */
   rotate: number;
+  /** 图片位移距离 */
+  transformX: number;
+  transformY: number;
+  /** 图片拖拽起始位置 */
+  dragX: number;
+  dragY: number;
 }
 
 export class ImageGallery extends React.Component<
@@ -80,8 +86,39 @@ export class ImageGallery extends React.Component<
     index: -1,
     items: [],
     scale: 1,
-    rotate: 0
+    rotate: 0,
+    transformX: 0,
+    transformY: 0,
+    dragX: -1,
+    dragY: -1
   };
+  imgRef: React.RefObject<HTMLImageElement> = createRef();
+
+  galleryMain?: HTMLDivElement;
+  @autobind
+  galleryMainRef(ref: HTMLDivElement) {
+    if (ref) {
+      ref.addEventListener('wheel', this.onWheelScroll, {
+        passive: false
+      });
+    } else {
+      this.galleryMain?.removeEventListener('wheel', this.onWheelScroll);
+    }
+
+    this.galleryMain = ref;
+  }
+
+  @autobind
+  onWheelScroll(event: WheelEvent) {
+    event.preventDefault();
+
+    /** 向上滚动放大，向下滚动缩小 */
+    if (event.deltaY > 0) {
+      this.handleToolbarAction({key: 'zoomOut'} as ImageAction);
+    } else if (event.deltaY < 0) {
+      this.handleToolbarAction({key: 'zoomIn'} as ImageAction);
+    }
+  }
 
   @autobind
   handleImageEnlarge(info: {
@@ -105,7 +142,14 @@ export class ImageGallery extends React.Component<
   }
 
   resetImageAction() {
-    this.setState({scale: 1, rotate: 0});
+    this.setState({
+      scale: 1,
+      rotate: 0,
+      transformX: 0,
+      transformY: 0,
+      dragX: -1,
+      dragY: -1
+    });
   }
 
   @autobind
@@ -130,12 +174,12 @@ export class ImageGallery extends React.Component<
     this.resetImageAction();
   }
 
-  @autobind
-  handleItemClick(e: React.MouseEvent<HTMLDivElement>) {
-    const index = parseInt(e.currentTarget.getAttribute('data-index')!, 10);
-    this.setState({index});
-    this.resetImageAction();
-  }
+  // @autobind
+  // handleItemClick(e: React.MouseEvent<HTMLDivElement>) {
+  //   const index = parseInt(e.currentTarget.getAttribute('data-index')!, 10);
+  //   this.setState({index});
+  //   this.resetImageAction();
+  // }
 
   handleToolbarAction = debounce(
     (action: ImageAction) => {
@@ -165,6 +209,10 @@ export class ImageGallery extends React.Component<
           break;
       }
 
+      this.setState({
+        transformX: 0,
+        transformY: 0
+      });
       if (action.onClick && typeof action.onClick === 'function') {
         action.onClick(this);
       }
@@ -172,6 +220,77 @@ export class ImageGallery extends React.Component<
     250,
     {leading: true, trailing: false}
   );
+
+  @autobind
+  onMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (this.state.scale <= 1) return;
+    this.setState({
+      dragX: e.pageX || e.clientX,
+      dragY: e.pageY || e.clientY
+    });
+  }
+
+  @autobind
+  onMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (this.state.dragX < 0 || !this.imgRef.current) return;
+    let nextDragX = e.pageX || e.clientX;
+    let nextDragY = e.pageY || e.clientY;
+
+    this.setState({
+      dragX: nextDragX,
+      dragY: nextDragY,
+      transformX: this.state.transformX + (nextDragX - this.state.dragX),
+      transformY: this.state.transformY + (nextDragY - this.state.dragY)
+    });
+  }
+
+  @autobind
+  onMouseUp(e: React.MouseEvent<HTMLDivElement>) {
+    if (this.state.dragX < 0 || !this.imgRef.current) return;
+    let nextDragX = e.pageX || e.clientX;
+    let nextDragY = e.pageY || e.clientY;
+    let clientWidth = (this.imgRef.current.parentElement as HTMLElement)
+      .clientWidth;
+    let clientHeight = (this.imgRef.current.parentElement as HTMLElement)
+      .clientHeight;
+    let {height, width} = this.imgRef.current.getBoundingClientRect();
+
+    let diffWidth = Math.abs(clientWidth - width) / 2;
+    let diffHeight = Math.abs(clientHeight - height) / 2;
+
+    let transformX = this.state.transformX + (nextDragX - this.state.dragX);
+    let transformY = this.state.transformY + (nextDragY - this.state.dragY);
+
+    if (width > clientWidth) {
+      if (transformX > diffWidth) {
+        transformX = diffWidth;
+      } else if (transformX < -diffWidth) {
+        transformX = -diffWidth;
+      }
+    } else {
+      transformX = 0;
+    }
+
+    if (height > clientHeight) {
+      if (transformY > diffHeight) {
+        transformY = diffHeight;
+      } else if (transformY < -diffHeight) {
+        transformY = -diffHeight;
+      }
+    } else {
+      transformY = 0;
+    }
+
+    this.setState({
+      dragX: -1,
+      dragY: -1,
+      transformX: transformX,
+      transformY: transformY
+    });
+  }
 
   renderToolbar(actions: ImageAction[]) {
     const {classnames: cx, translate: __, className} = this.props;
@@ -213,7 +332,7 @@ export class ImageGallery extends React.Component<
 
   render() {
     const {children, classnames: cx, modalContainer, actions} = this.props;
-    const {index, items, rotate, scale} = this.state;
+    const {index, items, rotate, scale, transformX, transformY} = this.state;
     const __ = this.props.translate;
 
     return (
@@ -243,10 +362,19 @@ export class ImageGallery extends React.Component<
               <div className={cx('ImageGallery-title')}>
                 {items[index].title}
               </div>
-              <div className={cx('ImageGallery-main')}>
+              <div
+                className={cx('ImageGallery-main')}
+                ref={this.galleryMainRef}
+              >
                 <img
+                  ref={this.imgRef}
                   src={items[index].originalSrc}
-                  style={{transform: `scale(${scale}) rotate(${rotate}deg)`}}
+                  style={{
+                    transform: `translate(${transformX}px, ${transformY}px) scale(${scale}) rotate(${rotate}deg)`
+                  }}
+                  onMouseDown={this.onMouseDown}
+                  onMouseMove={this.onMouseMove}
+                  onMouseUp={this.onMouseUp}
                 />
 
                 {Array.isArray(actions) && actions.length > 0
@@ -279,7 +407,7 @@ export class ImageGallery extends React.Component<
             </>
           ) : null}
 
-          {items.length > 1 ? (
+          {/* {items.length > 1 ? (
             <div className={cx('ImageGallery-footer')}>
               <a className={cx('ImageGallery-prevList is-disabled')}>
                 <Icon icon="prev" className="icon" />
@@ -305,7 +433,7 @@ export class ImageGallery extends React.Component<
                 <Icon icon="next" className="icon" />
               </a>
             </div>
-          ) : null}
+          ) : null} */}
         </Modal>
       </>
     );
