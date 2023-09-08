@@ -426,6 +426,7 @@ export default class SelectControl extends React.Component<SelectProps, any> {
       env,
       useMobileUI,
       title,
+      container,
       ...rest
     } = this.props;
 
@@ -447,6 +448,13 @@ export default class SelectControl extends React.Component<SelectProps, any> {
         ) : (
           <Select
             {...rest}
+            container={
+              container !== undefined
+                ? container
+                : env && env.getModalContainer
+                ? env.getModalContainer
+                : undefined
+            }
             useMobileUI={useMobileUI}
             popOverContainer={
               mobileUI && env && env.getModalContainer
@@ -527,7 +535,8 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
       popOverContainer,
       maxTagCount,
       overflowTagPopover,
-      placeholder
+      placeholder,
+      env
     } = this.props;
 
     // 目前 LeftOptions 没有接口可以动态加载
@@ -574,6 +583,7 @@ class TransferDropdownRenderer extends BaseTransferRenderer<TransferDropDownProp
           maxTagCount={maxTagCount}
           overflowTagPopover={overflowTagPopover}
           placeholder={placeholder}
+          env={env}
         />
 
         <Spinner overlay key="info" show={loading} />

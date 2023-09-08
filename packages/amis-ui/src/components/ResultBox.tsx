@@ -28,6 +28,7 @@ export interface ResultBoxProps
   maxTagCount?: number;
   overflowTagPopover?: TooltipObject;
   actions?: JSX.Element | JSX.Element[];
+  env?: any;
 }
 
 export class ResultBox extends React.Component<ResultBoxProps> {
@@ -107,7 +108,8 @@ export class ResultBox extends React.Component<ResultBoxProps> {
       maxTagCount,
       overflowTagPopover,
       itemRender,
-      classnames: cx
+      classnames: cx,
+      env
     } = this.props;
 
     if (
@@ -136,6 +138,7 @@ export class ResultBox extends React.Component<ResultBoxProps> {
         return index === maxVisibleCount ? (
           <TooltipWrapper
             key={tags.length}
+            container={env ? env.getModalContainer : undefined}
             tooltip={{
               ...tooltipProps,
               children: () => (

@@ -16,6 +16,7 @@ export interface TransferPickerProps extends Omit<TransferProps, 'itemRender'> {
    * 边框模式，全边框，还是半边框，或者没边框。
    */
   borderMode?: 'full' | 'half' | 'none';
+  container?: any;
 
   onFocus?: () => void;
 
@@ -50,6 +51,7 @@ export class TransferPicker extends React.Component<TransferPickerProps> {
       onChange,
       size,
       borderMode,
+      container,
       ...rest
     } = this.props;
 
@@ -83,6 +85,7 @@ export class TransferPicker extends React.Component<TransferPickerProps> {
         value={value}
         onConfirm={this.handleConfirm}
         size={size}
+        popOverContainer={container}
       >
         {({onClick, isOpened}) => (
           <ResultBox

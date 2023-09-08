@@ -76,7 +76,9 @@ export class TransferPickerRenderer extends BaseTransferRenderer<TabsTransferPro
       columns,
       leftMode,
       selectMode,
-      borderMode
+      borderMode,
+      container,
+      env
     } = this.props;
 
     // 目前 LeftOptions 没有接口可以动态加载
@@ -98,6 +100,13 @@ export class TransferPickerRenderer extends BaseTransferRenderer<TabsTransferPro
     return (
       <div className={cx('TransferControl', className)}>
         <TransferPicker
+          container={
+            container !== undefined
+              ? container
+              : env && env.getModalContainer
+              ? env.getModalContainer
+              : undefined
+          }
           borderMode={borderMode}
           selectMode={selectMode}
           value={selectedOptions}

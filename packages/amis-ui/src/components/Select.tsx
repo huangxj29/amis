@@ -331,6 +331,7 @@ interface SelectProps extends OptionProps, ThemeProps, LocaleProps {
   placeholder: string;
   inline: boolean;
   disabled: boolean;
+  container?: React.ReactNode;
   popOverContainer?: any;
   popOverContainerSelector?: string;
   overlayPlacement?: string;
@@ -745,7 +746,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
       maxTagCount,
       overflowTagPopover,
       showInvalidMatch,
-      translate: __
+      translate: __,
+      container,
+      popOverContainer
     } = this.props;
     const selection = this.state.selection;
 
@@ -783,6 +786,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
         if (index === maxVisibleCount) {
           return (
             <TooltipWrapper
+              container={container || popOverContainer}
               key={selection.length}
               tooltip={{
                 ...tooltipProps,
@@ -839,6 +843,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
 
         return (
           <TooltipWrapper
+            container={container || popOverContainer}
             placement={'top'}
             tooltip={item[labelField || 'label']}
             trigger={'hover'}
@@ -888,6 +893,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
         }`
       ) : (
         <TooltipWrapper
+          container={container || popOverContainer}
           placement={'top'}
           tooltip={item[labelField || 'label']}
           trigger={'hover'}

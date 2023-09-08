@@ -20,6 +20,7 @@ export interface TransferDropDownProps extends TransferProps {
   itemRender: (value: any) => JSX.Element | string;
   maxTagCount?: number;
   overflowTagPopover?: TooltipObject;
+  env?: any;
 }
 
 export class TransferDropDown extends Transfer<TransferDropDownProps> {
@@ -40,7 +41,8 @@ export class TransferDropDown extends Transfer<TransferDropDownProps> {
       popOverContainer,
       placeholder,
       maxTagCount,
-      overflowTagPopover
+      overflowTagPopover,
+      env
     } = this.props;
     const {inputValue, searchResult} = this.state;
 
@@ -122,6 +124,7 @@ export class TransferDropDown extends Transfer<TransferDropDownProps> {
             itemRender={itemRender}
             useMobileUI={useMobileUI}
             hasDropDownArrow={!mobileUI}
+            env={env}
           />
         )}
       </PopOverContainer>

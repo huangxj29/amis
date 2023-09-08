@@ -135,7 +135,8 @@ export class PickerContainer extends React.Component<
       headerClassName,
       translate: __,
       size,
-      showFooter
+      showFooter,
+      popOverContainer
     } = this.props;
     return (
       <>
@@ -150,6 +151,7 @@ export class PickerContainer extends React.Component<
           closeOnEsc
           show={this.state.isOpened}
           onHide={this.close}
+          container={popOverContainer}
         >
           {showTitle !== false ? (
             <Modal.Header onClose={this.close} className={headerClassName}>

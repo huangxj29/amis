@@ -99,7 +99,13 @@ export default class ConditionBuilderControl extends React.PureComponent<Conditi
   }
 
   render() {
-    const {className, classnames: cx, pickerIcon, ...rest} = this.props;
+    const {
+      className,
+      classnames: cx,
+      pickerIcon,
+      popOverContainer,
+      ...rest
+    } = this.props;
 
     // 处理一下formula类型值的变量列表
     let formula = this.props.formula ? {...this.props.formula} : undefined;
@@ -119,6 +125,12 @@ export default class ConditionBuilderControl extends React.PureComponent<Conditi
           pickerIcon={this.renderPickerIcon()}
           {...rest}
           formula={formula}
+          popOverContainer={
+            popOverContainer ||
+            (rest.env && rest.env.getModalContainer
+              ? rest.env.getModalContainer
+              : undefined)
+          }
         />
       </div>
     );
