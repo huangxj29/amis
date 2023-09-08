@@ -517,6 +517,11 @@
         }
       }
 
+      .#{$ns}DatePicker,
+      .#{$ns}DateRangePicker {
+        font-size: var(--fontSizeLg);
+      }
+
       .#{$ns}Form-value,
       .#{$ns}Form-control {
         flex: 1;

@@ -208,6 +208,13 @@
   .#{$ns}Select {
     border-left: 0;
   }
+
+  .#{$ns}prefix-button {
+    border-right: 0;
+  }
+  .#{$ns}suffix-button {
+    border-left: 0;
+  }
 }
 .#{$ns}Number--enhance {
   display: inline-flex;

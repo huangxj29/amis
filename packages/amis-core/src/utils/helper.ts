@@ -46,7 +46,7 @@ export function preventDefault(event: TouchEvent | Event): void {
 }
 
 export function isMobile() {
-  return (window as any).matchMedia?.('(max-width: 768px)').matches;
+  return (window as any).matchMedia?.('(max-width: 767px)').matches;
 }
 
 export function range(num: number, min: number, max: number): number {
