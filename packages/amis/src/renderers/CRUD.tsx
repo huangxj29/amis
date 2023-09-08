@@ -2,7 +2,7 @@ import React from 'react';
 
 import {Renderer, RendererProps} from 'amis-core';
 import {SchemaNode, Schema, ActionObject, PlainObject} from 'amis-core';
-import {CRUDStore, ICRUDStore} from 'amis-core';
+import {CRUDStore, ICRUDStore, isMobile} from 'amis-core';
 import {
   createObject,
   extendObject,
@@ -304,6 +304,11 @@ export interface CRUDCommonSchema extends BaseSchema {
    * 内容区域占满屏幕剩余空间
    */
   autoFillHeight?: TableSchema['autoFillHeight'];
+
+  /**
+   * 条件筛选结果返回后，触发 onAfterFilter 事件，会将接口返回值和props作为参数传入
+   */
+  onAfterFilter?: (values: object, props: any) => any;
 }
 
 export type CRUDCardsSchema = CRUDCommonSchema & {
@@ -402,7 +407,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     loadDataOnce: false,
     loadDataOnceFetchOnFilter: true,
     autoFillHeight: false,
-    alwaysShowPagination: true,
+    alwaysShowPagination: false,
     perPage: 20
   };
 
@@ -1064,7 +1069,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       loadDataOnce,
       loadDataOnceFetchOnFilter,
       source,
-      columns
+      columns,
+      onAfterFilter
     } = this.props;
 
     // reload 需要清空用户选择。
@@ -1149,6 +1155,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
                     ),
                 Math.max(interval, 1000)
               ));
+            onAfterFilter && onAfterFilter(value, this.props);
             return value;
           })
       : source && store.initFromScope(data, source);
@@ -1755,13 +1762,19 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       alwaysShowPagination
     } = this.props;
 
-    if (store.lastPage <= 1 && !alwaysShowPagination) {
+    if (store.total < 1 && !alwaysShowPagination) {
       return null;
     }
+
+    let startNum = (store.page - 1) * store.perPage + 1;
+    let endNum =
+      store.page === store.lastPage ? store.total : store.page * store.perPage;
 
     return (
       <div className={cx('Crud-statistics')}>
         {__('CRUD.stat', {
+          startNum,
+          endNum,
           page: store.page,
           lastPage: store.lastPage,
           total: store.total
@@ -1776,7 +1789,10 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       perPageAvailable,
       classnames: cx,
       classPrefix: ns,
-      translate: __
+      translate: __,
+      env,
+      popOverContainer,
+      useMobileUI
     } = this.props;
 
     const items = childProps.items;
@@ -1791,6 +1807,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
         value: item + ''
       })
     );
+    const mobileUI = useMobileUI && isMobile();
 
     return (
       <div className={cx('Crud-pageSwitch')}>
@@ -1803,6 +1820,13 @@ export default class CRUD extends React.Component<CRUDProps, any> {
           value={store.perPage + ''}
           onChange={(value: any) => this.handleChangePage(1, value.value)}
           clearable={false}
+          popOverContainer={
+            mobileUI && env && env.getModalContainer
+              ? env.getModalContainer
+              : mobileUI
+              ? undefined
+              : popOverContainer
+          }
         />
       </div>
     );
@@ -1942,8 +1966,8 @@ export default class CRUD extends React.Component<CRUDProps, any> {
                   key={index}
                   className={cx(
                     'Crud-toolbar-item',
-                    align ? `Crud-toolbar-item--${align}` : ''
-                    // toolbar.className
+                    align ? `Crud-toolbar-item--${align}` : '',
+                    toolbar.className
                   )}
                 >
                   {child}

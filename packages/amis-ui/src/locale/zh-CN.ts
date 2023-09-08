@@ -43,7 +43,7 @@ register('zh-CN', {
   'CRUD.invalidData': '返回数据格式不正确，data 没有数据',
   'CRUD.loadMore': '加载更多',
   'CRUD.perPage': '每页显示',
-  'CRUD.stat': '{{page}}/{{lastPage}} 总共：{{total}} 项',
+  'CRUD.stat': '显示第 {{startNum}} 到第 {{endNum}} 条记录，总共 {{total}} 条记录', // '{{page}}/{{lastPage}} 总共：{{total}} 项',
   'CRUD.paginationGoText': '前往',
   'CRUD.paginationPageText': '页',
   'PaginationWrapper.placeholder': '请配置内容',
