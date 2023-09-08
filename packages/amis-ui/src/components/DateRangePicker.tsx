@@ -43,6 +43,7 @@ export interface DateRangePickerProps extends ThemeProps, LocaleProps {
   onChange: (value: any) => void;
   data?: any;
   disabled?: boolean;
+  readOnly?: boolean;
   closeOnSelect?: boolean;
   overlayPlacement: string;
   timeFormat?: string;
@@ -515,6 +516,9 @@ export class DateRangePicker extends React.Component<
   endInputRef: React.RefObject<HTMLInputElement>;
   separatorRef: React.RefObject<HTMLSpanElement>;
 
+  startInputValueCache: string;
+  endInputValueCache: string;
+
   constructor(props: DateRangePickerProps) {
     super(props);
 
@@ -528,6 +532,8 @@ export class DateRangePicker extends React.Component<
     this.close = this.close.bind(this);
     this.startInputChange = this.startInputChange.bind(this);
     this.endInputChange = this.endInputChange.bind(this);
+    this.onStartInputBlur = this.onStartInputBlur.bind(this);
+    this.onEndInputBlur = this.onEndInputBlur.bind(this);
     this.handleDateChange = this.handleDateChange.bind(this);
     this.handleStartDateChange = this.handleStartDateChange.bind(this);
     this.handelEndDateChange = this.handelEndDateChange.bind(this);
@@ -605,7 +611,7 @@ export class DateRangePicker extends React.Component<
         joinValues,
         delimiter
       );
-      this.setState({
+      const newState = {
         startDate,
         endDate,
         startInputValue:
@@ -614,7 +620,10 @@ export class DateRangePicker extends React.Component<
             : '',
         endInputValue:
           endDate && endDate?.isValid() ? endDate?.format(inputFormat) : ''
-      });
+      };
+      this.startInputValueCache = newState.startInputValue;
+      this.endInputValueCache = newState.endInputValue;
+      this.setState(newState);
     }
   }
 
@@ -872,6 +881,18 @@ export class DateRangePicker extends React.Component<
       let newDate = this.getEndDateByDuration(moment(value, inputFormat));
       this.setState({endDate: newDate});
     }
+  }
+
+  onStartInputBlur() {
+    this.setState({
+      startInputValue: this.startInputValueCache
+    });
+  }
+
+  onEndInputBlur() {
+    this.setState({
+      endInputValue: this.endInputValueCache
+    });
   }
 
   // 根据 duration 修复结束时间
@@ -1508,6 +1529,7 @@ export class DateRangePicker extends React.Component<
       delimiter,
       clearable,
       disabled,
+      readOnly,
       embed,
       overlayPlacement,
       borderMode,
@@ -1601,12 +1623,14 @@ export class DateRangePicker extends React.Component<
               !useAnimation && this.state.editState === 'start' && isOpened
           })}
           onChange={this.startInputChange}
+          onBlur={this.onStartInputBlur}
           onClick={this.openStart}
           ref={this.startInputRef}
           placeholder={__(startPlaceholder)}
           autoComplete="off"
           value={this.state.startInputValue || ''}
           disabled={disabled}
+          readOnly={readOnly}
         />
         <span
           className={cx('DateRangePicker-input-separator')}
@@ -1620,12 +1644,14 @@ export class DateRangePicker extends React.Component<
               !useAnimation && this.state.editState === 'end' && isOpened
           })}
           onChange={this.endInputChange}
+          onBlur={this.onEndInputBlur}
           onClick={this.openEnd}
           ref={this.endInputRef}
           placeholder={__(endPlaceholder)}
           autoComplete="off"
           value={this.state.endInputValue || ''}
           disabled={disabled}
+          readOnly={readOnly}
         />
 
         {/* 指示游标 */}
