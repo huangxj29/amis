@@ -17,7 +17,7 @@ import find from 'lodash/find';
 import {Api} from 'amis-core';
 import {isEffectiveApi} from 'amis-core';
 import {Spinner} from 'amis-ui';
-import {ResultBox} from 'amis-ui';
+import {ResultBox, Icon, Input} from 'amis-ui';
 import {autobind, getTreeAncestors, isMobile, createObject} from 'amis-core';
 import {findDOMNode} from 'react-dom';
 import {normalizeOptions} from 'amis-core';
@@ -130,7 +130,8 @@ export default class TreeSelectControl extends React.Component<
     hideNodePathLabel: false,
     enableNodePath: false,
     pathSeparator: '/',
-    selfDisabledAffectChildren: true
+    selfDisabledAffectChildren: true,
+    searchPromptText: 'Select.searchPromptText'
   };
 
   treeRef: any;
@@ -486,6 +487,16 @@ export default class TreeSelectControl extends React.Component<
     this.treeRef = ref;
   }
 
+  @autobind
+  handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
+    this.handleInputChange(e.currentTarget.value);
+  }
+
+  @autobind
+  clearSearchValue() {
+    this.handleInputChange('');
+  }
+
   renderOuter() {
     const {
       value,
@@ -536,7 +547,9 @@ export default class TreeSelectControl extends React.Component<
       expandTreeOptions,
       selfDisabledAffectChildren,
       showOutline,
-      autoCheckChildren
+      autoCheckChildren,
+      classnames: cx,
+      searchPromptText
     } = this.props;
 
     let filtedOptions =
@@ -544,57 +557,76 @@ export default class TreeSelectControl extends React.Component<
         ? this.filterOptions(options, this.state.inputValue)
         : options;
 
+    let allowInput = (searchable || isEffectiveApi(autoComplete)) && !disabled;
+
     return (
-      <TreeSelector
-        classPrefix={ns}
-        onRef={this.domRef}
-        onlyChildren={onlyChildren}
-        onlyLeaf={onlyLeaf}
-        labelField={labelField}
-        valueField={valueField}
-        disabled={disabled}
-        onChange={this.handleChange}
-        joinValues={joinValues}
-        extractValue={extractValue}
-        delimiter={delimiter}
-        placeholder={__(optionsPlaceholder)}
-        options={filtedOptions}
-        highlightTxt={this.state.inputValue}
-        multiple={multiple}
-        initiallyOpen={initiallyOpen}
-        unfoldedLevel={unfoldedLevel}
-        withChildren={withChildren}
-        autoCheckChildren={autoCheckChildren}
-        rootLabel={__(rootLabel)}
-        rootValue={rootValue}
-        showIcon={showIcon}
-        showRadio={showRadio}
-        showOutline={showOutline}
-        cascade={cascade}
-        foldedField="collapsed"
-        hideRoot
-        value={value || ''}
-        nodePath={nodePath}
-        enableNodePath={enableNodePath}
-        pathSeparator={pathSeparator}
-        maxLength={maxLength}
-        minLength={minLength}
-        onAdd={onAdd}
-        creatable={creatable}
-        createTip={createTip}
-        rootCreatable={rootCreatable}
-        rootCreateTip={rootCreateTip}
-        onEdit={onEdit}
-        editable={editable}
-        editTip={editTip}
-        removable={removable}
-        removeTip={removeTip}
-        onDelete={onDelete}
-        bultinCUD={!addControls && !editControls}
-        onDeferLoad={deferLoad}
-        onExpandTree={expandTreeOptions}
-        selfDisabledAffectChildren={selfDisabledAffectChildren}
-      />
+      <div className={cx(`Select-menu`)}>
+        {allowInput ? (
+          <div className={cx(`Select-input`)}>
+            <Icon icon="search" className="icon" />
+            <Input
+              onChange={this.handleSearchChange}
+              placeholder={__(searchPromptText)}
+              value={this.state.inputValue || ''}
+            />
+            {this.state.inputValue?.length ? (
+              <a onClick={this.clearSearchValue} className={cx('Select-clear')}>
+                <Icon icon="close" className="icon" />
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+        <TreeSelector
+          classPrefix={ns}
+          onRef={this.domRef}
+          onlyChildren={onlyChildren}
+          onlyLeaf={onlyLeaf}
+          labelField={labelField}
+          valueField={valueField}
+          disabled={disabled}
+          onChange={this.handleChange}
+          joinValues={joinValues}
+          extractValue={extractValue}
+          delimiter={delimiter}
+          placeholder={__(optionsPlaceholder)}
+          options={filtedOptions}
+          highlightTxt={this.state.inputValue}
+          multiple={multiple}
+          initiallyOpen={initiallyOpen}
+          unfoldedLevel={unfoldedLevel}
+          withChildren={withChildren}
+          autoCheckChildren={autoCheckChildren}
+          rootLabel={__(rootLabel)}
+          rootValue={rootValue}
+          showIcon={showIcon}
+          showRadio={showRadio}
+          showOutline={showOutline}
+          cascade={cascade}
+          foldedField="collapsed"
+          hideRoot
+          value={value || ''}
+          nodePath={nodePath}
+          enableNodePath={enableNodePath}
+          pathSeparator={pathSeparator}
+          maxLength={maxLength}
+          minLength={minLength}
+          onAdd={onAdd}
+          creatable={creatable}
+          createTip={createTip}
+          rootCreatable={rootCreatable}
+          rootCreateTip={rootCreateTip}
+          onEdit={onEdit}
+          editable={editable}
+          editTip={editTip}
+          removable={removable}
+          removeTip={removeTip}
+          onDelete={onDelete}
+          bultinCUD={!addControls && !editControls}
+          onDeferLoad={deferLoad}
+          onExpandTree={expandTreeOptions}
+          selfDisabledAffectChildren={selfDisabledAffectChildren}
+        />
+      </div>
     );
   }
 
@@ -654,7 +686,7 @@ export default class TreeSelectControl extends React.Component<
           onBlur={this.handleBlur}
           onKeyDown={this.handleInputKeyDown}
           clearable={clearable}
-          allowInput={searchable || isEffectiveApi(autoComplete)}
+          allowInput={false}
         >
           {loading ? <Spinner size="sm" /> : undefined}
         </ResultBox>

@@ -80,7 +80,7 @@
   }
 
   &:focus {
-    box-shadow: var(--Form-select-onFocus-boxShadow);
+    box-shadow: var(--Form-input-boxShadow);
   }
 
   .#{$ns}PopOver.#{$ns}Select-popover {
