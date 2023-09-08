@@ -73,7 +73,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     cancelText: 'cancel',
     title: 'Alert.info',
     alertBtnLevel: 'primary',
-    confirmBtnLevel: 'danger'
+    confirmBtnLevel: 'primary'
   };
 
   componentDidMount() {
@@ -212,6 +212,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
 
     return (
       <Modal
+        className={cx('Confirm')}
         show={this.state.show}
         onHide={this.handleCancel}
         container={container}

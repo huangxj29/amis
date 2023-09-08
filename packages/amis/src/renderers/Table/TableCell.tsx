@@ -78,9 +78,10 @@ export class TableCell extends React.Component<RendererProps> {
       : render('field', schema, {
           ...omit(rest, Object.keys(schema)),
           inputOnly: true,
-          /** value没有返回值时设置默认值，避免错误获取到父级数据域的值 */
-          value: canAccessSuperData ? value : value ?? '',
-          data
+          value: value,
+          /** value没有返回值时，避免错误获取到父级数据域的值 */
+          /** 将父级数据域中index下标存放到当前作用域 */
+          data: canAccessSuperData ? data : {index: data.__super.index, ...data}
         });
 
     if (width) {
