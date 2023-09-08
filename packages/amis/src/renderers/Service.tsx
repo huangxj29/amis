@@ -121,6 +121,8 @@ export interface ServiceSchema extends BaseSchema {
 
   messages?: SchemaMessage;
 
+  showErrorMessages?: boolean;
+
   name?: SchemaName;
 }
 
@@ -142,7 +144,8 @@ export default class Service extends React.Component<ServiceProps> {
   static defaultProps: Partial<ServiceProps> = {
     messages: {
       fetchFailed: 'fetchFailed'
-    }
+    },
+    showErrorMessages: true
   };
 
   static propsList: Array<string> = [];
@@ -578,12 +581,13 @@ export default class Service extends React.Component<ServiceProps> {
       store,
       render,
       classPrefix: ns,
-      classnames: cx
+      classnames: cx,
+      showErrorMessages
     } = this.props;
 
     return (
       <div className={cx(`${ns}Service`, className)}>
-        {store.error ? (
+        {showErrorMessages && store.error ? (
           <div className={cx(`Alert Alert--danger`)}>
             <button
               className={cx('Alert-close')}
