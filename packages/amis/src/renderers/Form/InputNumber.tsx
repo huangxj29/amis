@@ -2,7 +2,7 @@ import React from 'react';
 import {toFixed} from 'rc-input-number/lib/utils/MiniDecimal';
 import {FormItem, FormControlProps} from 'amis-core';
 import cx from 'classnames';
-import {NumberInput, Select} from 'amis-ui';
+import {NumberInput, Select, Button} from 'amis-ui';
 import {
   filter,
   autobind,
@@ -330,13 +330,11 @@ export default class NumberControl extends React.Component<
       if (kilobitSeparator && value) {
         value = (value + '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       }
-      return (prefix ? prefix : '') + value + (suffix ? suffix : '');
+      return value;
     };
     // 将数字还原
     const parser = (value: string) => {
       if (value) {
-        prefix && (value = value.replace(prefix, ''));
-        suffix && (value = value.replace(suffix, ''));
         kilobitSeparator && (value = value.replace(/,/g, ''));
       }
       return value;
@@ -352,11 +350,14 @@ export default class NumberControl extends React.Component<
         className={cx(
           `${ns}NumberControl`,
           {
-            [`${ns}NumberControl--withUnit`]: unitOptions
+            [`${ns}NumberControl--withUnit`]: unitOptions || suffix || prefix
           },
           className
         )}
       >
+        {prefix ? (
+          <Button className={cx(`${ns}prefix-button`)}>{prefix}</Button>
+        ) : null}
         <NumberInput
           inputRef={this.inputRef}
           value={finalValue}
@@ -377,6 +378,10 @@ export default class NumberControl extends React.Component<
           keyboard={keyboard}
           displayMode={displayMode}
         />
+
+        {suffix ? (
+          <Button className={cx(`${ns}suffix-button`)}>{suffix}</Button>
+        ) : null}
         {unitOptions ? (
           <Select
             value={unit}
