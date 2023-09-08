@@ -501,7 +501,22 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       return;
     }
 
-    const {maxSize, multiple, maxLength, translate: __} = this.props;
+    const {
+      maxSize,
+      multiple,
+      maxLength,
+      translate: __,
+      beforeUpload
+    } = this.props;
+
+    if (beforeUpload) {
+      const result = beforeUpload(files, this.props);
+
+      if (result === false) {
+        return;
+      }
+    }
+
     const nameField = this.props.nameField || 'name';
     let allowed =
       multiple && maxLength
