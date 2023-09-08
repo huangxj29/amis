@@ -247,6 +247,7 @@ export interface DateProps extends LocaleProps, ThemeProps {
   format?: string;
   closeOnSelect: boolean;
   disabled?: boolean;
+  readOnly?: boolean;
   minDate?: moment.Moment;
   maxDate?: moment.Moment;
   clearable?: boolean;
@@ -342,6 +343,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
   };
   constructor(props: DateProps) {
     super(props);
+    this.inputValueCache = this.state.inputValue || '';
     this.inputRef = React.createRef();
     this.handleChange = this.handleChange.bind(this);
     this.selectRannge = this.selectRannge.bind(this);
@@ -647,6 +649,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
       value,
       placeholder,
       disabled,
+      readOnly,
       inputFormat,
       dateFormat,
       timeFormat,
@@ -795,6 +798,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
           autoComplete="off"
           value={this.state.inputValue || ''}
           disabled={disabled}
+          readOnly={readOnly}
         />
 
         {clearable && !disabled && normalizeValue(value, format) ? (
