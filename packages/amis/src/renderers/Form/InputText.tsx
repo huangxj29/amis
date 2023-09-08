@@ -850,7 +850,7 @@ export default class TextControl extends React.PureComponent<
           onBlur={this.handleBlur}
           max={max}
           min={min}
-          autoComplete="off"
+          // autoComplete="off"
           size={10}
           step={step}
           onChange={this.handleNormalInputChange}
