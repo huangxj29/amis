@@ -119,7 +119,7 @@ export const MappingField = withStore(props =>
     static defaultProps: Partial<MappingProps> = {
       placeholder: '-',
       map: {
-        '*': '通配值'
+        '*': '-'
       }
     };
 
