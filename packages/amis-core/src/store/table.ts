@@ -302,6 +302,7 @@ export const TableStore = iRendererStore
     hideCheckToggler: false,
     combineNum: 0,
     combineFromIndex: 0,
+    isCombineSelect: false,
     formsRef: types.optional(types.array(types.frozen()), []),
     maxKeepItemSelectionLength: 0,
     keepItemSelectionOnPageChange: false,
@@ -758,6 +759,7 @@ export const TableStore = iRendererStore
       config.combineFromIndex !== void 0 &&
         (self.combineFromIndex =
           parseInt(config.combineFromIndex as any, 10) || 0);
+      config.isCombineSelect !== void 0 && (self.isCombineSelect = config.isCombineSelect);
 
       config.maxKeepItemSelectionLength !== void 0 &&
         (self.maxKeepItemSelectionLength = config.maxKeepItemSelectionLength);
@@ -951,7 +953,14 @@ export const TableStore = iRendererStore
         }
       }
 
-      return combineCell(arr, keys);
+      if (self.isCombineSelect) {
+        let key = keys[0]
+        let res = combineCell(arr, keys);
+        for (const row of arr) {
+          row.rowSpans['__checkme'] = row.rowSpans[key]
+        }
+        return res
+      } else return combineCell(arr, keys)
     }
 
     function initChildren(

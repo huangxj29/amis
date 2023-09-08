@@ -274,6 +274,11 @@ export interface TableSchema extends BaseSchema {
   combineFromIndex?: number;
 
   /**
+   * 合并单元格，配置批量操作框是否一起合并
+   */
+  isCombineSelect?: boolean;
+
+  /**
    * 顶部总结行
    */
   prefixRow?: Array<SchemaObject>;
@@ -340,6 +345,7 @@ export interface TableProps extends RendererProps {
   affixColumns?: boolean;
   combineNum?: number | SchemaExpression;
   combineFromIndex?: number;
+  isCombineSelect?: boolean;
   footable?:
     | boolean
     | {
@@ -441,6 +447,7 @@ export default class Table extends React.Component<TableProps, object> {
     'itemActions',
     'combineNum',
     'combineFromIndex',
+    'isCombineSelect',
     'items',
     'columns',
     'valueField',
@@ -554,6 +561,7 @@ export default class Table extends React.Component<TableProps, object> {
       itemDraggableOn,
       hideCheckToggler,
       combineFromIndex,
+      isCombineSelect,
       expandConfig,
       formItem,
       keepItemSelectionOnPageChange,
@@ -584,6 +592,7 @@ export default class Table extends React.Component<TableProps, object> {
       hideCheckToggler,
       combineNum,
       combineFromIndex,
+      isCombineSelect,
       keepItemSelectionOnPageChange,
       maxKeepItemSelectionLength
     });
@@ -813,6 +822,7 @@ export default class Table extends React.Component<TableProps, object> {
         hideCheckToggler: props.hideCheckToggler,
         combineNum: combineNum,
         combineFromIndex: props.combineFromIndex,
+        isCombineSelect: props.isCombineSelect,
         expandConfig: props.expandConfig
       });
     }
@@ -1219,9 +1229,23 @@ export default class Table extends React.Component<TableProps, object> {
         forEach(
           table.querySelectorAll('thead>tr:first-child>th'),
           (item: HTMLElement) => {
-            const width = widths2[item.getAttribute('data-index') as string];
-            item.style.cssText += `width: ${width}px; height: ${heights.header2}px`;
-            totalWidth2 += width;
+            const rowSpan = Number(item.getAttribute('rowspan'));
+            const colSpan = Number(item.getAttribute('colspan'));
+            let thWidth = widths2[item.getAttribute('data-index') as string];
+            let thHeight = Number(heights.header2);
+
+            /* 考虑表头分组的情况，需要将固定列中对应的表头的高度按照rowSpan扩大指定倍数 */
+            if (!isNaN(thHeight) && !isNaN(rowSpan)) {
+              thHeight *= rowSpan;
+            }
+
+            /* 考虑表头分组的情况，需要将分组表头按照colSpan缩小至指定倍数 */
+            if (!isNaN(thWidth) && !isNaN(colSpan) && colSpan !== 0) {
+              thWidth /= colSpan;
+            }
+
+            item.style.cssText += `width: ${thWidth}px; height: ${thHeight}px`;
+            totalWidth2 += thWidth;
           }
         );
 
@@ -2091,19 +2115,39 @@ export default class Table extends React.Component<TableProps, object> {
     }
 
     if (column.type === '__checkme') {
-      return (
-        <td key={props.key} className={cx(column.pristine.className)}>
-          <Checkbox
-            classPrefix={ns}
-            type={multiple ? 'checkbox' : 'radio'}
-            checked={item.checked}
-            disabled={item.checkdisable || !item.checkable}
-            onChange={
-              checkOnItemClick ? noop : this.handleCheck.bind(this, item)
-            }
-          />
-        </td>
-      );
+      if (this.props.isCombineSelect) {
+        return item.rowSpans['__checkme'] > 0 ? (
+          <td
+            key={props.key}
+            className={cx(column.pristine.className)}
+            rowSpan={item.rowSpans['__checkme']}
+          >
+            <Checkbox
+              classPrefix={ns}
+              type={multiple ? 'checkbox' : 'radio'}
+              checked={item.checked}
+              disabled={item.checkdisable || !item.checkable}
+              onChange={
+                checkOnItemClick ? noop : this.handleCheck.bind(this, item)
+              }
+            />
+          </td>
+        ) : null;
+      } else {
+        return (
+          <td key={props.key} className={cx(column.pristine.className)}>
+            <Checkbox
+              classPrefix={ns}
+              type={multiple ? 'checkbox' : 'radio'}
+              checked={item.checked}
+              disabled={item.checkdisable || !item.checkable}
+              onChange={
+                checkOnItemClick ? noop : this.handleCheck.bind(this, item)
+              }
+            />
+          </td>
+        );
+      }
     } else if (column.type === '__dragme') {
       return (
         <td
@@ -2312,14 +2356,25 @@ export default class Table extends React.Component<TableProps, object> {
                 const renderColumns = columns.filter(a => ~item.has.indexOf(a));
 
                 return renderColumns.length ? (
-                  <th
-                    key={index}
-                    data-index={item.index}
-                    colSpan={renderColumns.length}
-                    rowSpan={item.rowSpan}
-                  >
-                    {item.label}
-                  </th>
+                  item.rowSpan === 1 ? ( // 如果是分组自己，则用 th 渲染
+                    <th
+                      key={index}
+                      data-index={item.index}
+                      colSpan={renderColumns.length}
+                      rowSpan={item.rowSpan}
+                    >
+                      {item.label}
+                    </th>
+                  ) : (
+                    // 否则走 renderCell 因为不走的话，排序按钮不会渲染
+                    this.renderHeadCell(item.has[0], {
+                      'label': item.label,
+                      'key': index,
+                      'data-index': item.index,
+                      'colSpan': renderColumns.length,
+                      'rowSpan': item.rowSpan
+                    })
+                  )
                 ) : null;
               })}
             </tr>
