@@ -345,7 +345,7 @@ addSchemaFilter(function (scheam: Schema, renderer) {
 
 const controlMapping: any = {
   'array': 'input-array',
-  'button-group': 'button-group-select',
+  // 'button-group': 'button-group-select',
   'city': 'input-city',
   'color': 'input-color',
   'date': 'input-date',

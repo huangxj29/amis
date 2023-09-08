@@ -207,6 +207,8 @@ export default class Panel extends React.Component<PanelProps> {
       formHorizontal,
       subFormMode,
       subFormHorizontal,
+      collapsedAble,
+      collapsed,
       ...rest
     } = this.props;
 
