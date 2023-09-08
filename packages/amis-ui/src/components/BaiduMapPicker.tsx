@@ -3,6 +3,7 @@ import {ClassNamesFn, themeable} from 'amis-core';
 import {loadScript, autobind, uuid} from 'amis-core';
 import debounce from 'lodash/debounce';
 import {Icon} from './icons';
+import {toast} from './Toast';
 
 declare const BMap: any;
 
@@ -37,7 +38,7 @@ interface MapPickerProps {
     lng: number;
     city?: string;
   };
-  onChange: (value: any) => void;
+  onChange?: (value: any) => void;
 }
 
 interface LocationItem {
@@ -95,13 +96,17 @@ export class BaiduMapPicker extends React.Component<
     } else {
       loadScript(
         `//api.map.baidu.com/api?v=3.0&ak=${this.props.ak}&callback={{callback}}`
-      ).then(this.initMap);
+      )
+        .then(this.initMap)
+        .catch(() => {
+          toast.error('地图加载失败，请稍后重试');
+        });
     }
   }
 
   componentWillUnmount() {
     this.ac?.dispose?.();
-    document.body.removeChild(this.placeholderInput!);
+    this.placeholderInput && document.body.removeChild(this.placeholderInput);
 
     delete this.placeholderInput;
     delete this.map;
@@ -165,15 +170,14 @@ export class BaiduMapPicker extends React.Component<
         if (poiLength) {
           for (let i = 0; i < poiLength; i++) {
             const poi = result.getPoi(i);
-            sugs.push(
-              [
-                poi.province,
-                poi.city,
-                poi.district,
-                poi.street,
-                poi.business
-              ].join(' ')
-            );
+            const str = [
+              poi.province,
+              poi.city,
+              poi.district,
+              poi.street,
+              poi.business
+            ].join(' ');
+            sugs.indexOf(str) === -1 && sugs.push(str);
           }
           this.setState({
             sugs
@@ -186,6 +190,10 @@ export class BaiduMapPicker extends React.Component<
   }
 
   getLocations(point: any, select?: boolean) {
+    // 说明已经销毁了。
+    if (!this.map) {
+      return;
+    }
     const map = this.map;
 
     map.clearOverlays();
@@ -288,21 +296,23 @@ export class BaiduMapPicker extends React.Component<
     if (this.props.coordinatesType == 'gcj02') {
       this.covertPoint(point, COORDINATES_BD09, COORDINATES_GCJ02).then(
         (convertedPoint: any) => {
-          this.props?.onChange({
-            address: loc.address.trim() || loc.title,
-            lat: convertedPoint.lat,
-            lng: convertedPoint.lng,
-            city: loc.city
-          });
+          typeof this.props?.onChange === 'function' &&
+            this.props.onChange({
+              address: loc.address.trim() || loc.title,
+              lat: convertedPoint.lat,
+              lng: convertedPoint.lng,
+              city: loc.city
+            });
         }
       );
     } else {
-      this.props?.onChange({
-        address: loc.address.trim() || loc.title,
-        lat: loc.lat,
-        lng: loc.lng,
-        city: loc.city
-      });
+      typeof this.props?.onChange === 'function' &&
+        this.props?.onChange({
+          address: loc.address.trim() || loc.title,
+          lat: loc.lat,
+          lng: loc.lng,
+          city: loc.city
+        });
     }
   }
 
@@ -318,11 +328,15 @@ export class BaiduMapPicker extends React.Component<
       onSearchComplete: () => {
         const results = local.getResults();
         const poi = results.getPoi(0);
-        this.setState({
-          inputValue: poi.title,
-          sugs: []
-        });
-        this.getLocations(poi.point, true);
+        if (poi) {
+          this.setState({
+            inputValue: poi.title,
+            sugs: []
+          });
+          this.getLocations(poi.point, true);
+        } else {
+          console.log(value + '未搜索到结果');
+        }
       }
     });
     local.search(value);
