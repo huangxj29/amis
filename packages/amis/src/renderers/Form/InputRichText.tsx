@@ -158,51 +158,52 @@ export default class RichTextControl extends React.Component<
     } else {
       const fetcher = props.env.fetcher;
       this.config = {
-        ...props.options,
-        images_upload_handler: async (
-          blobInfo: any,
-          ok: (locaiton: string) => void,
-          fail: (reason: string) => void
-        ) => {
-          const formData = new FormData();
-          formData.append(
-            props.fileField,
-            blobInfo.blob(),
-            blobInfo.filename()
-          );
+        images_upload_handler: (blobInfo: any, progress: any) => {
+          return new Promise(async (resolve, reject) => {
+            const formData = new FormData();
+            formData.append(
+              props.fileField,
+              blobInfo.blob(),
+              blobInfo.filename()
+            );
 
-          try {
-            const receiver = {
-              adaptor: (payload: object) => {
-                return {
-                  ...payload,
-                  data: payload
-                };
-              },
-              ...normalizeApi(tokenize(props.receiver, props.data), 'post')
-            };
+            try {
+              const receiver = {
+                adaptor: (payload: object) => {
+                  return {
+                    ...payload,
+                    data: payload
+                  };
+                },
+                ...normalizeApi(tokenize(props.receiver, props.data), 'post')
+              };
+              const response = await fetcher(receiver, formData, {
+                method: 'post'
+              });
 
-            const response = await fetcher(receiver, formData, {
-              method: 'post'
-            });
-            if (response.ok) {
-              const location =
-                response.data?.link ||
-                response.data?.url ||
-                response.data?.value ||
-                response.data?.data?.link ||
-                response.data?.data?.url ||
-                response.data?.data?.value;
-              if (location) {
-                ok(location);
+              if (response.ok) {
+                const location =
+                  response.data?.link ||
+                  response.data?.url ||
+                  response.data?.value ||
+                  response.data?.data?.link ||
+                  response.data?.data?.url ||
+                  response.data?.data?.value;
+                if (location) {
+                  resolve(location);
+                } else {
+                  console.warn('must have return value');
+                  reject(response.msg || response.data?.msg);
+                }
               } else {
-                console.warn('must have return value');
+                reject(response.msg || response.data?.msg);
               }
+            } catch (e) {
+              reject(e);
             }
-          } catch (e) {
-            fail(e);
-          }
-        }
+          });
+        },
+        ...props.options
       };
     }
   }
