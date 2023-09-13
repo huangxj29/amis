@@ -20,16 +20,39 @@ const settings = {
   globals: {}
 };
 
-const external = id =>
-  new RegExp(
+const external = id => {
+  const result = new RegExp(
     `^(?:${Object.keys(dependencies)
-      .concat([])
+      .concat([
+        'monaco-editor',
+        'react',
+        'react-dom',
+        'rc-input-number',
+        '@rc-component/mini-decimal',
+        '@babel/runtime'
+      ])
       .map(value =>
         value.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&').replace(/-/g, '\\x2d')
       )
       .join('|')})`
   ).test(id);
+
+  if (!result && ~id.indexOf('node_modules')) {
+    console.log(id);
+  }
+
+  return result;
+};
 const input = './src/index.tsx';
+
+/** 获取子包编译后的入口路径，需要使用相对路径 */
+const getCompiledEntryPath = (repo, format) =>
+  path.join(
+    '..',
+    repo,
+    repo === 'amis-formula' || format === 'cjs' ? 'lib' : 'esm',
+    'index.js'
+  );
 
 export default [
   {
@@ -91,7 +114,50 @@ function transpileDynamicImportForCJS(options) {
   };
 }
 
+// 参考：https://github.com/theKashey/jsx-compress-loader/blob/master/src/index.js
+function transpileReactCreateElement() {
+  return {
+    name: 'transpile-react-create-element',
+    enforce: 'post',
+    transform: (code, id) => {
+      if (
+        /\.(?:tsx|jsx|svg)$/.test(id) &&
+        code.indexOf('React.createElement') !== -1
+      ) {
+        const separator = '\n\n;';
+        const appendText =
+          `\n` +
+          `var __react_jsx__ = require('react');\n` +
+          `var _J$X_ = (__react_jsx__["default"] || __react_jsx__).createElement;\n` +
+          `var _J$F_ = (__react_jsx__["default"] || __react_jsx__).Fragment;\n`;
+
+        const newSource = code
+          .replace(/React\.createElement\(/g, '_J$X_(')
+          .replace(/React\.createElement\(/g, '_J$F_(');
+
+        code = [appendText, newSource].join(separator);
+      }
+
+      return {
+        code
+      };
+    }
+  };
+}
+
 function getPlugins(format = 'esm') {
+  const overridePaths = [
+    'amis-formula',
+    'amis-core',
+    'amis-ui',
+    'office-viewer'
+  ].reduce(
+    (prev, current) => ({
+      ...prev,
+      [current]: [getCompiledEntryPath(current, format)]
+    }),
+    {}
+  );
   const typeScriptOptions = {
     typescript: require('typescript'),
     sourceMap: false,
@@ -100,13 +166,16 @@ function getPlugins(format = 'esm') {
       ? {
           compilerOptions: {
             rootDir: './src',
-            outDir: path.dirname(module)
+            outDir: path.dirname(module),
+            /** 覆盖继承自顶层tsconfig的paths配置，编译时应该去掉，避免报错@rollup/plugin-typescript TS6305 */
+            paths: overridePaths
           }
         }
       : {
           compilerOptions: {
             rootDir: './src',
-            outDir: path.dirname(main)
+            outDir: path.dirname(main),
+            paths: overridePaths
           }
         })
   };
@@ -131,11 +200,12 @@ function getPlugins(format = 'esm') {
     commonjs({
       sourceMap: false
     }),
+    format === 'esm' ? null : transpileReactCreateElement(),
     license({
       banner: `
         ${name} v${version}
         Copyright 2018<%= moment().format('YYYY') > 2018 ? '-' + moment().format('YYYY') : null %> ${author}
       `
     })
-  ];
+  ].filter(item => item);
 }

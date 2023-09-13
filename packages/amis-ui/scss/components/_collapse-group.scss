@@ -24,18 +24,29 @@
     }
   }
 
-  .#{$ns}Collapse:not(:last-child) {
+  .#{$ns}Collapse:not(:last-child):not(.is-mobile) {
     border-bottom: none;
   }
 
   &.icon-position-right {
     .#{$ns}Collapse-header {
-      .#{$ns}Collapse-arrow {
+      .#{$ns}Collapse-arrow-wrap {
         float: right;
+        margin-right: 0;
       }
 
       .#{$ns}Collapse-icon-tranform {
         float: right;
+      }
+    }
+  }
+
+  &.is-mobile {
+    &.icon-position-right {
+      .#{$ns}Collapse-header {
+        .#{$ns}Collapse-arrow-wrap {
+          margin-right: px2rem(-18px);
+        }
       }
     }
   }

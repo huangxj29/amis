@@ -1,5 +1,12 @@
 import React from 'react';
-import {FormItem, FormControlProps, FormBaseControl} from 'amis-core';
+import {
+  FormItem,
+  FormControlProps,
+  FormBaseControl,
+  buildApi,
+  qsstringify,
+  autobind
+} from 'amis-core';
 import cx from 'classnames';
 import {LazyComponent} from 'amis-core';
 import {tokenize} from 'amis-core';
@@ -9,7 +16,7 @@ import type {FormBaseControlSchema, SchemaApi} from '../../Schema';
 
 /**
  * RichText
- * 文档：https://baidu.gitee.io/amis/docs/components/form/input-rich-text
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/input-rich-text
  */
 export interface RichTextControlSchema extends FormBaseControlSchema {
   type: 'input-rich-text';
@@ -108,8 +115,23 @@ export default class RichTextControl extends React.Component<
     this.handleFocus = this.handleFocus.bind(this);
     this.handleBlur = this.handleBlur.bind(this);
     this.handleChange = this.handleChange.bind(this);
-
+    const imageReceiver = normalizeApi(
+      props.receiver,
+      props.receiver.method || 'post'
+    );
+    imageReceiver.data = imageReceiver.data || {};
+    const imageApi = buildApi(imageReceiver, props.data, {
+      method: props.receiver.method || 'post'
+    });
     if (finnalVendor === 'froala') {
+      const videoReceiver = normalizeApi(
+        props.videoReceiver,
+        props.videoReceiver.method || 'post'
+      );
+      videoReceiver.data = videoReceiver.data || {};
+      const videoApi = buildApi(videoReceiver, props.data, {
+        method: props.videoReceiver.method || 'post'
+      });
       this.config = {
         imageAllowedTypes: ['jpeg', 'jpg', 'png', 'gif'],
         imageDefaultAlign: 'left',
@@ -135,13 +157,15 @@ export default class RichTextControl extends React.Component<
         ...props.options,
         editorClass: props.editorClass,
         placeholderText: props.translate(props.placeholder),
-        imageUploadURL: tokenize(props.receiver, props.data),
+        imageUploadURL: imageApi.url,
         imageUploadParams: {
-          from: 'rich-text'
+          from: 'rich-text',
+          ...imageApi.data
         },
-        videoUploadURL: tokenize(props.videoReceiver, props.data),
+        videoUploadURL: videoApi.url,
         videoUploadParams: {
-          from: 'rich-text'
+          from: 'rich-text',
+          ...videoApi.data
         },
         events: {
           ...(props.options && props.options.events),
@@ -158,11 +182,23 @@ export default class RichTextControl extends React.Component<
     } else {
       const fetcher = props.env.fetcher;
       this.config = {
-        images_upload_handler: (blobInfo: any, progress: any) => {
-          return new Promise(async (resolve, reject) => {
+        onLoaded: this.handleTinyMceLoaded,
+        images_upload_handler: (blobInfo: any, progress: any) =>
+          new Promise(async (resolve, reject) => {
             const formData = new FormData();
+
+            if (imageApi.data) {
+              qsstringify(imageApi.data)
+                .split('&')
+                .filter(item => item !== '')
+                .forEach(item => {
+                  let parts = item.split('=');
+                  formData.append(parts[0], decodeURIComponent(parts[1]));
+                });
+            }
+
             formData.append(
-              props.fileField,
+              props.fileField || 'file',
               blobInfo.blob(),
               blobInfo.filename()
             );
@@ -175,12 +211,12 @@ export default class RichTextControl extends React.Component<
                     data: payload
                   };
                 },
-                ...normalizeApi(tokenize(props.receiver, props.data), 'post')
+                ...imageApi
               };
+
               const response = await fetcher(receiver, formData, {
                 method: 'post'
               });
-
               if (response.ok) {
                 const location =
                   response.data?.link ||
@@ -201,8 +237,7 @@ export default class RichTextControl extends React.Component<
             } catch (e) {
               reject(e);
             }
-          });
-        },
+          }),
         ...props.options
       };
     }
@@ -234,9 +269,16 @@ export default class RichTextControl extends React.Component<
     onChange?.(value, submitOnChange, changeImmediately);
   }
 
+  @autobind
+  handleTinyMceLoaded(tinymce: any) {
+    const env = this.props.env;
+    return env?.loadTinymcePlugin?.(tinymce);
+  }
+
   render() {
     const {
       className,
+      style,
       classPrefix: ns,
       value,
       onChange,

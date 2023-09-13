@@ -1,15 +1,22 @@
 import React from 'react';
 import {findDOMNode} from 'react-dom';
-import {Renderer, RendererProps} from 'amis-core';
-import {SchemaNode, Schema, ActionObject} from 'amis-core';
-import {filter} from 'amis-core';
-import cx from 'classnames';
-import {Button, Spinner} from 'amis-ui';
-import {Checkbox} from 'amis-ui';
-import {ListStore, IListStore} from 'amis-core';
-import {observer} from 'mobx-react';
+import Sortable from 'sortablejs';
 import omit from 'lodash/omit';
+import {Button, Spinner, Checkbox, Icon, SpinnerExtraProps} from 'amis-ui';
 import {
+  ListStore,
+  IListStore,
+  isPureVariable,
+  resolveVariable,
+  resolveVariableAndFilter,
+  Renderer,
+  RendererProps,
+  SchemaNode,
+  Schema,
+  ActionObject,
+  filter,
+  autobind,
+  createObject,
   anyChanged,
   getScrollParent,
   difference,
@@ -18,17 +25,11 @@ import {
   noop,
   isClickOnInput
 } from 'amis-core';
-import {
-  isPureVariable,
-  resolveVariable,
-  resolveVariableAndFilter
-} from 'amis-core';
+
 import QuickEdit, {SchemaQuickEdit} from './QuickEdit';
 import PopOver, {SchemaPopOver} from './PopOver';
-import Sortable from 'sortablejs';
 import {TableCell} from './Table';
 import Copyable, {SchemaCopyable} from './Copyable';
-import {Icon} from 'amis-ui';
 import {
   BaseSchema,
   SchemaClassName,
@@ -41,7 +42,8 @@ import {
 } from '../Schema';
 import {ActionSchema} from './Action';
 import {SchemaRemark} from './Remark';
-import type {IItem} from 'amis-core/lib/store/list';
+import type {IItem} from 'amis-core';
+import type {OnEventProps} from 'amis-core';
 
 /**
  * 不指定类型默认就是文本
@@ -56,6 +58,11 @@ export type ListBodyFieldObject = {
    * label 类名
    */
   labelClassName?: SchemaClassName;
+
+  /**
+   * 内层组件的CSS类名
+   */
+  innerClassName?: SchemaClassName;
 
   /**
    * 绑定字段名
@@ -121,7 +128,7 @@ export interface ListItemSchema extends Omit<BaseSchema, 'type'> {
 
 /**
  * List 列表展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/card
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/card
  */
 export interface ListSchema extends BaseSchema {
   /**
@@ -204,7 +211,7 @@ export interface ListSchema extends BaseSchema {
   itemDraggableOn?: SchemaExpression;
 
   /**
-   * 点击卡片的时候是否勾选卡片。
+   * 点击列表单行时，是否选择
    */
   checkOnItemClick?: boolean;
 
@@ -231,7 +238,8 @@ export interface Column {
 
 export interface ListProps
   extends RendererProps,
-    Omit<ListSchema, 'type' | 'className'> {
+    Omit<ListSchema, 'type' | 'className'>,
+    SpinnerExtraProps {
   store: IListStore;
   selectable?: boolean;
   selected?: Array<any>;
@@ -252,7 +260,7 @@ export interface ListProps
     }
   ) => void;
   onSaveOrder?: (moved: Array<object>, items: Array<object>) => void;
-  onQuery: (values: object) => void;
+  onQuery: (values: object) => any;
 }
 
 export default class List extends React.Component<ListProps, object> {
@@ -302,7 +310,6 @@ export default class List extends React.Component<ListProps, object> {
     this.reset = this.reset.bind(this);
     this.dragTipRef = this.dragTipRef.bind(this);
     this.getPopOverContainer = this.getPopOverContainer.bind(this);
-    this.affixDetect = this.affixDetect.bind(this);
     this.bodyRef = this.bodyRef.bind(this);
     this.renderToolbar = this.renderToolbar.bind(this);
 
@@ -313,15 +320,18 @@ export default class List extends React.Component<ListProps, object> {
       orderBy,
       orderDir,
       multiple,
+      strictMode,
       hideCheckToggler,
       itemCheckableOn,
       itemDraggableOn
     } = props;
 
     store.update({
-      multiple,
-      selectable,
-      draggable,
+      /** Card嵌套List情况下该属性获取到的值为ListStore的默认值, 会导致Schema中的配置被覆盖 */
+      multiple: multiple || props?.$schema.multiple,
+      strictMode: strictMode || props?.$schema.strictMode,
+      selectable: selectable || props?.$schema.selectable,
+      draggable: draggable || props?.$schema.draggable,
       orderBy,
       orderDir,
       hideCheckToggler,
@@ -364,20 +374,6 @@ export default class List extends React.Component<ListProps, object> {
     return updateItems;
   }
 
-  componentDidMount() {
-    let parent: HTMLElement | Window | null = getScrollParent(
-      findDOMNode(this) as HTMLElement
-    );
-    if (!parent || parent === document.body) {
-      parent = window;
-    }
-
-    this.parentNode = parent;
-    this.affixDetect();
-    parent.addEventListener('scroll', this.affixDetect);
-    window.addEventListener('resize', this.affixDetect);
-  }
-
   componentDidUpdate(prevProps: ListProps) {
     const props = this.props;
     const store = props.store;
@@ -390,6 +386,7 @@ export default class List extends React.Component<ListProps, object> {
           'orderBy',
           'orderDir',
           'multiple',
+          'strictMode',
           'hideCheckToggler',
           'itemCheckableOn',
           'itemDraggableOn'
@@ -400,6 +397,7 @@ export default class List extends React.Component<ListProps, object> {
     ) {
       store.update({
         multiple: props.multiple,
+        strictMode: props.strictMode,
         selectable: props.selectable,
         draggable: props.draggable,
         orderBy: props.orderBy,
@@ -423,38 +421,8 @@ export default class List extends React.Component<ListProps, object> {
     }
   }
 
-  componentWillUnmount() {
-    const parent = this.parentNode;
-    parent && parent.removeEventListener('scroll', this.affixDetect);
-    window.removeEventListener('resize', this.affixDetect);
-  }
-
   bodyRef(ref: HTMLDivElement) {
     this.body = ref;
-  }
-
-  affixDetect() {
-    if (!this.props.affixHeader || !this.body) {
-      return;
-    }
-
-    const ns = this.props.classPrefix;
-    const dom = findDOMNode(this) as HTMLElement;
-    const afixedDom = dom.querySelector(`.${ns}List-fixedTop`) as HTMLElement;
-
-    if (!afixedDom) {
-      return;
-    }
-
-    const clip = (this.body as HTMLElement).getBoundingClientRect();
-    const offsetY =
-      this.props.affixOffsetTop ?? this.props.env.affixOffsetTop ?? 0;
-    const affixed = clip.top < offsetY && clip.top + clip.height - 40 > offsetY;
-
-    this.body.offsetWidth &&
-      (afixedDom.style.cssText = `top: ${offsetY}px;width: ${this.body.offsetWidth}px;`);
-    affixed ? afixedDom.classList.add('in') : afixedDom.classList.remove('in');
-    // store.markHeaderAffix(clip.top < offsetY && (clip.top + clip.height - 40) > offsetY);
   }
 
   getPopOverContainer() {
@@ -462,10 +430,23 @@ export default class List extends React.Component<ListProps, object> {
   }
 
   handleAction(e: React.UIEvent<any>, action: ActionObject, ctx: object) {
-    const {onAction} = this.props;
+    const {data, dispatchEvent, onAction, onEvent} = this.props;
+    const hasClickActions =
+      onEvent &&
+      Array.isArray(onEvent?.itemClick?.actions) &&
+      onEvent.itemClick.actions.length > 0;
 
-    // todo
-    onAction(e, action, ctx);
+    if (hasClickActions) {
+      dispatchEvent(
+        'itemClick',
+        createObject(data, {
+          item: ctx
+        })
+      );
+    } else {
+      /** action无值代表List自身已经处理, 无需交给上层处理 */
+      action && onAction?.(e, action, ctx);
+    }
   }
 
   handleCheck(item: IItem) {
@@ -651,6 +632,7 @@ export default class List extends React.Component<ListProps, object> {
     actions = Array.isArray(actions) ? actions.concat() : [];
 
     if (
+      region === 'header' &&
       !~this.renderedToolbars.indexOf('check-all') &&
       (btn = this.renderCheckAll())
     ) {
@@ -880,7 +862,7 @@ export default class List extends React.Component<ListProps, object> {
   }
 
   renderDragToggler() {
-    const {store, multiple, selectable, env} = this.props;
+    const {store, multiple, selectable, popOverContainer, env} = this.props;
 
     if (!store.draggable || store.items.length < 2) {
       return null;
@@ -891,9 +873,7 @@ export default class List extends React.Component<ListProps, object> {
         iconOnly
         key="dragging-toggle"
         tooltip="对列表进行排序操作"
-        tooltipContainer={
-          env && env.getModalContainer ? env.getModalContainer : undefined
-        }
+        tooltipContainer={popOverContainer || env?.getModalContainer}
         size="sm"
         active={store.dragging}
         onClick={(e: React.MouseEvent<any>) => {
@@ -933,12 +913,17 @@ export default class List extends React.Component<ListProps, object> {
       multiple,
       store,
       onAction,
+      onEvent,
       hideCheckToggler,
       checkOnItemClick,
       itemAction,
       classnames: cx,
       translate: __
     } = this.props;
+    const hasClickActions =
+      onEvent &&
+      Array.isArray(onEvent?.itemClick?.actions) &&
+      onEvent.itemClick.actions.length > 0;
 
     return render(
       `${index}`,
@@ -961,10 +946,11 @@ export default class List extends React.Component<ListProps, object> {
         hideCheckToggler,
         checkOnItemClick,
         itemAction,
+        hasClickActions,
         selected: item.checked,
         onCheck: this.handleCheck,
+        onAction: this.handleAction,
         dragging: store.dragging,
-        onAction,
         data: item.locals,
         onQuickChange: store.dragging ? null : this.handleQuickChange,
         popOverContainer: this.getPopOverContainer
@@ -975,6 +961,7 @@ export default class List extends React.Component<ListProps, object> {
   render() {
     const {
       className,
+      style,
       itemClassName,
       store,
       placeholder,
@@ -985,11 +972,14 @@ export default class List extends React.Component<ListProps, object> {
       hideCheckToggler,
       checkOnItemClick,
       itemAction,
+      affixOffsetTop,
       affixHeader,
+      env,
       classnames: cx,
       size,
       translate: __,
-      loading = false
+      loading = false,
+      loadingConfig
     } = this.props;
 
     this.renderedToolbars = [];
@@ -1002,17 +992,24 @@ export default class List extends React.Component<ListProps, object> {
           [`List--${size}`]: size,
           'List--unsaved': !!store.modified || !!store.moved
         })}
+        style={style}
         ref={this.bodyRef}
       >
-        {affixHeader && heading && header ? (
-          <div className={cx('List-fixedTop')}>
+        {affixHeader ? (
+          <div
+            className={cx('List-fixedTop')}
+            style={{top: affixOffsetTop ?? env?.affixOffsetTop ?? 0}}
+          >
             {header}
             {heading}
           </div>
-        ) : null}
+        ) : (
+          <>
+            {header}
+            {heading}
+          </>
+        )}
 
-        {header}
-        {heading}
         {store.items.length ? (
           <div className={cx('List-items')}>
             {store.items.map((item, index) =>
@@ -1026,7 +1023,7 @@ export default class List extends React.Component<ListProps, object> {
         )}
 
         {this.renderFooter()}
-        <Spinner overlay show={loading} />
+        <Spinner overlay show={loading} loadingConfig={loadingConfig} />
       </div>
     );
   }
@@ -1059,6 +1056,8 @@ export interface ListItemProps
   checkable?: boolean;
   checkOnItemClick?: boolean;
   itemAction?: ActionSchema;
+  onEvent?: OnEventProps['onEvent'];
+  hasClickActions?: boolean;
 }
 export class ListItem extends React.Component<ListItemProps> {
   static defaultProps: Partial<ListItemProps> = {
@@ -1085,18 +1084,34 @@ export class ListItem extends React.Component<ListItemProps> {
     if (isClickOnInput(e)) {
       return;
     }
-    const {itemAction, onAction, item} = this.props;
-    if (itemAction) {
-      onAction && onAction(e, itemAction, item?.data);
-      return;
-    }
 
-    this.props.onCheck && this.props.onCheck(item);
+    const {
+      checkable,
+      checkOnItemClick,
+      itemAction,
+      onAction,
+      item,
+      onCheck,
+      hasClickActions
+    } = this.props;
+
+    // itemAction和itemClick事件统一交给List处理，itemClick事件会覆盖itemAction
+    onAction?.(
+      e,
+      hasClickActions ? undefined : itemAction,
+      hasClickActions ? item : item.locals
+    );
+
+    // itemAction, itemClick事件和checkOnItemClick为互斥关系
+    if (checkable && checkOnItemClick && !hasClickActions && !itemAction) {
+      onCheck?.(item);
+    }
   }
 
   handleCheck() {
-    const item = this.props.item;
-    this.props.onCheck && this.props.onCheck(item);
+    const {onCheck, item} = this.props;
+
+    onCheck?.(item);
   }
 
   handleAction(e: React.UIEvent<any>, action: ActionObject, ctx: object) {
@@ -1142,10 +1157,10 @@ export class ListItem extends React.Component<ListItemProps> {
         <div className={cx('ListItem-checkBtn')}>
           <Checkbox
             classPrefix={ns}
-            type={multiple ? 'checkbox' : 'radio'}
+            type={multiple !== false ? 'checkbox' : 'radio'}
             disabled={!checkable}
             checked={selected}
-            onChange={checkOnItemClick ? noop : this.handleCheck}
+            onChange={this.handleCheck}
             inline
           />
         </div>
@@ -1297,14 +1312,13 @@ export class ListItem extends React.Component<ListItemProps> {
       subTitle: subTitleTpl,
       desc: descTpl,
       avatarClassName,
-      checkOnItemClick,
       render,
-      checkable,
       classnames: cx,
       actionsPosition,
-      itemAction
+      itemAction,
+      onEvent,
+      hasClickActions
     } = this.props;
-
     const avatar = filter(avatarTpl, data);
     const title = filter(titleTpl, data);
     const subTitle = filter(subTitleTpl, data);
@@ -1312,15 +1326,11 @@ export class ListItem extends React.Component<ListItemProps> {
 
     return (
       <div
-        onClick={
-          (checkOnItemClick && checkable) || itemAction
-            ? this.handleClick
-            : undefined
-        }
+        onClick={this.handleClick}
         className={cx(
           `ListItem ListItem--actions-at-${actionsPosition || 'right'}`,
           {
-            'ListItem--hasItemAction': itemAction
+            'ListItem--hasItemAction': itemAction || hasClickActions
           },
           className
         )}
@@ -1383,6 +1393,7 @@ export class ListItemFieldRenderer extends TableCell {
       render,
       style,
       wrapperComponent: Component,
+      contentsOnly,
       labelClassName,
       value,
       data,
@@ -1418,9 +1429,10 @@ export class ListItemFieldRenderer extends TableCell {
       );
     }
 
-    if (!Component) {
+    if (contentsOnly) {
       return body as JSX.Element;
     }
+    Component = Component || 'div';
 
     return (
       <Component

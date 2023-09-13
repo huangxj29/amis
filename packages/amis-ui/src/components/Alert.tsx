@@ -3,7 +3,7 @@
  * @author fex
  */
 
-import React from 'react';
+import React, {version} from 'react';
 import {render} from 'react-dom';
 import Modal from './Modal';
 import Button from './Button';
@@ -11,6 +11,7 @@ import {ClassNamesFn, themeable, ThemeProps} from 'amis-core';
 import {LocaleProps, localeable} from 'amis-core';
 import Html from './Html';
 import type {PlainObject} from 'amis-core';
+// import {createRoot} from 'react-dom/client';
 export interface AlertProps extends ThemeProps, LocaleProps {
   container?: any;
   confirmText?: string;
@@ -18,17 +19,36 @@ export interface AlertProps extends ThemeProps, LocaleProps {
   title?: string;
   confirmBtnLevel?: string;
   alertBtnLevel?: string;
+  // isolate?: boolean;
+  children?: React.ReactElement;
+  closeOnEsc?: boolean;
+  size?: '' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  cancelBtnLevel?: string;
+}
+
+interface ConfirmOptions {
+  closeOnEsc?: AlertProps['closeOnEsc'];
+  size?: AlertProps['size'];
+  confirmBtnLevel?: AlertProps['confirmBtnLevel'];
+  cancelBtnLevel?: AlertProps['cancelBtnLevel'];
+  confirmText?: AlertProps['confirmText'];
+  cancelText?: AlertProps['cancelText'];
 }
 
 export interface AlertState {
   show: boolean;
   title?: string;
-  content: string;
+  content: string | React.ReactNode;
   confirm: boolean;
   prompt?: boolean;
   controls?: any;
   value?: any;
   confirmText?: string;
+  cancelText?: string;
+  closeOnEsc?: AlertProps['closeOnEsc'];
+  size?: AlertProps['size'];
+  confirmBtnLevel?: AlertProps['confirmBtnLevel'];
+  cancelBtnLevel?: AlertProps['cancelBtnLevel'];
 }
 
 export class Alert extends React.Component<AlertProps, AlertState> {
@@ -40,7 +60,15 @@ export class Alert extends React.Component<AlertProps, AlertState> {
       const container = document.body;
       const div = document.createElement('div');
       container.appendChild(div);
+
+      // if (parseInt(version.split('.')[0], 10) >= 18) {
+      //   const root = createRoot(div);
+      //   await new Promise<void>(resolve =>
+      //     root.render(<FinnalAlert ref={() => resolve()} />)
+      //   );
+      // } else {
       render(<FinnalAlert />, div);
+      // }
     }
 
     return Alert.instance[0];
@@ -53,7 +81,13 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     show: false,
     title: '',
     content: '',
-    confirm: false
+    confirm: false,
+    size: '',
+    confirmBtnLevel: 'primary',
+    cancelBtnLevel: 'default',
+    closeOnEsc: false,
+    confirmText: '确认',
+    cancelText: '取消'
   };
   constructor(props: AlertProps) {
     super(props);
@@ -73,7 +107,8 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     cancelText: 'cancel',
     title: 'Alert.info',
     alertBtnLevel: 'primary',
-    confirmBtnLevel: 'primary'
+    confirmBtnLevel: 'primary',
+    cancelBtnLevel: 'default'
   };
 
   componentDidMount() {
@@ -131,13 +166,38 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     });
   }
 
-  confirm(content: string, title?: string, confirmText?: string) {
+  confirm(
+    content: string | React.ReactNode,
+    title?: string,
+    optionsOrConfirmText?: string | ConfirmOptions,
+    cancelText?: string
+  ) {
     this.setState({
       title,
       content,
       show: true,
       confirm: true,
-      confirmText
+      confirmText:
+        typeof optionsOrConfirmText === 'string'
+          ? optionsOrConfirmText
+          : optionsOrConfirmText?.confirmText,
+      cancelText,
+      size:
+        typeof optionsOrConfirmText === 'string'
+          ? ''
+          : optionsOrConfirmText?.size,
+      closeOnEsc:
+        typeof optionsOrConfirmText === 'string'
+          ? false
+          : optionsOrConfirmText?.closeOnEsc,
+      confirmBtnLevel:
+        typeof optionsOrConfirmText === 'string'
+          ? 'primary'
+          : optionsOrConfirmText?.confirmBtnLevel,
+      cancelBtnLevel:
+        typeof optionsOrConfirmText === 'string'
+          ? 'default'
+          : optionsOrConfirmText?.cancelBtnLevel
     });
 
     return new Promise(resolve => {
@@ -200,15 +260,19 @@ export class Alert extends React.Component<AlertProps, AlertState> {
       title,
       confirmBtnLevel,
       alertBtnLevel,
+      cancelBtnLevel,
       classnames: cx
     } = this.props;
-    let theme = this.props.theme || 'cxd';
+    let theme = this.props.theme || 'antd';
     if (theme === 'default') {
-      theme = 'cxd';
+      theme = 'antd';
     }
     const __ = this.props.translate;
     const finalTitle = __(this.state.title ?? title);
     const finalConfirmText = __(this.state.confirmText ?? confirmText);
+    const finalCancelText = __(this.state.cancelText ?? cancelText);
+    const finalConfirmBtnLevel = this.state.confirmBtnLevel ?? confirmBtnLevel;
+    const finalCancelBtnLevel = this.state.cancelBtnLevel ?? cancelBtnLevel;
 
     return (
       <Modal
@@ -217,7 +281,8 @@ export class Alert extends React.Component<AlertProps, AlertState> {
         onHide={this.handleCancel}
         container={container}
         ref={this.modalRef}
-        closeOnEsc
+        closeOnEsc={this.state.closeOnEsc}
+        size={this.state.size}
       >
         {finalTitle ? (
           <div className={cx('Modal-header')}>
@@ -233,19 +298,23 @@ export class Alert extends React.Component<AlertProps, AlertState> {
               this.scopeRef,
               theme
             )
-          ) : (
+          ) : typeof this.state.content === 'string' ? (
             <Html html={this.state.content} />
+          ) : (
+            <>{this.state.content}</>
           )}
         </div>
         {finalConfirmText ? (
           <div className={cx('Modal-footer')}>
             {this.state.confirm || this.state.prompt ? (
-              <Button onClick={this.handleCancel}>{__(cancelText)}</Button>
+              <Button level={finalCancelBtnLevel} onClick={this.handleCancel}>
+                {__(finalCancelText)}
+              </Button>
             ) : null}
             <Button
               level={
                 this.state.confirm || this.state.prompt
-                  ? confirmBtnLevel
+                  ? finalConfirmBtnLevel
                   : alertBtnLevel
               }
               onClick={this.handleConfirm}
@@ -281,22 +350,35 @@ function renderForm(
   return renderSchemaFn?.(controls, value, callback, scopeRef, theme);
 }
 
-export const alert: (content: string, title?: string) => void = (
+export const alert: (content: string, title?: string) => Promise<void> = async (
   content,
   title
-) => Alert.getInstance().alert(content, title);
+) => {
+  const instance = await Alert.getInstance();
+  return instance.alert(content, title);
+};
 export const confirm: (
-  content: string,
+  content: string | React.ReactNode,
   title?: string,
-  confirmText?: string
-) => Promise<any> = (content, title, confirmText) =>
-  Alert.getInstance().confirm(content, title, confirmText);
+  optionsOrConfirmText?: string | ConfirmOptions,
+  cancelText?: string
+) => Promise<any> = async (
+  content,
+  title,
+  optionsOrConfirmText,
+  cancelText
+) => {
+  const instance = await Alert.getInstance();
+  return instance.confirm(content, title, optionsOrConfirmText, cancelText);
+};
 export const prompt: (
   controls: any,
   defaultvalue?: any,
   title?: string,
   confirmText?: string
-) => Promise<any> = (controls, defaultvalue, title, confirmText) =>
-  Alert.getInstance().prompt(controls, defaultvalue, title, confirmText);
+) => Promise<any> = async (controls, defaultvalue, title, confirmText) => {
+  const instance = await Alert.getInstance();
+  return instance.prompt(controls, defaultvalue, title, confirmText);
+};
 export const FinnalAlert = themeable(localeable(Alert));
 export default FinnalAlert;

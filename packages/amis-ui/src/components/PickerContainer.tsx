@@ -9,12 +9,12 @@ import {
 } from 'amis-core';
 import Modal from './Modal';
 import Button from './Button';
+import ConfirmBox, {ConfirmBoxProps} from './ConfirmBox';
 
-export interface PickerContainerProps extends ThemeProps, LocaleProps {
-  title?: string;
-  showTitle?: boolean;
-  showFooter?: boolean;
-  headerClassName?: string;
+export interface PickerContainerProps
+  extends ThemeProps,
+    LocaleProps,
+    Omit<ConfirmBoxProps, 'children' | 'type'> {
   children: (props: {
     onClick: (e: React.MouseEvent) => void;
     setState: (state: any) => void;
@@ -25,19 +25,15 @@ export interface PickerContainerProps extends ThemeProps, LocaleProps {
     value: any;
     onChange: (value: any) => void;
     setState: (state: any) => void;
+    loading?: boolean;
     [propName: string]: any;
   }) => JSX.Element | null;
   value?: any;
-  beforeConfirm?: (bodyRef: any) => any;
-  onConfirm?: (value?: any) => void;
-  onCancel?: () => void;
-  popOverContainer?: any;
-  popOverClassName?: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
   onFocus?: () => void;
   onClose?: () => void;
-
+  disabled?: boolean;
   onPickerOpen?: (props: PickerContainerProps) => any;
+  popOverContainer?: any;
 }
 
 export interface PickerContainerState {
@@ -68,6 +64,7 @@ export class PickerContainer extends React.Component<
   @autobind
   async handleClick() {
     const state = {
+      value: this.props.value,
       ...(await this.props.onPickerOpen?.(this.props)),
       isOpened: true
     };
@@ -99,7 +96,7 @@ export class PickerContainer extends React.Component<
   }
 
   @autobind
-  async confirm() {
+  async confirm(): Promise<any> {
     const {onConfirm, beforeConfirm} = this.props;
 
     const ret = await beforeConfirm?.(this.bodyRef.current);
@@ -109,7 +106,7 @@ export class PickerContainer extends React.Component<
 
     // beforeConfirm 返回 false 则阻止后续动作
     if (ret === false) {
-      return;
+      return false;
     } else if (isObject(ret)) {
       state.value = ret;
     }
@@ -133,10 +130,14 @@ export class PickerContainer extends React.Component<
       title,
       showTitle,
       headerClassName,
+      bodyClassName,
       translate: __,
       size,
       showFooter,
-      popOverContainer
+      closeOnEsc,
+      popOverContainer,
+      mobileUI,
+      disabled
     } = this.props;
     return (
       <>
@@ -146,37 +147,35 @@ export class PickerContainer extends React.Component<
           setState: this.updateState
         })}
 
-        <Modal
+        <ConfirmBox
+          type="dialog"
           size={size}
-          closeOnEsc
+          closeOnEsc={closeOnEsc}
           show={this.state.isOpened}
-          onHide={this.close}
-          container={popOverContainer}
+          onCancel={this.close}
+          title={title || __('Select.placeholder')}
+          showTitle={showTitle}
+          headerClassName={headerClassName}
+          bodyClassName={bodyClassName}
+          showFooter={showFooter}
+          beforeConfirm={this.confirm}
+          popOverContainer={popOverContainer}
+          mobileUI={mobileUI}
+          disabled={disabled}
         >
-          {showTitle !== false ? (
-            <Modal.Header onClose={this.close} className={headerClassName}>
-              {__(title || 'Select.placeholder')}
-            </Modal.Header>
-          ) : null}
-          <Modal.Body>
-            {popOverRender({
+          {({popOverContainer, loading}) =>
+            popOverRender({
               ...(this.state as any),
               ref: this.bodyRef,
               setState: this.updateState,
               onClose: this.close,
               onChange: this.handleChange,
-              onConfirm: this.confirm
-            })}
-          </Modal.Body>
-          {showFooter ?? true ? (
-            <Modal.Footer>
-              <Button onClick={this.close}>{__('cancel')}</Button>
-              <Button onClick={this.confirm} level="primary">
-                {__('confirm')}
-              </Button>
-            </Modal.Footer>
-          ) : null}
-        </Modal>
+              onConfirm: this.confirm,
+              popOverContainer,
+              loading
+            })!
+          }
+        </ConfirmBox>
       </>
     );
   }

@@ -1,5 +1,12 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import {
+  createRendererEvent,
+  OnEventProps,
+  Renderer,
+  RendererProps,
+  runActions,
+  CustomStyle
+} from 'amis-core';
 import {filter} from 'amis-core';
 import {autobind, createObject} from 'amis-core';
 import {ScopedContext, IScopedContext} from 'amis-core';
@@ -10,7 +17,7 @@ import {dataMapping, resolveVariableAndFilter} from 'amis-core';
 
 /**
  * IFrame 渲染器
- * 文档：https://baidu.gitee.io/amis/docs/components/iframe
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/iframe
  */
 export interface IFrameSchema extends BaseSchema {
   type: 'iframe';
@@ -26,6 +33,9 @@ export interface IFrameSchema extends BaseSchema {
   events?: {
     [eventName: string]: ActionSchema;
   };
+
+  // 事件动作
+  onEvent?: OnEventProps['onEvent'];
 
   width?: number | string;
   height?: number | string;
@@ -88,11 +98,34 @@ export default class IFrame extends React.Component<IFrameProps, object> {
     window.removeEventListener('message', this.onMessage);
   }
 
-  @autobind
-  onMessage(e: MessageEvent) {
-    const {events, onAction, data} = this.props;
+  /** 校验URL是否合法 */
+  validateURL(url: any) {
+    // base64编码格式
+    if (
+      url &&
+      typeof url === 'string' &&
+      /^data:([a-zA-Z0-9]+\/[a-zA-Z0-9]+);base64,.*/.test(url)
+    ) {
+      return true;
+    }
 
-    if (typeof e?.data?.type !== 'string' || !events) {
+    // HTTP[S]协议
+    if (
+      url &&
+      typeof url === 'string' &&
+      !/^(\.\/|\.\.\/|\/|https?\:\/\/|\/\/)/.test(url)
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  @autobind
+  async onMessage(e: MessageEvent) {
+    const {events, onEvent, onAction, data} = this.props;
+
+    if (typeof e?.data?.type !== 'string') {
       return;
     }
 
@@ -108,8 +141,26 @@ export default class IFrame extends React.Component<IFrameProps, object> {
         height: e.data.data.height || '100%'
       });
     } else {
-      const action = events[type];
-      action && onAction(e, action, createObject(data, e.data.data));
+      const eventConfig: any = onEvent?.[type];
+
+      if (eventConfig && eventConfig.actions?.length) {
+        const rendererEvent = createRendererEvent(type, {
+          env: this.props?.env,
+          nativeEvent: e,
+          data: createObject(data, e.data.data),
+          scoped: this.context
+        });
+        await runActions(eventConfig.actions, this, rendererEvent);
+
+        if (rendererEvent.prevented) {
+          return;
+        }
+      }
+
+      if (events) {
+        const action = events[type];
+        action && onAction(e, action, createObject(data, e.data.data));
+      }
     }
   }
 
@@ -170,7 +221,14 @@ export default class IFrame extends React.Component<IFrameProps, object> {
       style,
       allow,
       sandbox,
-      referrerpolicy
+      referrerpolicy,
+      translate: __,
+      id,
+      wrapperCustomStyle,
+      env,
+      themeCss,
+      baseControlClassName,
+      classnames: cx
     } = this.props;
 
     let tempStyle: any = {};
@@ -187,27 +245,54 @@ export default class IFrame extends React.Component<IFrameProps, object> {
       ? resolveVariableAndFilter(src, data, '| raw')
       : undefined;
 
+    if (!this.validateURL(finalSrc)) {
+      return <p>{__('Iframe.invalid')}</p>;
+    }
+
     if (
-      typeof finalSrc === 'string' &&
+      location.protocol === 'https:' &&
       finalSrc &&
-      !/^(\.\/|\.\.\/|\/|https?\:\/\/|\/\/)/.test(finalSrc)
+      finalSrc.startsWith('http://')
     ) {
-      return <p>请填写合法的 iframe 地址</p>;
+      env.notify('error', __('Iframe.invalidProtocol'));
     }
 
     return (
-      <iframe
-        name={name}
-        className={className}
-        frameBorder={frameBorder}
-        style={style}
-        ref={this.IFrameRef}
-        onLoad={this.onLoad}
-        src={finalSrc}
-        allow={allow}
-        referrerPolicy={referrerpolicy}
-        sandbox={sandbox}
-      />
+      <>
+        <iframe
+          name={name}
+          className={cx(
+            'IFrame',
+            className,
+            baseControlClassName,
+            wrapperCustomStyle
+              ? ` wrapperCustomStyle-${id?.replace('u:', '')}`
+              : ''
+          )}
+          frameBorder={frameBorder}
+          style={style}
+          ref={this.IFrameRef}
+          onLoad={this.onLoad}
+          src={finalSrc}
+          allow={allow}
+          referrerPolicy={referrerpolicy}
+          sandbox={sandbox}
+        />
+        <CustomStyle
+          config={{
+            wrapperCustomStyle,
+            id,
+            themeCss,
+            classNames: [
+              {
+                key: 'baseControlClassName',
+                value: baseControlClassName
+              }
+            ]
+          }}
+          env={env}
+        />
+      </>
     );
   }
 }

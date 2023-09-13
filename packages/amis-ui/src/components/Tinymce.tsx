@@ -13,6 +13,7 @@ import 'tinymce/models/dom/model';
 // Any plugins you want to use has to be imported
 import 'tinymce/plugins/advlist';
 import 'tinymce/plugins/autolink';
+import 'tinymce/plugins/autoresize';
 import 'tinymce/plugins/lists';
 import 'tinymce/plugins/link';
 import 'tinymce/plugins/image';
@@ -34,6 +35,12 @@ import 'tinymce/plugins/template';
 import 'tinymce/plugins/nonbreaking';
 import 'tinymce/plugins/emoticons';
 import 'tinymce/plugins/emoticons/js/emojis';
+import 'tinymce/plugins/quickbars/plugin';
+
+import 'tinymce/plugins/help/js/i18n/keynav/zh_CN';
+import 'tinymce/plugins/help/js/i18n/keynav/en';
+import 'tinymce/plugins/help/js/i18n/keynav/de';
+
 import {LocaleProps} from 'amis-core';
 
 interface TinymceEditorProps extends LocaleProps {
@@ -42,7 +49,10 @@ interface TinymceEditorProps extends LocaleProps {
   onFocus?: () => void;
   onBlur?: () => void;
   disabled?: boolean;
-  config?: any;
+  config?: {
+    onLoaded?: (tinymce: any) => void | Promise<void>;
+    [propName: string]: any;
+  };
   outputFormat?: 'html' | 'text';
   receiver?: string;
 }
@@ -53,13 +63,16 @@ export default class TinymceEditor extends React.Component<TinymceEditorProps> {
   };
   config?: any;
   editor?: any;
+  unmounted = false;
+  editorInitialized?: boolean = false;
   currentContent?: string;
 
   elementRef: React.RefObject<HTMLTextAreaElement> = React.createRef();
 
-  componentDidMount() {
+  async componentDidMount() {
     const locale = this.props.locale;
 
+    const {onLoaded, ...rest} = this.props.config || {};
     this.config = {
       inline: false,
       skin: false,
@@ -70,6 +83,7 @@ export default class TinymceEditor extends React.Component<TinymceEditorProps> {
       plugins: [
         'advlist',
         'autolink',
+        'autoresize',
         'link',
         'image',
         'lists',
@@ -89,12 +103,15 @@ export default class TinymceEditor extends React.Component<TinymceEditorProps> {
         'table',
         'emoticons',
         'template',
-        'help'
+        'help',
+        'quickbars'
       ],
       toolbar:
         'undo redo | blocks | bold italic | alignleft aligncenter alignright alignjustify | ' +
         'bullist numlist outdent indent | link image | preview media | ' +
         'fontfamily fontsize forecolor backcolor emoticons | print help',
+      quickbars_selection_toolbar: 'bold italic | link h2 h3 blockquote',
+      quickbars_insert_toolbar: 'quickimage quicktable',
       menu: {
         file: {
           title: 'File',
@@ -130,19 +147,24 @@ export default class TinymceEditor extends React.Component<TinymceEditorProps> {
         help: {title: 'Help', items: 'help'}
       },
       paste_data_images: true,
-      ...this.props.config,
+      // 很诡异的问题，video 会被复制放在光标上，直接用样式隐藏先
+      content_style: '[data-mce-bogus] video {display:none;}',
+      ...rest,
       target: this.elementRef.current,
       readOnly: this.props.disabled,
+      promotion: false,
       setup: (editor: any) => {
         this.editor = editor;
 
         editor.on('init', (e: Event) => {
+          this.editorInitialized = true;
           this.initEditor(e, editor);
         });
       }
     };
 
-    tinymce.init(this.config);
+    await onLoaded?.(tinymce);
+    this.unmounted || tinymce.init(this.config);
   }
 
   componentDidUpdate(prevProps: TinymceEditorProps) {
@@ -152,12 +174,13 @@ export default class TinymceEditor extends React.Component<TinymceEditorProps> {
       props.model !== prevProps.model &&
       props.model !== this.currentContent
     ) {
-      this.editor?.setContent(props.model || '');
+      this.editorInitialized && this.editor?.setContent(props.model || '');
     }
   }
 
   componentWillUnmount() {
     tinymce.remove(this.editor);
+    this.unmounted = true;
   }
 
   initEditor(e: any, editor: any) {

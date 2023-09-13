@@ -11,7 +11,7 @@ import {isApiOutdated, isEffectiveApi} from 'amis-core';
 
 /**
  * Markdown 渲染
- * 文档：https://baidu.gitee.io/amis/docs/components/markdown
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/markdown
  */
 export interface MarkdownSchema extends BaseSchema {
   /**
@@ -99,10 +99,10 @@ export class Markdown extends React.Component<MarkdownProps, MarkdownState> {
   }
 
   render() {
-    const {className, classnames: cx, options} = this.props;
+    const {className, style, classnames: cx, options} = this.props;
 
     return (
-      <div className={cx('Markdown', className)}>
+      <div className={cx('Markdown', className)} style={style}>
         <LazyComponent
           getComponent={loadComponent}
           content={this.state.content || ''}

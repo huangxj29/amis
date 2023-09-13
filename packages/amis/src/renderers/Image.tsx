@@ -1,17 +1,28 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import {Renderer, RendererProps, CustomStyle} from 'amis-core';
 import {filter} from 'amis-core';
-import {ClassNamesFn, themeable, ThemeProps} from 'amis-core';
+import {themeable, ThemeProps} from 'amis-core';
 import {autobind, getPropValue} from 'amis-core';
 import {Icon} from 'amis-ui';
 import {LocaleProps, localeable} from 'amis-core';
 import {BaseSchema, SchemaClassName, SchemaTpl, SchemaUrlPath} from '../Schema';
-import {resolveVariable} from 'amis-core';
 import {handleAction} from 'amis-core';
+import type {
+  ImageAction,
+  ImageActionKey
+} from 'amis-ui/lib/components/ImageGallery';
+
+export interface ImageToolbarAction {
+  key: keyof typeof ImageActionKey;
+  label?: string;
+  icon?: string;
+  iconClassName?: string;
+  disabled?: boolean;
+}
 
 /**
  * 图片展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/image
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/image
  */
 export interface ImageSchema extends BaseSchema {
   /**
@@ -55,6 +66,11 @@ export interface ImageSchema extends BaseSchema {
   enlargeAble?: boolean;
 
   /**
+   * 放大时是否显示图片集
+   */
+  enlargeWithGallary?: boolean;
+
+  /**
    * 是否显示尺寸。
    */
   // showDimensions?: boolean;
@@ -92,6 +108,11 @@ export interface ImageSchema extends BaseSchema {
    */
   thumbClassName?: SchemaClassName;
 
+  /**
+   * 放大详情图 CSS 类名
+   */
+  imageGallaryClassName?: SchemaClassName;
+
   /** 图片说明文字 */
   caption?: SchemaTpl;
 
@@ -124,6 +145,16 @@ export interface ImageSchema extends BaseSchema {
    * 链接的 target
    */
   htmlTarget?: string;
+
+  /**
+   * 是否展示图片工具栏
+   */
+  showToolbar?: boolean;
+
+  /**
+   * 工具栏配置
+   */
+  toolbarActions?: ImageToolbarAction[];
 }
 
 export interface ImageThumbProps
@@ -134,9 +165,52 @@ export interface ImageThumbProps
   index?: number;
   onLoad?: React.EventHandler<any>;
   overlays?: JSX.Element;
+  imageControlClassName?: string;
+  titleControlClassName?: string;
+  desControlClassName?: string;
+  iconControlClassName?: string;
 }
 
-export class ImageThumb extends React.Component<ImageThumbProps> {
+interface ImageThumbState {
+  imageLoading: boolean; // 切换图片后，图片是否在加载
+}
+
+export class ImageThumb extends React.Component<
+  ImageThumbProps,
+  ImageThumbState
+> {
+  constructor(props: ImageThumbProps) {
+    super(props);
+
+    this.state = {
+      imageLoading: false
+    };
+  }
+
+  componentDidUpdate(preProps: ImageThumbProps) {
+    if (preProps.src !== this.props.src) {
+      this.setState({
+        imageLoading: true
+      });
+    }
+  }
+
+  @autobind
+  handleImgLoaded(e: React.SyntheticEvent<HTMLImageElement, Event>) {
+    this.setState({
+      imageLoading: false
+    });
+
+    this.props?.onLoad?.(e);
+  }
+
+  @autobind
+  handleImgError(e: React.SyntheticEvent<HTMLImageElement, Event>) {
+    this.setState({
+      imageLoading: false
+    });
+  }
+
   @autobind
   handleEnlarge() {
     const {onEnlarge, ...rest} = this.props;
@@ -147,6 +221,7 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
     const {
       classnames: cx,
       className,
+      style,
       imageClassName,
       thumbClassName,
       thumbMode,
@@ -164,8 +239,35 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
       enlargeAble,
       translate: __,
       overlays,
-      imageMode
+      imageMode,
+      imageControlClassName,
+      titleControlClassName,
+      desControlClassName,
+      iconControlClassName
     } = this.props;
+
+    const {imageLoading} = this.state;
+
+    const imageContent = (
+      <>
+        {imageLoading ? (
+          <img
+            className={cx('Image-image', imageClassName)}
+            src={imagePlaceholder}
+            alt={alt}
+          />
+        ) : null}
+        <img
+          onLoad={this.handleImgLoaded}
+          onError={this.handleImgError}
+          className={cx('Image-image', imageClassName, {
+            'Image-image--loading': imageLoading
+          })}
+          src={src}
+          alt={alt}
+        />
+      </>
+    );
 
     const enlarge =
       enlargeAble || overlays ? (
@@ -176,8 +278,13 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
               data-position="bottom"
               target="_blank"
               onClick={this.handleEnlarge}
+              className={iconControlClassName}
             >
-              <Icon icon="view" className="icon" />
+              <Icon
+                icon="view"
+                className="icon"
+                iconContent="Image-view-icon"
+              />
             </a>
           ) : null}
           {overlays}
@@ -189,8 +296,10 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
         className={cx(
           'Image',
           imageMode === 'original' ? 'Image--original' : 'Image--thumb',
-          className
+          className,
+          imageControlClassName
         )}
+        style={href ? undefined : style} // 避免重复设置style
       >
         {imageMode === 'original' ? (
           <div
@@ -200,12 +309,7 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
             )}
             style={{height: height, width: width}}
           >
-            <img
-              onLoad={onLoad}
-              className={cx('Image-image', imageClassName)}
-              src={src}
-              alt={alt}
-            />
+            {imageContent}
             {enlarge}
           </div>
         ) : (
@@ -221,12 +325,7 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
               )}
               style={{height: height, width: width}}
             >
-              <img
-                onLoad={onLoad}
-                className={cx('Image-image', imageClassName)}
-                src={src}
-                alt={alt}
-              />
+              {imageContent}
             </div>
             {enlarge}
           </div>
@@ -235,12 +334,18 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
         {title || caption ? (
           <div key="caption" className={cx('Image-info')}>
             {title ? (
-              <div className={cx('Image-title')} title={title}>
+              <div
+                className={cx('Image-title', titleControlClassName)}
+                title={title}
+              >
                 {title}
               </div>
             ) : null}
             {caption ? (
-              <div className={cx('Image-caption')} title={caption}>
+              <div
+                className={cx('Image-caption', desControlClassName)}
+                title={caption}
+              >
                 {caption}
               </div>
             ) : null}
@@ -255,6 +360,7 @@ export class ImageThumb extends React.Component<ImageThumbProps> {
           href={href}
           target={htmlTarget || (blank ? '_blank' : '_self')}
           className={cx('Link', className)}
+          style={style}
           title={title}
         >
           {image}
@@ -284,6 +390,9 @@ export interface ImageFieldProps extends RendererProps {
   thumbRatio: '1:1' | '4:3' | '16:9';
   originalSrc?: string; // 原图
   enlargeAble?: boolean;
+  enlargeWithGallary?: boolean;
+  showToolbar?: boolean;
+  toolbarActions?: ImageAction[];
   onImageEnlarge?: (
     info: {
       src: string;
@@ -292,20 +401,24 @@ export interface ImageFieldProps extends RendererProps {
       caption?: string;
       thumbMode?: 'w-full' | 'h-full' | 'contain' | 'cover';
       thumbRatio?: '1:1' | '4:3' | '16:9';
+      showToolbar?: boolean;
+      imageGallaryClassName?: string;
+      toolbarActions?: ImageAction[];
+      enlargeWithGallary?: boolean;
     },
     target: any
   ) => void;
+  imageGallaryClassName?: string;
 }
 
 export class ImageField extends React.Component<ImageFieldProps, object> {
   static defaultProps: Pick<
     ImageFieldProps,
-    'defaultImage' | 'thumbMode' | 'thumbRatio' | 'placeholder'
+    'defaultImage' | 'thumbMode' | 'thumbRatio'
   > = {
     defaultImage: imagePlaceholder,
     thumbMode: 'contain',
-    thumbRatio: '1:1',
-    placeholder: '-'
+    thumbRatio: '1:1'
   };
 
   @autobind
@@ -317,7 +430,16 @@ export class ImageField extends React.Component<ImageFieldProps, object> {
     thumbMode,
     thumbRatio
   }: ImageThumbProps) {
-    const {onImageEnlarge, enlargeTitle, enlargeCaption} = this.props;
+    const {
+      onImageEnlarge,
+      enlargeTitle,
+      enlargeCaption,
+      showToolbar,
+      toolbarActions,
+      imageGallaryClassName,
+      galleryControlClassName,
+      enlargeWithGallary
+    } = this.props;
 
     onImageEnlarge &&
       onImageEnlarge(
@@ -327,7 +449,13 @@ export class ImageField extends React.Component<ImageFieldProps, object> {
           title: enlargeTitle || title,
           caption: enlargeCaption || caption,
           thumbMode,
-          thumbRatio
+          thumbRatio,
+          showToolbar,
+          toolbarActions,
+          imageGallaryClassName: galleryControlClassName
+            ? imageGallaryClassName + ' ' + galleryControlClassName
+            : imageGallaryClassName,
+          enlargeWithGallary
         },
         this.props
       );
@@ -344,6 +472,7 @@ export class ImageField extends React.Component<ImageFieldProps, object> {
   render() {
     const {
       className,
+      style,
       innerClassName,
       defaultImage,
       imageCaption,
@@ -361,13 +490,20 @@ export class ImageField extends React.Component<ImageFieldProps, object> {
       placeholder,
       originalSrc,
       enlargeAble,
-      imageMode
+      imageMode,
+      wrapperCustomStyle,
+      id,
+      themeCss,
+      imageControlClassName,
+      titleControlClassName,
+      desControlClassName,
+      iconControlClassName,
+      galleryControlClassName,
+      env
     } = this.props;
 
     const finnalSrc = src ? filter(src, data, '| raw') : '';
-    let value =
-      finnalSrc || getPropValue(this.props) || defaultImage || imagePlaceholder;
-
+    let value = finnalSrc || getPropValue(this.props);
     const finnalHref = href ? filter(href, data, '| raw') : '';
 
     return (
@@ -377,18 +513,22 @@ export class ImageField extends React.Component<ImageFieldProps, object> {
           imageMode === 'original'
             ? 'ImageField--original'
             : 'ImageField--thumb',
-          className
+          className,
+          wrapperCustomStyle
+            ? `wrapperCustomStyle-${id?.replace('u:', '')}`
+            : ''
         )}
+        style={style}
         onClick={this.handleClick}
       >
-        {value ? (
+        {value || (!value && !placeholder) ? (
           <ThemedImageThumb
             className={innerClassName}
             imageClassName={imageClassName}
             thumbClassName={thumbClassName}
             height={height}
             width={width}
-            src={value}
+            src={value ? value : defaultImage}
             href={finnalHref}
             title={filter(title, data)}
             caption={filter(imageCaption, data)}
@@ -398,10 +538,44 @@ export class ImageField extends React.Component<ImageFieldProps, object> {
             enlargeAble={enlargeAble && value !== defaultImage}
             onEnlarge={this.handleEnlarge}
             imageMode={imageMode}
+            imageControlClassName={imageControlClassName}
+            titleControlClassName={titleControlClassName}
+            desControlClassName={desControlClassName}
+            iconControlClassName={iconControlClassName}
           />
         ) : (
           <span className="text-muted">{placeholder}</span>
         )}
+        <CustomStyle
+          config={{
+            wrapperCustomStyle,
+            id,
+            themeCss,
+            classNames: [
+              {
+                key: 'imageControlClassName',
+                value: imageControlClassName
+              },
+              {
+                key: 'titleControlClassName',
+                value: titleControlClassName
+              },
+              {
+                key: 'desControlClassName',
+                value: desControlClassName
+              },
+              {
+                key: 'iconControlClassName',
+                value: iconControlClassName
+              },
+              {
+                key: 'galleryControlClassName',
+                value: galleryControlClassName
+              }
+            ]
+          }}
+          env={env}
+        />
       </div>
     );
   }

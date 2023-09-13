@@ -16,11 +16,11 @@ export interface TransferPickerProps extends Omit<TransferProps, 'itemRender'> {
    * 边框模式，全边框，还是半边框，或者没边框。
    */
   borderMode?: 'full' | 'half' | 'none';
-  container?: any;
 
   onFocus?: () => void;
 
   onBlur?: () => void;
+  popOverContainer?: any;
 }
 
 export class TransferPicker extends React.Component<TransferPickerProps> {
@@ -51,7 +51,11 @@ export class TransferPicker extends React.Component<TransferPickerProps> {
       onChange,
       size,
       borderMode,
-      container,
+      labelField = 'label',
+      mobileUI,
+      popOverContainer,
+      maxTagCount,
+      overflowTagPopover,
       ...rest
     } = this.props;
 
@@ -60,12 +64,16 @@ export class TransferPicker extends React.Component<TransferPickerProps> {
         title={__('Select.placeholder')}
         onFocus={this.onFoucs}
         onClose={this.onBlur}
+        mobileUI={mobileUI}
+        popOverContainer={popOverContainer}
         bodyRender={({onClose, value, onChange, setState, ...states}) => {
           return (
             <Transfer
+              mobileUI={mobileUI}
               {...rest}
               {...states}
               value={value}
+              labelField={labelField}
               onChange={(value: any, optionModified) => {
                 if (optionModified) {
                   let options = mapTree(rest.options, item => {
@@ -85,7 +93,6 @@ export class TransferPicker extends React.Component<TransferPickerProps> {
         value={value}
         onConfirm={this.handleConfirm}
         size={size}
-        popOverContainer={container}
       >
         {({onClick, isOpened}) => (
           <ResultBox
@@ -101,10 +108,18 @@ export class TransferPicker extends React.Component<TransferPickerProps> {
             placeholder={__('Select.placeholder')}
             disabled={disabled}
             borderMode={borderMode}
+            itemRender={option => (
+              <span>{(option && option[labelField]) || 'undefined'}</span>
+            )}
+            mobileUI={mobileUI}
+            maxTagCount={maxTagCount}
+            overflowTagPopover={overflowTagPopover}
           >
-            <span className={cx('TransferPicker-icon')}>
-              <Icon icon="pencil" className="icon" />
-            </span>
+            {!mobileUI ? (
+              <span className={cx('TransferPicker-icon')}>
+                <Icon icon="pencil" className="icon" />
+              </span>
+            ) : null}
           </ResultBox>
         )}
       </PickerContainer>

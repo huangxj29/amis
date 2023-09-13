@@ -18,6 +18,7 @@ icon:
       "label": "默认",
       "type": "transfer",
       "name": "transfer",
+      "value": "zhugeliang,libai",
       "options": [
         {
           "label": "诸葛亮",
@@ -381,15 +382,18 @@ icon:
         },
         {
           "ref": "libai",
-          "defer": true
+          "defer": true,
+          "label": "lazy-option-libai"
         },
         {
           "ref": "hanxin",
-          "defer": true
+          "defer": true,
+          "label": "lazy-option-hanxin"
         },
         {
           "ref": "yunzhongjun",
-          "defer": true
+          "defer": true,
+          "label": "lazy-option-yunzhongjun"
         }
       ]
     }
@@ -605,9 +609,70 @@ icon:
 
 设置这个 api，可以实现左侧选项搜索结果的检索。
 
-##### 发送
-
 默认 GET，携带 term 变量，值为搜索框输入的文字，可从上下文中取数据设置进去。
+
+
+```schema: scope="body"
+{
+  "type": "page",
+  "body": {
+    "type": "form",
+    "api": "/api/mock2/form/saveForm",
+    "body": [
+      {
+        "label": "searchApi",
+        "type": "transfer",
+        "name": "transfer",
+        "searchable": true,
+        "selectMode": "tree",
+        "searchApi": "/api/transfer/search?name=${term}",
+        "options": [
+          {
+            "label": "法师",
+            "children": [
+              {
+                "label": "诸葛亮",
+                "value": "zhugeliang"
+              }
+            ]
+          },
+          {
+            "label": "战士",
+            "value": "zhanshi",
+            "children": [
+              {
+                "label": "曹操",
+                "value": "caocao"
+              },
+              {
+                "label": "钟无艳",
+                "value": "zhongwuyan"
+              }
+            ]
+          },
+          {
+            "label": "打野",
+            "children": [
+              {
+                "label": "李白",
+                "value": "libai"
+              },
+              {
+                "label": "韩信",
+                "value": "hanxin"
+              },
+              {
+                "label": "云中君",
+                "value": "yunzhongjun"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ##### 响应
 
@@ -621,7 +686,7 @@ icon:
     "options": [
       {
         "label": "描述",
-        "value": "值" // ,
+        "value": "值"
         // "children": [] // 可以嵌套
       },
 
@@ -630,13 +695,12 @@ icon:
         "value": "值2"
       }
     ],
-
-    "value": "值" // 默认值，可以获取列表的同时设置默认值。
   }
 }
 ```
 
 适用于需选择的数据/信息源较多时，用户可直观的知道自己所选择的数据/信息的场景，一般左侧框为数据/信息源，右侧为已选数据/信息，被选中信息同时存在于 2 个框内。
+
 
 ### 结果面板跟随模式
 
@@ -843,22 +907,28 @@ icon:
 | resultSearchPlaceholder    | `string`                                              |              | 右侧列表搜索框提示                                                                                                                                                                                          |
 | menuTpl                    | `string` \| [SchemaNode](../../docs/types/schemanode) |              | 用来自定义选项展示                                                                                                                                                                                          |
 | valueTpl                   | `string` \| [SchemaNode](../../docs/types/schemanode) |              | 用来自定义值的展示                                                                                                                                                                                          |
+| itemHeight                 | `number`                                              | `32`         | 每个选项的高度，用于虚拟渲染                                                                                                                                                                                |
+| virtualThreshold           | `number`                                              | `100`        | 在选项数量超过多少时开启虚拟渲染                                                                                                                                                                            |
 
 ## 事件表
 
-当前组件会对外派发以下事件，可以通过`onEvent`来监听这些事件，并通过`actions`来配置执行的动作，在`actions`中可以通过`event.data.xxx`事件参数变量来获取事件产生的数据，详细请查看[事件动作](../../docs/concepts/event-action)。
+当前组件会对外派发以下事件，可以通过`onEvent`来监听这些事件，并通过`actions`来配置执行的动作，在`actions`中可以通过`${事件参数名}`或`${event.data.[事件参数名]}`来获取事件产生的数据，详细请查看[事件动作](../../docs/concepts/event-action)。
 
-| 事件名称 | 事件参数                          | 说明             |
-| -------- | --------------------------------- | ---------------- |
-| change   | `event.data.value: string` 选中值 | 选中值变化时触发 |
+> `[name]`表示当前组件绑定的名称，即`name`属性，如果没有配置`name`属性，则通过`value`取值。
+
+| 事件名称  | 事件参数                                                                                  | 说明             |
+| --------- | ----------------------------------------------------------------------------------------- | ---------------- |
+| change    | `[name]: string` 组件的值<br/>`items: object[]`选项集合（< 2.3.2 及以下版本 为`options`） | 选中值变化时触发 |
+| selectAll | `items: object[]`选项集合（< 2.3.2 及以下版本 为`options`）                               | 全选时触发       |
 
 ## 动作表
 
 当前组件对外暴露以下特性动作，其他组件可以通过指定`actionType: 动作名称`、`componentId: 该组件id`来触发这些动作，动作配置可以通过`args: {动作配置项名称: xxx}`来配置具体的参数，详细请查看[事件动作](../../docs/concepts/event-action#触发其他组件的动作)。
 
-| 动作名称  | 动作配置                 | 说明                                                   |
-| --------- | ------------------------ | ------------------------------------------------------ |
-| clear     | -                        | 清空                                                   |
-| reset     | -                        | 将值重置为`resetValue`，若没有配置`resetValue`，则清空 |
-| selectAll | -                        | 全选                                                   |
-| setValue  | `value: string` 更新的值 | 更新数据，多值用`,`分隔                                |
+| 动作名称  | 动作配置                               | 说明                                                                                    |
+| --------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
+| clear     | -                                      | 清空                                                                                    |
+| reset     | -                                      | 将值重置为`resetValue`，若没有配置`resetValue`，则清空                                  |
+| clearSearch | `left: boolean` 左侧搜索、`right:boolean`右侧搜索                                     | 默认清除所有搜索态，可以单独配置`left`、`right`为`true`来清空对应左侧或者右侧面板(`3.4.0`及以上版本支持）                                                    |
+| selectAll | -                                      | 全选                                                                                    |
+| setValue  | `value: string` \| `string[]` 更新的值 | 更新数据，开启`multiple`支持设置多项，开启`joinValues`时，多值用`,`分隔，否则多值用数组 |

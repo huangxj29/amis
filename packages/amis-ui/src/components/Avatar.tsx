@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {ClassNamesFn, themeable, ThemeProps} from 'amis-core';
+import {Icon, IconCheckedSchema} from './icons';
 
 /**
  * Avatar 属性
@@ -19,7 +20,7 @@ interface AvatarCmptProps extends ThemeProps {
   /**
    * 图标
    */
-  icon?: string | React.ReactNode;
+  icon?: string | React.ReactNode | IconCheckedSchema;
 
   /**
    * 图片相对于容器的缩放方式
@@ -69,7 +70,10 @@ interface AvatarCmptProps extends ThemeProps {
   /**
    *
    */
-  children?: JSX.Element | ((props?: any) => JSX.Element);
+  children?:
+    | React.ReactNode
+    | Array<React.ReactNode>
+    | ((props?: any) => React.ReactNode | Array<React.ReactNode>);
 }
 
 const prefix = 'Avatar--';
@@ -173,7 +177,7 @@ export class Avatar extends React.Component<AvatarCmptProps, AvatarState> {
     const isImgRender = React.isValidElement(src);
     const isIconRender = React.isValidElement(icon);
 
-    let childrenRender;
+    let childrenRender: React.ReactNode | Array<React.ReactNode>;
 
     let sizeStyle = {};
     let sizeClass = '';
@@ -224,10 +228,10 @@ export class Avatar extends React.Component<AvatarCmptProps, AvatarState> {
           {text}
         </span>
       );
-    } else if (typeof icon === 'string') {
-      childrenRender = <i className={icon} />;
+    } else if (['string', 'object'].includes(typeof icon)) {
+      childrenRender = <Icon cx={cx} icon={icon} />;
     } else if (isIconRender) {
-      childrenRender = icon;
+      childrenRender = icon as any;
     } else {
       childrenRender = (
         <span
@@ -235,7 +239,7 @@ export class Avatar extends React.Component<AvatarCmptProps, AvatarState> {
           ref={this.avatarChildrenRef}
           style={scaleStyle}
         >
-          {children}
+          {typeof children === 'function' ? children() : children}
         </span>
       );
     }

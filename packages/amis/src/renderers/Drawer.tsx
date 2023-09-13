@@ -1,8 +1,8 @@
 import React from 'react';
-import {ScopedContext, IScopedContext} from 'amis-core';
+import {ScopedContext, IScopedContext, filterTarget} from 'amis-core';
 import {Renderer, RendererProps} from 'amis-core';
 import {SchemaNode, Schema, ActionObject} from 'amis-core';
-import {Drawer as DrawerContainer} from 'amis-ui';
+import {Drawer as DrawerContainer, SpinnerExtraProps} from 'amis-ui';
 import {
   guid,
   isVisible,
@@ -27,7 +27,7 @@ import {isAlive} from 'mobx-state-tree';
 
 /**
  * Drawer 抽出式弹框。
- * 文档：https://baidu.gitee.io/amis/docs/components/drawer
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/drawer
  */
 export interface DrawerSchema extends BaseSchema {
   type: 'drawer';
@@ -140,7 +140,8 @@ export type DrawerSchemaBase = Omit<DrawerSchema, 'type'>;
 
 export interface DrawerProps
   extends RendererProps,
-    Omit<DrawerSchema, 'className'> {
+    Omit<DrawerSchema, 'className'>,
+    SpinnerExtraProps {
   onClose: () => void;
   onConfirm: (
     values: Array<object>,
@@ -428,7 +429,8 @@ export default class Drawer extends React.Component<DrawerProps> {
   }
 
   handleExited() {
-    const {lazySchema, store} = this.props;
+    const {lazySchema, store, statusStore} = this.props;
+    statusStore && isAlive(statusStore) && statusStore.resetAll();
     if (isAlive(store)) {
       store.reset();
       store.setEntered(false);
@@ -463,7 +465,8 @@ export default class Drawer extends React.Component<DrawerProps> {
       onInit: this.handleFormInit,
       onSaved: this.handleFormSaved,
       onActionSensor: this.handleActionSensor,
-      syncLocation: false
+      syncLocation: false,
+      affixOffsetTop: 0
     };
 
     if (schema.type === 'form') {
@@ -523,9 +526,14 @@ export default class Drawer extends React.Component<DrawerProps> {
         actionType: 'dialog',
         dialog: dialog
       });
-      store.openDialog(ctx, undefined, confirmed => {
-        resolve(confirmed);
-      });
+      store.openDialog(
+        ctx,
+        undefined,
+        confirmed => {
+          resolve(confirmed);
+        },
+        this.context as any
+      );
     });
   }
 
@@ -533,6 +541,7 @@ export default class Drawer extends React.Component<DrawerProps> {
     const store = this.props.store;
     const {
       className,
+      style,
       size,
       closeOnEsc,
       position,
@@ -553,11 +562,13 @@ export default class Drawer extends React.Component<DrawerProps> {
       closeOnOutside,
       classPrefix: ns,
       classnames: cx,
-      drawerContainer
+      drawerContainer,
+      loadingConfig,
+      popOverContainer
     } = {
       ...this.props,
       ...store.schema
-    } as any;
+    } as DrawerProps;
 
     const Container = wrapperComponent || DrawerContainer;
 
@@ -566,6 +577,7 @@ export default class Drawer extends React.Component<DrawerProps> {
         resizable={resizable}
         classPrefix={ns}
         className={className}
+        style={style}
         size={size}
         onHide={this.handleSelfClose}
         disabled={store.loading}
@@ -579,17 +591,9 @@ export default class Drawer extends React.Component<DrawerProps> {
         onExited={this.handleExited}
         closeOnEsc={closeOnEsc}
         closeOnOutside={
-          !store.drawerOpen &&
-          !store.dialogOpen &&
-          (closeOnOutside || !showCloseButton)
+          !store.drawerOpen && !store.dialogOpen && closeOnOutside
         }
-        container={
-          drawerContainer
-            ? drawerContainer
-            : env && env.getModalContainer
-            ? env.getModalContainer
-            : undefined
-        }
+        container={drawerContainer ? drawerContainer : env?.getModalContainer}
       >
         <div className={cx('Drawer-header', headerClassName)}>
           {title ? (
@@ -614,10 +618,11 @@ export default class Drawer extends React.Component<DrawerProps> {
 
         {!store.entered ? (
           <div className={cx('Drawer-body', bodyClassName)}>
-            <Spinner overlay show size="lg" />
+            <Spinner overlay show size="lg" loadingConfig={loadingConfig} />
           </div>
         ) : body ? (
-          <div className={cx('Drawer-body', bodyClassName)}>
+          // dialog-body 用于在 editor 中定位元素
+          <div className={cx('Drawer-body', bodyClassName)} role="dialog-body">
             {this.renderBody(body, 'body')}
           </div>
         ) : null}
@@ -713,7 +718,8 @@ export class DrawerRenderer extends Drawer {
       );
     }
 
-    if (!targets.length) {
+    /** 如果为隔离动作, 则不做联动处理, 继续交给handleAction */
+    if (action?.isolateScope !== true && !targets.length) {
       let components = scoped
         .getComponents()
         .filter(item => !~['drawer', 'dialog'].indexOf(item.props.type));
@@ -807,7 +813,11 @@ export class DrawerRenderer extends Drawer {
       }
       store.setCurrentAction(action);
       onClose();
-      action.close && this.closeTarget(action.close);
+      if (action.close) {
+        action.close === true
+          ? this.handleSelfClose()
+          : this.closeTarget(action.close);
+      }
     } else if (action.actionType === 'confirm') {
       const rendererEvent = await dispatchEvent(
         'confirm',
@@ -823,13 +833,20 @@ export class DrawerRenderer extends Drawer {
       store.openDrawer(data);
     } else if (action.actionType === 'dialog') {
       store.setCurrentAction(action);
-      store.openDialog(data);
+      store.openDialog(
+        data,
+        undefined,
+        action.callback,
+        delegate || (this.context as any)
+      );
     } else if (action.actionType === 'reload') {
       store.setCurrentAction(action);
       action.target && scoped.reload(action.target, data);
+
       if (action.close) {
-        this.handleSelfClose();
-        this.closeTarget(action.close);
+        action.close === true
+          ? this.handleSelfClose()
+          : this.closeTarget(action.close);
       }
     } else if (this.tryChildrenToHandle(action, data)) {
       // do nothing
@@ -848,10 +865,16 @@ export class DrawerRenderer extends Drawer {
           const redirect =
             action.redirect && filter(action.redirect, store.data);
           redirect && env.jumpTo(redirect, action);
-          action.reload && this.reloadTarget(action.reload, store.data);
+          action.reload &&
+            this.reloadTarget(
+              filterTarget(action.reload, store.data),
+              store.data
+            );
+
           if (action.close) {
-            this.handleSelfClose();
-            this.closeTarget(action.close);
+            action.close === true
+              ? this.handleSelfClose()
+              : this.closeTarget(action.close);
           }
         })
         .catch(e => {
@@ -860,17 +883,13 @@ export class DrawerRenderer extends Drawer {
           }
         });
     } else if (onAction) {
-      let ret = onAction(
-        e,
-        action,
-        data,
-        throwErrors,
-        delegate || this.context
-      );
-      action.close &&
-        (ret && ret.then
-          ? ret.then(this.handleSelfClose)
-          : setTimeout(this.handleSelfClose, 200));
+      await onAction(e, action, data, throwErrors, delegate || this.context);
+
+      if (action.close) {
+        action.close === true
+          ? this.handleSelfClose()
+          : this.closeTarget(action.close);
+      }
     }
   }
 
@@ -905,16 +924,19 @@ export class DrawerRenderer extends Drawer {
     ...rest: Array<any>
   ) {
     super.handleDialogConfirm(values, action, ...rest);
-    const scoped = this.context as IScopedContext;
+
     const store = this.props.store;
+    const scoped = store.getDialogScoped() || (this.context as IScopedContext);
     const dialogAction = store.action as ActionObject;
     const reload = action.reload ?? dialogAction.reload;
 
     if (reload) {
       scoped.reload(reload, store.data);
+    } else if (scoped.component !== this && scoped.component?.reload) {
+      scoped.component.reload();
     } else {
       // 没有设置，则自动让页面中 crud 刷新。
-      scoped
+      (this.context as IScopedContext)
         .getComponents()
         .filter((item: any) => item.props.type === 'crud')
         .forEach((item: any) => item.reload && item.reload());
@@ -927,19 +949,20 @@ export class DrawerRenderer extends Drawer {
     ...rest: Array<any>
   ) {
     super.handleDrawerConfirm(values, action);
-    const scoped = this.context as IScopedContext;
     const store = this.props.store;
+    const scoped = store.getDialogScoped() || (this.context as IScopedContext);
     const drawerAction = store.action as ActionObject;
+    const reload = action.reload ?? drawerAction.reload;
 
     // 稍等会，等动画结束。
     setTimeout(() => {
-      if (drawerAction.reload) {
-        scoped.reload(drawerAction.reload, store.data);
-      } else if (action.reload) {
-        scoped.reload(action.reload, store.data);
+      if (reload) {
+        scoped.reload(reload, store.data);
+      } else if (scoped.component !== this && scoped.component?.reload) {
+        scoped.component.reload();
       } else {
         // 没有设置，则自动让页面中 crud 刷新。
-        scoped
+        (this.context as IScopedContext)
           .getComponents()
           .filter((item: any) => item.props.type === 'crud')
           .forEach((item: any) => item.reload && item.reload());
@@ -957,7 +980,12 @@ export class DrawerRenderer extends Drawer {
     scoped.close(target);
   }
 
-  setData(values: object) {
-    return this.props.store.updateData(values);
+  setData(values: object, replace?: boolean) {
+    return this.props.store.updateData(values, undefined, replace);
+  }
+
+  getData() {
+    const {store} = this.props;
+    return store.data;
   }
 }

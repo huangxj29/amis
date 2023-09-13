@@ -10,6 +10,7 @@ import './ParallelAction';
 import './CustomAction';
 import './BroadcastAction';
 import './CmptAction';
+import './StatusAction';
 import './AjaxAction';
 import './CopyAction';
 import './DialogAction';
@@ -18,7 +19,5 @@ import './EmailAction';
 import './LinkAction';
 import './ToastAction';
 import './PageAction';
-import './Decorators';
 
-export * from './Decorators';
 export * from './Action';

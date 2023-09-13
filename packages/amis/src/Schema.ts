@@ -127,20 +127,21 @@ import {
   SchemaClassName,
   SchemaExpression
 } from 'amis-core';
-import type {FormSchemaBase} from 'amis-core/lib/renderers/Form';
+import type {FormSchemaBase} from 'amis-core';
+import {MultilineTextSchema} from './renderers/MultilineText';
+import {DateRangeSchema} from './renderers/DateRange';
+import {PasswordSchema} from './renderers/Password';
+import {WordsSchema} from './renderers/Words';
+import {RadioControlSchema} from './renderers/Form/Radio';
 
 // 每加个类型，这补充一下。
 export type SchemaType =
   | 'form'
-  | 'button'
-  | 'submit'
-  | 'reset'
   | 'alert'
   | 'app'
   | 'audio'
   | 'avatar'
   | 'button-group'
-  | 'button-toolbar'
   | 'breadcrumb'
   | 'card'
   | 'card2'
@@ -151,7 +152,6 @@ export type SchemaType =
   | 'collapse'
   | 'collapse-group'
   | 'color'
-  | 'container'
   | 'crud'
   | 'crud2'
   | 'custom'
@@ -163,6 +163,7 @@ export type SchemaType =
   | 'static-time' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
   | 'month'
   | 'static-month' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
+  | 'date-range'
   | 'dialog'
   | 'spinner'
   | 'divider'
@@ -171,9 +172,7 @@ export type SchemaType =
   | 'each'
   | 'flex'
   | 'flex-item'
-  | 'grid'
   | 'grid-2d'
-  | 'hbox'
   | 'icon'
   | 'iframe'
   | 'image'
@@ -192,12 +191,12 @@ export type SchemaType =
   | 'mapping'
   | 'markdown'
   | 'nav'
+  | 'number'
   | 'page'
   | 'pagination'
   | 'pagination-wrapper'
   | 'property'
   | 'operation'
-  | 'panel'
   | 'plain'
   | 'text'
   | 'progress'
@@ -206,14 +205,11 @@ export type SchemaType =
   | 'barcode'
   | 'remark'
   | 'search-box'
-  | 'service'
   | 'sparkline'
   | 'status'
-  | 'switch'
   | 'table'
   | 'static-table' // 这个几个跟表单项同名，再form下面用必须带前缀 static-
   | 'table2'
-  | 'tabs'
   | 'html'
   | 'tpl'
   | 'tasks'
@@ -253,6 +249,7 @@ export type SchemaType =
   | 'input-excel'
   | 'input-formula'
   | 'diff-editor'
+  | 'office-viewer'
 
   // editor 系列
   | 'editor'
@@ -305,6 +302,7 @@ export type SchemaType =
   | 'hbox'
   | 'hidden'
   | 'icon-picker'
+  | 'icon-select'
   | 'input-image'
   | 'input-group'
   | 'list-select'
@@ -316,6 +314,7 @@ export type SchemaType =
   | 'input-number'
   | 'panel'
   | 'picker'
+  | 'radio'
   | 'radios'
   | 'input-range'
   | 'input-rating'
@@ -347,6 +346,11 @@ export type SchemaType =
   | 'grid-nav'
   | 'users-select'
   | 'tag'
+  | 'tags'
+  | 'words'
+  | 'password'
+  | 'multiline-text'
+  | 'amis'
 
   // 原生 input 类型
   | 'native-date'
@@ -436,7 +440,6 @@ export type SchemaObject =
   | DateTimeControlSchema
   | TimeControlSchema
   | MonthControlSchema
-  | MonthControlSchema
   | QuarterControlSchema
   | YearControlSchema
   | DateRangeControlSchema
@@ -461,6 +464,7 @@ export type SchemaObject =
   | NumberControlSchema
   | PickerControlSchema
   | RadiosControlSchema
+  | RadioControlSchema
   | RangeControlSchema
   | RatingControlSchema
   | RichTextControlSchema
@@ -479,7 +483,11 @@ export type SchemaObject =
   | TabsTransferPickerControlSchema
   | TreeControlSchema
   | TreeSelectControlSchema
-  | UserSelectControlSchema;
+  | UserSelectControlSchema
+  | DateRangeSchema
+  | MultilineTextSchema
+  | PasswordSchema
+  | WordsSchema;
 
 export type SchemaCollection =
   | SchemaObject
@@ -575,7 +583,7 @@ export interface SchemaApiObject {
 
   /**
    * 当开启自动刷新的时候，默认是 api 的 url 来自动跟踪变量变化的。
-   * 如果你希望监控 url 外的变量，请配置 traceExpression。
+   * 如果你希望监控 url 外的变量，请配置 trackExpression。
    */
   trackExpression?: string;
 
@@ -636,7 +644,7 @@ export type SchemaRedirect = string;
  * 2. `<%= data.xxx %>`
  *
  *
- * 更多文档：https://baidu.gitee.io/amis/docs/concepts/template
+ * 更多文档：https://aisuda.bce.baidu.com/amis/zh-CN/docs/concepts/template
  */
 export type SchemaTpl = string;
 
@@ -847,7 +855,7 @@ export interface ToastSchemaBase extends BaseSchema {
 /**
  * Form 表单渲染器。
  *
- * 说明：https://baidu.gitee.io/amis/docs/components/form/index
+ * 说明：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/index
  */
 export interface FormSchema extends FormSchemaBase, BaseSchema {
   /**

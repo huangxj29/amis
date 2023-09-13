@@ -3,26 +3,28 @@ import {
   OptionsControl,
   OptionsControlProps,
   Option,
-  FormOptionsControl
+  resolveEventData
 } from 'amis-core';
 import Downshift from 'downshift';
 import find from 'lodash/find';
 import isInteger from 'lodash/isInteger';
 import unionWith from 'lodash/unionWith';
-import isEqual from 'lodash/isEqual';
 import {findDOMNode} from 'react-dom';
-import {ResultBox} from 'amis-ui';
+import {PopUp, ResultBox, SpinnerExtraProps} from 'amis-ui';
 import {autobind, filterTree, createObject} from 'amis-core';
 import {Spinner} from 'amis-ui';
 import {Overlay} from 'amis-core';
 import {PopOver} from 'amis-core';
-import {ListMenu} from 'amis-ui';
+import {ListMenu, Button} from 'amis-ui';
 import {ActionObject} from 'amis-core';
+import {isMobile} from 'amis-core';
 import {FormOptionsSchema} from '../../Schema';
+import {supportStatic} from './StaticHoc';
+import {TooltipWrapperSchema} from '../TooltipWrapper';
 
 /**
  * Tag 输入框
- * 文档：https://baidu.gitee.io/amis/docs/components/form/tag
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/tag
  */
 export interface TagControlSchema extends FormOptionsSchema {
   type: 'input-tag';
@@ -55,7 +57,7 @@ export interface TagControlSchema extends FormOptionsSchema {
   /**
    * 收纳标签的Popover配置
    */
-  overflowTagPopover?: object;
+  overflowTagPopover?: TooltipWrapperSchema;
 
   /** 是否开启批量添加模式 */
   enableBatchAdd: boolean;
@@ -72,7 +74,7 @@ export interface TagControlSchema extends FormOptionsSchema {
 
 export type InputTagValidationType = 'max' | 'maxLength';
 
-export interface TagProps extends OptionsControlProps {
+export interface TagProps extends OptionsControlProps, SpinnerExtraProps {
   placeholder?: string;
   clearable: boolean;
   resetValue?: any;
@@ -97,6 +99,8 @@ export interface TagState {
   inputValue: string;
   isFocused?: boolean;
   isOpened?: boolean;
+  selectedOptions: Option[];
+  cacheOptions: Option[];
 }
 
 export default class TagControl extends React.PureComponent<
@@ -115,11 +119,16 @@ export default class TagControl extends React.PureComponent<
     separator: '-'
   };
 
-  state = {
-    isOpened: false,
-    inputValue: '',
-    isFocused: false
-  };
+  constructor(props: TagProps) {
+    super(props);
+    this.state = {
+      isOpened: false,
+      inputValue: '',
+      isFocused: false,
+      selectedOptions: props.selectedOptions,
+      cacheOptions: []
+    };
+  }
 
   componentDidUpdate(prevProps: TagProps) {
     const props = this.props;
@@ -144,11 +153,12 @@ export default class TagControl extends React.PureComponent<
 
   @autobind
   async dispatchEvent(eventName: string, eventData: any = {}) {
-    const {dispatchEvent, options, data} = this.props;
+    const {dispatchEvent, options} = this.props;
     const rendererEvent = await dispatchEvent(
       eventName,
-      createObject(data, {
+      resolveEventData(this.props, {
         options,
+        items: options, // 为了保持名字统一
         ...eventData
       })
     );
@@ -158,7 +168,7 @@ export default class TagControl extends React.PureComponent<
 
   /** 处理输入的内容 */
   normalizeInputValue(inputValue: string): Option[] {
-    const {enableBatchAdd, separator} = this.props;
+    const {enableBatchAdd, separator, valueField, labelField} = this.props;
     let batchValues = [];
 
     if (enableBatchAdd && separator && typeof separator === 'string') {
@@ -167,9 +177,10 @@ export default class TagControl extends React.PureComponent<
       batchValues.push(inputValue);
     }
 
-    return batchValues
-      .filter(Boolean)
-      .map(item => ({value: item, label: item}));
+    return batchValues.filter(Boolean).map(item => ({
+      [`${valueField || 'value'}`]: item,
+      [`${labelField || 'label'}`]: item
+    }));
   }
 
   normalizeOptions(options: Option[]) {
@@ -184,12 +195,13 @@ export default class TagControl extends React.PureComponent<
 
   /** 输入的内容和存量的内容合并，过滤掉value值相同的 */
   normalizeMergedValue(inputValue: string, normalized: boolean = true) {
-    const {selectedOptions} = this.props;
+    const {selectedOptions, valueField} = this.props;
 
     const options = unionWith(
       selectedOptions.concat(),
       this.normalizeInputValue(inputValue),
-      (origin: Option, input: Option) => origin.value === input.value
+      (origin: Option, input: Option) =>
+        origin[valueField || 'value'] === input[valueField || 'value']
     );
 
     return normalized ? this.normalizeOptions(options) : options;
@@ -201,7 +213,8 @@ export default class TagControl extends React.PureComponent<
       maxTagLength,
       enableBatchAdd,
       separator,
-      onInputValidateFailed
+      onInputValidateFailed,
+      valueField
     } = this.props;
 
     const normalizedValue = this.normalizeMergedValue(
@@ -211,7 +224,7 @@ export default class TagControl extends React.PureComponent<
 
     if (max != null && isInteger(max) && normalizedValue.length > max) {
       onInputValidateFailed?.(
-        normalizedValue.map(item => item.value),
+        normalizedValue.map(item => item[valueField || 'value']),
         'max'
       );
       return false;
@@ -222,10 +235,12 @@ export default class TagControl extends React.PureComponent<
     if (
       maxTagLength != null &&
       isInteger(maxTagLength) &&
-      addedValues.some(item => item.value.length > maxTagLength)
+      addedValues.some(
+        item => item[valueField || 'value'].length > maxTagLength
+      )
     ) {
       onInputValidateFailed?.(
-        addedValues.map(item => item.value),
+        addedValues.map(item => item[valueField || 'value']),
         'maxLength'
       );
       return false;
@@ -235,9 +250,15 @@ export default class TagControl extends React.PureComponent<
   }
 
   @autobind
-  getValue(type: 'push' | 'pop' | 'normal' = 'normal', option: any = {}) {
-    const {selectedOptions, joinValues, extractValue, delimiter, valueField} =
-      this.props;
+  getValue(
+    type: 'push' | 'pop' | 'normal' = 'normal',
+    option: any = {},
+    selectedOptions?: Option[]
+  ) {
+    const {joinValues, extractValue, delimiter, valueField} = this.props;
+    selectedOptions = selectedOptions
+      ? selectedOptions
+      : this.props.selectedOptions;
 
     const newValue = selectedOptions.concat();
     if (type === 'push') {
@@ -258,39 +279,122 @@ export default class TagControl extends React.PureComponent<
       return;
     }
 
-    const {selectedOptions, onChange} = this.props;
+    const {selectedOptions, onChange, valueField} = this.props;
     const newValue = selectedOptions.concat();
 
-    if (find(newValue, item => item.value == option.value)) {
+    if (
+      find(
+        newValue,
+        item => item[valueField || 'value'] == option[valueField || 'value']
+      )
+    ) {
       return;
     }
 
     const newValueRes = this.getValue('push', option);
 
     const isPrevented = await this.dispatchEvent('change', {
-      value: newValueRes
+      value: newValueRes,
+      selectedItems: selectedOptions.concat(option)
     });
     isPrevented || onChange(newValueRes);
+  }
+
+  // 移动端特殊处理
+  addItem2(option: Option) {
+    const {mobileUI, valueField = 'value'} = this.props;
+
+    if (mobileUI) {
+      const selectedOptions = this.state.selectedOptions.concat();
+      let index = selectedOptions.findIndex(
+        item => item[valueField] === option[valueField]
+      );
+      if (~index) {
+        selectedOptions.splice(index, 1);
+      } else if (!this.isReachMaxFromState()) {
+        selectedOptions.push(option);
+      }
+      this.setState({
+        selectedOptions
+      });
+    }
+  }
+
+  // 手机端校验
+  isExist(inputValue: string) {
+    const {options, valueField = 'value'} = this.props;
+    const {cacheOptions} = this.state;
+    return (
+      options.some(item => item[valueField] === inputValue) ||
+      cacheOptions.some(item => item[valueField] === inputValue)
+    );
+  }
+
+  @autobind
+  addSelection() {
+    let {inputValue} = this.state;
+    const {maxTagLength} = this.props;
+    const selectedOptions = this.state.selectedOptions.slice();
+    const cacheOptions = this.state.cacheOptions.slice();
+
+    if (maxTagLength !== undefined) {
+      inputValue = inputValue.trim();
+      inputValue = inputValue.slice(0, maxTagLength);
+    }
+    if (this.isExist(inputValue)) {
+      return;
+    }
+
+    if (inputValue && !this.isReachMaxFromState()) {
+      const addedValues = this.normalizeInputValue(inputValue);
+      selectedOptions.push(addedValues[0]);
+      cacheOptions.push(addedValues[0]);
+      this.setState({
+        inputValue: '',
+        selectedOptions,
+        cacheOptions
+      });
+    }
+  }
+
+  @autobind
+  async onConfirm() {
+    const {selectedOptions} = this.state;
+    const {onChange} = this.props;
+    const newValueRes = this.getValue('normal', {}, selectedOptions);
+
+    const isPrevented = await this.dispatchEvent('change', {
+      value: newValueRes,
+      selectedItems: selectedOptions
+    });
+
+    isPrevented || onChange(newValueRes);
+    this.close();
   }
 
   @autobind
   async handleFocus(e: any) {
     this.setState({
       isFocused: true,
-      isOpened: true
+      isOpened: true,
+      selectedOptions: this.props.selectedOptions
     });
 
     const newValueRes = this.getValue('normal');
     const isPrevented = await this.dispatchEvent('focus', {
-      value: newValueRes
+      value: newValueRes,
+      selectedItems: this.props.selectedOptions
     });
     isPrevented || this.props.onFocus?.(e);
   }
 
   @autobind
   async handleBlur(e: any) {
-    const {selectedOptions, onChange} = this.props;
+    const {selectedOptions, onChange, mobileUI, options} = this.props;
 
+    if (mobileUI && options.length) {
+      return;
+    }
     const value = this.state.inputValue.trim();
 
     if (!this.validateInputValue(value)) {
@@ -300,7 +404,8 @@ export default class TagControl extends React.PureComponent<
 
     const newValueRes = this.normalizeMergedValue(value);
     const isPrevented = await this.dispatchEvent('blur', {
-      value: newValueRes
+      value: newValueRes,
+      selectedItems: selectedOptions
     });
 
     isPrevented || this.props.onBlur?.(e);
@@ -348,7 +453,8 @@ export default class TagControl extends React.PureComponent<
     }
 
     const isPrevented = await this.dispatchEvent('change', {
-      value: newValue
+      value: newValue,
+      selectedItems: value
     });
     isPrevented || onChange(newValue);
   }
@@ -361,14 +467,20 @@ export default class TagControl extends React.PureComponent<
 
   @autobind
   async handleKeyDown(evt: React.KeyboardEvent<HTMLInputElement>) {
-    const {selectedOptions, onChange, delimiter} = this.props;
+    const {selectedOptions, onChange, delimiter, labelField, valueField} =
+      this.props;
 
     const value = this.state.inputValue.trim();
+    const selectedItems = selectedOptions.concat({
+      [`${labelField || 'label'}`]: value,
+      [`${valueField || 'value'}`]: value
+    });
 
     if (selectedOptions.length && !value && evt.key == 'Backspace') {
       const newValueRes = this.getValue('pop');
       const isPrevented = await this.dispatchEvent('change', {
-        value: newValueRes
+        value: newValueRes,
+        selectedItems
       });
       isPrevented || onChange(newValueRes);
     } else if (value && (evt.key === 'Enter' || evt.key === delimiter)) {
@@ -377,7 +489,8 @@ export default class TagControl extends React.PureComponent<
 
       const newValueRes = this.normalizeMergedValue(value);
       const isPrevented = await this.dispatchEvent('change', {
-        value: newValueRes
+        value: newValueRes,
+        selectedItems
       });
 
       if (!this.validateInputValue(value)) {
@@ -397,6 +510,12 @@ export default class TagControl extends React.PureComponent<
 
   @autobind
   handleOptionChange(option: Option) {
+    const {mobileUI} = this.props;
+
+    if (mobileUI) {
+      this.addItem2(option);
+      return;
+    }
     if (this.isReachMax() || this.state.inputValue || !option) {
       return;
     }
@@ -425,9 +544,18 @@ export default class TagControl extends React.PureComponent<
     return max != null && isInteger(max) && selectedOptions.length >= max;
   }
 
+  @autobind
+  isReachMaxFromState() {
+    const {selectedOptions} = this.state;
+    const {max} = this.props;
+    return max != null && isInteger(max) && selectedOptions.length >= max;
+  }
+
+  @supportStatic()
   render() {
     const {
       className,
+      style,
       classnames: cx,
       disabled,
       placeholder,
@@ -441,7 +569,11 @@ export default class TagControl extends React.PureComponent<
       optionsTip,
       maxTagCount,
       overflowTagPopover,
-      translate: __
+      translate: __,
+      loadingConfig,
+      valueField,
+      env,
+      mobileUI
     } = this.props;
 
     const finnalOptions = Array.isArray(options)
@@ -449,7 +581,8 @@ export default class TagControl extends React.PureComponent<
           options,
           item =>
             (Array.isArray(item.children) && !!item.children.length) ||
-            (item.value !== undefined && !~selectedOptions.indexOf(item)),
+            (item[valueField || 'value'] !== undefined &&
+              (mobileUI || !~selectedOptions.indexOf(item))),
           0,
           true
         )
@@ -460,7 +593,7 @@ export default class TagControl extends React.PureComponent<
     return (
       <Downshift
         selectedItem={selectedOptions}
-        isOpen={this.state.isFocused}
+        isOpen={mobileUI ? this.state.isOpened : this.state.isFocused}
         inputValue={this.state.inputValue}
         onChange={this.handleOptionChange}
         itemToString={this.renderItem}
@@ -476,10 +609,11 @@ export default class TagControl extends React.PureComponent<
                   placeholder: __(placeholder ?? 'Tag.placeholder'),
                   value: this.state.inputValue,
                   onKeyDown: this.handleKeyDown,
-                  onFocus: this.handleFocus,
+                  onFocus: !mobileUI ? this.handleFocus : undefined,
                   onBlur: this.handleBlur,
                   disabled
                 })}
+                onResultClick={mobileUI ? this.handleFocus : undefined}
                 inputPlaceholder={''}
                 onChange={this.handleInputChange}
                 className={cx('TagControl-input')}
@@ -489,46 +623,110 @@ export default class TagControl extends React.PureComponent<
                 clearable={clearable}
                 maxTagCount={maxTagCount}
                 overflowTagPopover={overflowTagPopover}
-                allowInput
+                popOverContainer={popOverContainer || env.getModalContainer}
+                allowInput={!mobileUI || (mobileUI && !options?.length)}
+                mobileUI={mobileUI}
               >
-                {loading ? <Spinner size="sm" /> : undefined}
+                {loading ? (
+                  <Spinner loadingConfig={loadingConfig} size="sm" />
+                ) : undefined}
               </ResultBox>
 
               {dropdown !== false ? (
-                <Overlay
-                  container={popOverContainer || this.getParent}
-                  target={this.getTarget}
-                  placement={'auto'}
-                  show={isOpen && !!finnalOptions.length}
-                >
-                  <PopOver
-                    overlay
-                    className={cx('TagControl-popover')}
+                mobileUI ? (
+                  <PopUp
+                    className={cx(`Tag-popup`)}
+                    container={
+                      mobileUI
+                        ? env?.getModalContainer
+                        : popOverContainer || env.getModalContainer
+                    }
+                    isShow={isOpen && !!finnalOptions.length}
+                    showConfirm={true}
+                    onConfirm={this.onConfirm}
                     onHide={this.close}
                   >
-                    <ListMenu
-                      options={finnalOptions}
-                      itemRender={this.renderItem}
-                      highlightIndex={highlightedIndex}
-                      getItemProps={({
-                        item,
-                        index
-                      }: {
-                        item: Option;
-                        index: number;
-                      }) => ({
-                        ...getItemProps({
-                          index,
+                    <div>
+                      <ListMenu
+                        selectedOptions={selectedOptions}
+                        mobileUI={mobileUI}
+                        options={finnalOptions.concat(this.state.cacheOptions)}
+                        itemRender={this.renderItem}
+                        highlightIndex={highlightedIndex}
+                        getItemProps={({
                           item,
-                          disabled: reachMax || item.disabled,
-                          className: cx('ListMenu-item', {
-                            'is-disabled': reachMax
-                          }),
-                        })
-                      })}
-                    />
-                  </PopOver>
-                </Overlay>
+                          index
+                        }: {
+                          item: Option;
+                          index: number;
+                        }) => ({
+                          ...getItemProps({
+                            index,
+                            item,
+                            className: cx('ListMenu-item', {
+                              'is-active': ~(
+                                this.state.selectedOptions.map(
+                                  item => item[valueField]
+                                ) || []
+                              ).indexOf(item[valueField])
+                            })
+                          })
+                        })}
+                      />
+                      {mobileUI && !this.isReachMaxFromState() ? (
+                        <div className={cx('ListMenu-add-wrap')}>
+                          <ResultBox
+                            placeholder={__('placeholder.enter') + '...'}
+                            allowInput
+                            value={this.state.inputValue}
+                            mobileUI={mobileUI}
+                            clearable
+                            maxTagCount={maxTagCount}
+                            onChange={value => {
+                              this.setState({inputValue: value});
+                            }}
+                            onBlur={this.addSelection}
+                          ></ResultBox>
+                        </div>
+                      ) : null}
+                    </div>
+                  </PopUp>
+                ) : (
+                  <Overlay
+                    container={popOverContainer || this.getParent}
+                    target={this.getTarget}
+                    placement={'auto'}
+                    show={isOpen && !!finnalOptions.length}
+                  >
+                    <PopOver
+                      overlay
+                      className={cx('TagControl-popover')}
+                      onHide={this.close}
+                    >
+                      <ListMenu
+                        options={finnalOptions}
+                        itemRender={this.renderItem}
+                        highlightIndex={highlightedIndex}
+                        getItemProps={({
+                          item,
+                          index
+                        }: {
+                          item: Option;
+                          index: number;
+                        }) => ({
+                          ...getItemProps({
+                            index,
+                            item,
+                            disabled: reachMax || item.disabled,
+                            className: cx('ListMenu-item', {
+                              'is-disabled': reachMax
+                            })
+                          })
+                        })}
+                      />
+                    </PopOver>
+                  </Overlay>
+                )
               ) : (
                 // 保留原来的展现方式，不推荐
                 <div className={cx('TagControl-sug')}>

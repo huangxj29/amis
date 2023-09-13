@@ -11,7 +11,10 @@ import truncate from 'lodash/truncate';
 import uniqWith from 'lodash/uniqWith';
 import uniqBy from 'lodash/uniqBy';
 import isEqual from 'lodash/isEqual';
+import isPlainObject from 'lodash/isPlainObject';
+import get from 'lodash/get';
 import {EvaluatorOptions, FilterContext, FilterMap, FunctionMap} from './types';
+import {FormulaEvalError} from './error';
 
 export class Evaluator {
   readonly filters: FilterMap;
@@ -26,6 +29,13 @@ export class Evaluator {
     Evaluator.defaultFilters = {
       ...Evaluator.defaultFilters,
       ...filters
+    };
+  }
+  static defaultFunctions: FunctionMap = {};
+  static setDefaultFunctions(funtions: FunctionMap) {
+    Evaluator.defaultFunctions = {
+      ...Evaluator.defaultFunctions,
+      ...funtions
     };
   }
 
@@ -48,6 +58,7 @@ export class Evaluator {
       ...options?.filters
     };
     this.functions = {
+      ...Evaluator.defaultFunctions,
       ...this.functions,
       ...options?.functions
     };
@@ -60,7 +71,6 @@ export class Evaluator {
         l.toUpperCase()
       );
       const fn = this.functions[name] || (this as any)[name];
-
       if (!fn) {
         throw new Error(`${ast.type} unkown.`);
       }
@@ -106,7 +116,7 @@ export class Evaluator {
       const filter = filters.shift()!;
       const fn = this.filters[filter.name];
       if (!fn) {
-        throw new Error(`filter \`${filter.name}\` not exits`);
+        throw new Error(`filter \`${filter.name}\` not exists.`);
       }
       context.filter = filter;
       input = fn.apply(
@@ -437,10 +447,13 @@ export class Evaluator {
   funcCall(this: any, ast: {identifier: string; args: Array<any>}) {
     const fnName = `fn${ast.identifier}`;
     const fn =
-      this.functions[fnName] || this[fnName] || this.filters[ast.identifier];
+      this.functions[fnName] ||
+      this[fnName] ||
+      (this.filters.hasOwnProperty(ast.identifier) &&
+        this.filters[ast.identifier]);
 
     if (!fn) {
-      throw new Error(`${ast.identifier}函数没有定义`);
+      throw new FormulaEvalError(`${ast.identifier}函数没有定义`);
     }
 
     let args: Array<any> = ast.args;
@@ -485,14 +498,12 @@ export class Evaluator {
   }
 
   /**
-   * 示例：IF(A, B, C)
+   * 如果满足条件condition，则返回consequent，否则返回alternate，支持多层嵌套IF函数。
    *
-   * 如果满足条件A，则返回B，否则返回C，支持多层嵌套IF函数。
-   *
-   * 也可以用表达式如：A ? B : C
+   * 等价于直接用JS表达式如：condition ? consequent : alternate。
    *
    * @example IF(condition, consequent, alternate)
-   * @param {expression} condition - 条件表达式.
+   * @param {expression} condition 条件表达式。例如：语文成绩>80
    * @param {any} consequent 条件判断通过的返回结果
    * @param {any} alternate 条件判断不通过的返回结果
    * @namespace 逻辑函数
@@ -504,16 +515,16 @@ export class Evaluator {
   }
 
   /**
-   * 条件全部符合，返回 true，否则返回 false
+   * 条件全部符合，返回 true，否则返回 false。
    *
-   * 示例：AND(语文成绩>80, 数学成绩>80)
+   * 示例：AND(语文成绩>80, 数学成绩>80)，
    *
-   * 语文成绩和数学成绩都大于 80，则返回 true，否则返回 false
+   * 语文成绩和数学成绩都大于 80，则返回 true，否则返回 false，
    *
-   * 也可以直接用表达式如：语文成绩>80 && 数学成绩>80
+   * 等价于直接用JS表达式如：语文成绩>80 && 数学成绩>80。
    *
    * @example AND(expression1, expression2, ...expressionN)
-   * @param {...expression} conditions - 条件表达式.
+   * @param {...expression} conditions 条件表达式，多个用逗号隔开。例如：语文成绩>80, 数学成绩>80
    * @namespace 逻辑函数
    *
    * @returns {boolean}
@@ -523,16 +534,16 @@ export class Evaluator {
   }
 
   /**
-   * 条件任意一个满足条件，返回 true，否则返回 false
+   * 条件任意一个满足条件，返回 true，否则返回 false。
    *
-   * 示例：OR(语文成绩>80, 数学成绩>80)
+   * 示例：OR(语文成绩>80, 数学成绩>80)，
    *
-   * 语文成绩和数学成绩任意一个大于 80，则返回 true，否则返回 false
+   * 语文成绩和数学成绩任意一个大于 80，则返回 true，否则返回 false，
    *
-   * 也可以直接用表达式如：语文成绩>80 || 数学成绩>80
+   * 等价于直接用JS表达式如：语文成绩>80 || 数学成绩>80。
    *
    * @example OR(expression1, expression2, ...expressionN)
-   * @param {...expression} conditions - 条件表达式.
+   * @param {...expression} conditions 条件表达式，多个用逗号隔开。例如：语文成绩>80, 数学成绩>80
    * @namespace 逻辑函数
    *
    * @returns {boolean}
@@ -542,28 +553,32 @@ export class Evaluator {
   }
 
   /**
-   * 异或处理，两个表达式同时为「真」，或者同时为「假」，则结果返回为「真」
+   * 异或处理，多个表达式组中存在奇数个真时认为真。
    *
-   * @example XOR(condition1, condition2)
-   * @param {expression} condition1 - 条件表达式1
-   * @param {expression} condition2 - 条件表达式2
+   * 示例：XOR(语文成绩 > 80, 数学成绩 > 80, 英语成绩 > 80)
+   *
+   * 三门成绩中有一门或者三门大于 80，则返回 true，否则返回 false。
+   *
+   * @example XOR(condition1, condition2, ...expressionN)
+   * @param {...expression} condition 条件表达式，多个用逗号隔开。例如：语文成绩>80, 数学成绩>80
    * @namespace 逻辑函数
    *
    * @returns {boolean}
    */
-  fnXOR(c1: () => any, c2: () => any) {
-    return !!c1() === !!c2();
+  fnXOR(...condtions: Array<() => any>) {
+    return !!(condtions.filter(c => c()).length % 2);
   }
 
   /**
    * 判断函数集合，相当于多个 else if 合并成一个。
    *
-   * 示例：IFS(语文成绩 > 80, "优秀", 语文成绩 > 60, "良", "继续努力")
+   * 示例：IFS(语文成绩 > 80, "优秀", 语文成绩 > 60, "良", "继续努力")，
    *
    * 如果语文成绩大于 80，则返回优秀，否则判断大于 60 分，则返回良，否则返回继续努力。
    *
    * @example IFS(condition1, result1, condition2, result2,...conditionN, resultN)
-   * @param {...any} args - 条件，返回值集合
+   * @param {...expression} condition 条件表达式
+   * @param {...any} result 返回值
    * @namespace 逻辑函数
    * @returns {any} 第一个满足条件的结果，没有命中的返回 false。
    */
@@ -584,7 +599,7 @@ export class Evaluator {
   }
 
   /**
-   * 返回传入数字的绝对值
+   * 返回传入数字的绝对值。
    *
    * @example ABS(num)
    * @param {number} num - 数值
@@ -598,7 +613,7 @@ export class Evaluator {
   }
 
   /**
-   * 获取最大值，如果只有一个参数且是数组，则计算这个数组内的值
+   * 获取最大值，如果只有一个参数且是数组，则计算这个数组内的值。
    *
    * @example MAX(num1, num2, ...numN)
    * @param {...number} num - 数值
@@ -615,7 +630,7 @@ export class Evaluator {
   }
 
   /**
-   * 获取最小值，如果只有一个参数且是数组，则计算这个数组内的值
+   * 获取最小值，如果只有一个参数且是数组，则计算这个数组内的值。
    *
    * @example MIN(num1, num2, ...numN)
    * @param {...number} num - 数值
@@ -632,7 +647,7 @@ export class Evaluator {
   }
 
   /**
-   * 求和，如果只有一个参数且是数组，则计算这个数组内的值
+   * 求和，如果只有一个参数且是数组，则计算这个数组内的值。
    *
    * @example SUM(num1, num2, ...numN)
    * @param {...number} num - 数值
@@ -646,7 +661,7 @@ export class Evaluator {
   }
 
   /**
-   * 将数值向下取整为最接近的整数
+   * 将数值向下取整为最接近的整数。
    *
    * @example INT(num)
    * @param {number} num - 数值
@@ -659,7 +674,7 @@ export class Evaluator {
   }
 
   /**
-   * 返回两数相除的余数，参数 number 是被除数，divisor 是除数
+   * 返回两数相除的余数，参数 number 是被除数，divisor 是除数。
    *
    * @example MOD(num, divisor)
    * @param {number} num - 被除数
@@ -673,7 +688,7 @@ export class Evaluator {
   }
 
   /**
-   * 圆周率 3.1415...
+   * 圆周率 3.1415...。
    *
    * @example PI()
    * @namespace 数学函数
@@ -689,7 +704,7 @@ export class Evaluator {
    *
    * @example ROUND(num[, numDigits = 2])
    * @param {number} num - 要处理的数字
-   * @param {number} numDigits - 小数位数
+   * @param {number} numDigits - 小数位数，默认为2
    * @namespace 数学函数
    *
    * @returns {number} 传入数值四舍五入后的结果
@@ -712,7 +727,7 @@ export class Evaluator {
    *
    * @example FLOOR(num[, numDigits=2])
    * @param {number} num - 要处理的数字
-   * @param {number} numDigits - 小数位数
+   * @param {number} numDigits - 小数位数，默认为2
    * @namespace 数学函数
    *
    * @returns {number} 传入数值向下取整后的结果
@@ -735,7 +750,7 @@ export class Evaluator {
    *
    * @example CEIL(num[, numDigits=2])
    * @param {number} num - 要处理的数字
-   * @param {number} numDigits - 小数位数
+   * @param {number} numDigits - 小数位数，默认为2
    * @namespace 数学函数
    *
    * @returns {number} 传入数值向上取整后的结果
@@ -767,7 +782,7 @@ export class Evaluator {
   }
 
   /**
-   * 返回所有参数的平均值，如果只有一个参数且是数组，则计算这个数组内的值
+   * 返回所有参数的平均值，如果只有一个参数且是数组，则计算这个数组内的值。
    *
    * @example AVG(num1, num2, ...numN)
    * @param {...number} num - 要处理的数字
@@ -786,7 +801,7 @@ export class Evaluator {
   }
 
   /**
-   * 返回数据点与数据均值点之差（数据偏差）的平方和，如果只有一个参数且是数组，则计算这个数组内的值
+   * 返回数据点与数据均值点之差（数据偏差）的平方和，如果只有一个参数且是数组，则计算这个数组内的值。
    *
    * @example DEVSQ(num1, num2, ...numN)
    * @param {...number} num - 要处理的数字
@@ -811,7 +826,7 @@ export class Evaluator {
   }
 
   /**
-   * 数据点到其算术平均值的绝对偏差的平均值
+   * 数据点到其算术平均值的绝对偏差的平均值。
    *
    * @example AVEDEV(num1, num2, ...numN)
    * @param {...number} num - 要处理的数字
@@ -838,7 +853,7 @@ export class Evaluator {
   }
 
   /**
-   * 数据点的调和平均值，如果只有一个参数且是数组，则计算这个数组内的值
+   * 数据点的调和平均值，如果只有一个参数且是数组，则计算这个数组内的值。
    *
    * @example HARMEAN(num1, num2, ...numN)
    * @param {...number} num - 要处理的数字
@@ -863,7 +878,7 @@ export class Evaluator {
   }
 
   /**
-   * 数据集中第 k 个最大值
+   * 数据集中第 k 个最大值。
    *
    * @example LARGE(array, k)
    * @param {array} nums - 要处理的数字
@@ -886,7 +901,7 @@ export class Evaluator {
   }
 
   /**
-   * 将数值转为中文大写金额
+   * 将数值转为中文大写金额。
    *
    * @example UPPERMONEY(num)
    * @param {number} num - 要处理的数字
@@ -896,10 +911,15 @@ export class Evaluator {
    */
   fnUPPERMONEY(n: number) {
     n = this.formatNumber(n);
+    const maxLen = 14;
+    if (n.toString().split('.')[0]?.length > maxLen) {
+      return `最大数额只支持到兆(既小数点前${maxLen}位)`;
+    }
+
     const fraction = ['角', '分'];
     const digit = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
     const unit = [
-      ['元', '万', '亿'],
+      ['元', '万', '亿', '兆'],
       ['', '拾', '佰', '仟']
     ];
     const head = n < 0 ? '欠' : '';
@@ -932,9 +952,9 @@ export class Evaluator {
   /**
    * 返回大于等于 0 且小于 1 的均匀分布随机实数。每一次触发计算都会变化。
    *
-   * 示例：`RAND()*100`
+   * 示例：`RAND()*100`，
    *
-   * 返回 0-100 之间的随机数
+   * 返回 0-100 之间的随机数。
    *
    * @example RAND()
    * @namespace 数学函数
@@ -946,7 +966,7 @@ export class Evaluator {
   }
 
   /**
-   * 取数据最后一个
+   * 取数据最后一个。
    *
    * @example LAST(array)
    * @param {...number} arr - 要处理的数组
@@ -999,7 +1019,7 @@ export class Evaluator {
   }
 
   /**
-   * 计算文本的长度
+   * 计算文本的长度。
    *
    * @example LEN(text)
    * @param {string} text - 要处理的文本
@@ -1013,7 +1033,7 @@ export class Evaluator {
   }
 
   /**
-   * 计算文本集合中所有文本的长度
+   * 计算文本集合中所有文本的长度。
    *
    * @example LENGTH(textArr)
    * @param {string[]} textArr - 要处理的文本集合
@@ -1026,7 +1046,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断文本是否为空
+   * 判断文本是否为空。
    *
    * @example ISEMPTY(text)
    * @param {string} text - 要处理的文本
@@ -1039,7 +1059,7 @@ export class Evaluator {
   }
 
   /**
-   * 将多个传入值连接成文本
+   * 将多个传入值连接成文本。
    *
    * @example CONCATENATE(text1, text2, ...textN)
    * @param {...string} text - 文本集合
@@ -1054,7 +1074,7 @@ export class Evaluator {
   /**
    * 返回计算机字符集的数字代码所对应的字符。
    *
-   * `CHAR(97)` 等价于 "a"
+   * 示例：`CHAR(97)` 等价于 "a"。
    *
    * @example CHAR(code)
    * @param {number} code - 编码值
@@ -1067,7 +1087,7 @@ export class Evaluator {
   }
 
   /**
-   * 将传入文本转成小写
+   * 将传入文本转成小写。
    *
    * @example LOWER(text)
    * @param {string} text - 文本
@@ -1081,7 +1101,7 @@ export class Evaluator {
   }
 
   /**
-   * 将传入文本转成大写
+   * 将传入文本转成大写。
    *
    * @example UPPER(text)
    * @param {string} text - 文本
@@ -1095,7 +1115,7 @@ export class Evaluator {
   }
 
   /**
-   * 将传入文本首字母转成大写
+   * 将传入文本首字母转成大写。
    *
    * @example UPPERFIRST(text)
    * @param {string} text - 文本
@@ -1109,11 +1129,11 @@ export class Evaluator {
   }
 
   /**
-   * 向前补齐文本长度
+   * 向前补齐文本长度。
    *
-   * 示例 `PADSTART("6", 2, "0")`
+   * 示例 `PADSTART("6", 2, "0")`，
    *
-   * 返回 `06`
+   * 返回 `06`。
    *
    * @example PADSTART(text)
    * @param {string} text - 文本
@@ -1129,11 +1149,11 @@ export class Evaluator {
   }
 
   /**
-   * 将文本转成标题
+   * 将文本转成标题。
    *
-   * 示例 `CAPITALIZE("star")`
+   * 示例 `CAPITALIZE("star")`，
    *
-   * 返回 `Star`
+   * 返回 `Star`。
    *
    * @example CAPITALIZE(text)
    * @param {string} text - 文本
@@ -1147,11 +1167,11 @@ export class Evaluator {
   }
 
   /**
-   * 对文本进行 HTML 转义
+   * 对文本进行 HTML 转义。
    *
-   * 示例 `ESCAPE("star")`
+   * 示例 `ESCAPE("<star>&")`，
    *
-   * 返回 `Star`
+   * 返回 `&lt;start&gt;&amp;`。
    *
    * @example ESCAPE(text)
    * @param {string} text - 文本
@@ -1165,11 +1185,11 @@ export class Evaluator {
   }
 
   /**
-   * 对文本长度进行截断
+   * 对文本长度进行截断。
    *
-   * 示例 `TRUNCATE("amis.baidu.com", 6)`
+   * 示例 `TRUNCATE("amis.baidu.com", 6)`，
    *
-   * 返回 `amis...`
+   * 返回 `amis...`。
    *
    * @example TRUNCATE(text, 6)
    * @param {string} text - 文本
@@ -1184,7 +1204,7 @@ export class Evaluator {
   }
 
   /**
-   *  取在某个分隔符之前的所有字符串
+   *  取在某个分隔符之前的所有字符串。
    *
    * @example  BEFORELAST(text, '.')
    * @param {string} text - 文本
@@ -1199,11 +1219,11 @@ export class Evaluator {
   }
 
   /**
-   * 将文本根据指定片段分割成数组
+   * 将文本根据指定片段分割成数组。
    *
-   * 示例：`SPLIT("a,b,c", ",")`
+   * 示例：`SPLIT("a,b,c", ",")`，
    *
-   * 返回 `["a", "b", "c"]`
+   * 返回 `["a", "b", "c"]`。
    *
    * @example SPLIT(text, ',')
    * @param {string} text - 文本
@@ -1218,7 +1238,7 @@ export class Evaluator {
   }
 
   /**
-   * 将文本去除前后空格
+   * 将文本去除前后空格。
    *
    * @example TRIM(text)
    * @param {string} text - 文本
@@ -1232,11 +1252,11 @@ export class Evaluator {
   }
 
   /**
-   * 去除文本中的 HTML 标签
+   * 去除文本中的 HTML 标签。
    *
-   * 示例：`STRIPTAG("<b>amis</b>")`
+   * 示例：`STRIPTAG("<b>amis</b>")`，
    *
-   * 返回：`amis`
+   * 返回：`amis`。
    *
    * @example STRIPTAG(text)
    * @param {string} text - 文本
@@ -1250,11 +1270,11 @@ export class Evaluator {
   }
 
   /**
-   * 将字符串中的换行转成 HTML `<br>`，用于简单换行的场景
+   * 将字符串中的换行转成 HTML `<br>`，用于简单换行的场景。
    *
-   * 示例：`LINEBREAK("\n")`
+   * 示例：`LINEBREAK("\n")`，
    *
-   * 返回：`<br/>`
+   * 返回：`<br/>`。
    *
    * @example LINEBREAK(text)
    * @param {string} text - 文本
@@ -1268,7 +1288,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断字符串(text)是否以特定字符串(startString)开始，是则返回 True，否则返回 False
+   * 判断字符串(text)是否以特定字符串(startString)开始，是则返回 true，否则返回 false。
    *
    * @example STARTSWITH(text, '片段')
    * @param {string} text - 文本
@@ -1287,7 +1307,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断字符串(text)是否以特定字符串(endString)结束，是则返回 True，否则返回 False
+   * 判断字符串(text)是否以特定字符串(endString)结束，是则返回 true，否则返回 false。
    *
    * @example ENDSWITH(text, '片段')
    * @param {string} text - 文本
@@ -1306,7 +1326,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断参数 1 中的文本是否包含参数 2 中的文本。
+   * 判断参数 1 中的文本是否包含参数 2 中的文本，是则返回 true，否则返回 false。
    *
    * @example CONTAINS(text, searchText)
    * @param {string} text - 文本
@@ -1356,7 +1376,7 @@ export class Evaluator {
   }
 
   /**
-   * 对文本进行搜索，返回命中的位置
+   * 对文本进行搜索，返回命中的位置。
    *
    * @example SEARCH(text, search, 0)
    * @param {string} text - 要处理的文本
@@ -1379,7 +1399,7 @@ export class Evaluator {
   }
 
   /**
-   * 返回文本字符串中从指定位置开始的特定数目的字符
+   * 返回文本字符串中从指定位置开始的特定数目的字符。
    *
    * @example MID(text, from, len)
    * @param {string} text - 要处理的文本
@@ -1395,11 +1415,11 @@ export class Evaluator {
   }
 
   /**
-   * 返回路径中的文件名
+   * 返回路径中的文件名。
    *
-   * 示例：`/home/amis/a.json`
+   * 示例：`/home/amis/a.json`，
    *
-   * 返回：a.json`
+   * 返回：a.json`。
    *
    * @example BASENAME(text)
    * @param {string} text - 要处理的文本
@@ -1417,8 +1437,8 @@ export class Evaluator {
   /**
    * 创建日期对象，可以通过特定格式的字符串，或者数值。
    *
-   * 需要注意的是，其中月份的数值是从0开始的，也就是说，
-   * 如果是12月份，你应该传入数值11。
+   * 需要注意的是，其中月份的数值是从0开始的，
+   * 即如果是12月份，你应该传入数值11。
    *
    * @example DATE(2021, 11, 6, 8, 20, 0)
    * @example DATE('2021-12-06 08:20:00')
@@ -1442,10 +1462,9 @@ export class Evaluator {
   }
 
   /**
-   * 返回时间的时间戳
+   * 返回时间的时间戳。
    *
    * @example TIMESTAMP(date[, format = "X"])
-   * @example TIMESTAMP(date, 'x')
    * @namespace 日期函数
    * @param {date} date 日期对象
    * @param {string} format 时间戳格式，带毫秒传入 'x'。默认为 'X' 不带毫秒的。
@@ -1453,11 +1472,14 @@ export class Evaluator {
    * @returns {number} 时间戳
    */
   fnTIMESTAMP(date: Date, format?: 'x' | 'X') {
-    return parseInt(moment(date).format(format === 'x' ? 'x' : 'X'), 10);
+    return parseInt(
+      moment(this.normalizeDate(date)).format(format === 'x' ? 'x' : 'X'),
+      10
+    );
   }
 
   /**
-   * 返回今天的日期
+   * 返回今天的日期。
    *
    * @example TODAY()
    * @namespace 日期函数
@@ -1481,57 +1503,157 @@ export class Evaluator {
   }
 
   /**
-   * 将日期转成日期字符串
+   * 获取日期的星期几。
    *
-   * @example DATETOSTR(date[, format="YYYY-MM-DD HH:mm:ss"])
+   * 示例
+   *
+   * WEEKDAY('2023-02-27') 得到 1。
+   *
+   * @example WEEKDAY(date)
+   * @namespace 日期函数
+   * @param {any} date 日期
+   * @param {number} type 星期定义类型，默认为1，1表示0至6代表星期一到星期日，2表示1至7代表星期一到星期日
+   *
+   * @returns {number} 星期几的数字标识
+   */
+  fnWEEKDAY(date: Date | string | number, type?: number) {
+    const md = moment(this.normalizeDate(date));
+    return type === 2 ? md.isoWeekday() : md.weekday();
+  }
+
+  /**
+   * 获取年份的星期，即第几周。
+   *
+   * 示例
+   *
+   * WEEK('2023-03-05') 得到 10。
+   *
+   * @example WEEK(date)
+   * @namespace 日期函数
+   * @param {any} date 日期
+   * @param {boolean} isISO 是否ISO星期
+   *
+   * @returns {number} 星期几的数字标识
+   */
+  fnWEEK(date: Date | string | number, isISO = false) {
+    const md = moment(this.normalizeDate(date));
+    return isISO ? md.isoWeek() : md.week();
+  }
+
+  /**
+   * 对日期、日期字符串、时间戳进行格式化。
+   *
+   * 示例
+   *
+   * DATETOSTR('12/25/2022', 'YYYY-MM-DD') 得到 '2022.12.25'，
+   * DATETOSTR(1676563200, 'YYYY.MM.DD') 得到 '2023.02.17'，
+   * DATETOSTR(1676563200000, 'YYYY.MM.DD hh:mm:ss') 得到 '2023.02.17 12:00:00'，
+   * DATETOSTR(DATE('2021-12-21'), 'YYYY.MM.DD hh:mm:ss') 得到 '2021.12.21 08:00:00'。
+   *
    * @example DATETOSTR(date, 'YYYY-MM-DD')
    * @namespace 日期函数
-   * @param {date} date 日期对象
+   * @param {any} date 日期对象、日期字符串、时间戳
    * @param {string} format 日期格式，默认为 "YYYY-MM-DD HH:mm:ss"
    *
-   * @returns {number} 日期字符串
+   * @returns {string} 日期字符串
    */
-  fnDATETOSTR(date: Date, format = 'YYYY-MM-DD HH:mm:ss') {
+  fnDATETOSTR(
+    date: Date | string | number,
+    format: string = 'YYYY-MM-DD HH:mm:ss'
+  ) {
+    date = this.normalizeDate(date);
     return moment(date).format(format);
   }
 
   /**
-   * 返回日期的指定范围的开端
+   * 获取日期范围字符串中的开始时间、结束时间。
+   *
+   * 示例：
+   *
+   * DATERANGESPLIT('1676563200, 1676735999') 得到 [1676563200, 1676735999]，
+   * DATERANGESPLIT('1676563200, 1676735999', undefined , 'YYYY.MM.DD hh:mm:ss') 得到 [2023.02.17 12:00:00, 2023.02.18 11:59:59]，
+   * DATERANGESPLIT('1676563200, 1676735999', 0 , 'YYYY.MM.DD hh:mm:ss') 得到 '2023.02.17 12:00:00'，
+   * DATERANGESPLIT('1676563200, 1676735999', 'start' , 'YYYY.MM.DD hh:mm:ss') 得到 '2023.02.17 12:00:00'，
+   * DATERANGESPLIT('1676563200, 1676735999', 1 , 'YYYY.MM.DD hh:mm:ss') 得到 '2023.02.18 11:59:59'，
+   * DATERANGESPLIT('1676563200, 1676735999', 'end' , 'YYYY.MM.DD hh:mm:ss') 得到 '2023.02.18 11:59:59'。
+   *
+   * @example DATERANGESPLIT(date, 'YYYY-MM-DD')
+   * @namespace 日期函数
+   * @param {string} date 日期范围字符串
+   * @param {string} key 取值标识，0或'start'表示获取开始时间，1或'end'表示获取结束时间
+   * @param {string} format 日期格式，可选
+   * @param {string} delimiter 分隔符，可选，默认为','
+   *
+   * @returns {string} 日期字符串
+   */
+  fnDATERANGESPLIT(
+    daterange: string,
+    key?: string,
+    format?: string,
+    delimiter = ','
+  ) {
+    if (!daterange || typeof daterange !== 'string') {
+      return daterange;
+    }
+
+    const dateArr = daterange
+      .split(delimiter)
+      .map(item =>
+        item && format
+          ? moment(this.normalizeDate(item.trim())).format(format)
+          : item.trim()
+      );
+
+    if ([0, '0', 'start'].includes(key!)) {
+      return dateArr[0];
+    }
+
+    if ([1, '1', 'end'].includes(key!)) {
+      return dateArr[1];
+    }
+
+    return dateArr;
+  }
+
+  /**
+   * 返回日期的指定范围的开端。
    *
    * @namespace 日期函数
    * @example STARTOF(date[unit = "day"])
    * @param {date} date 日期对象
    * @param {string} unit 比如可以传入 'day'、'month'、'year' 或者 `week` 等等
+   * @param {string} format 日期格式，可选
    * @returns {date} 新的日期对象
    */
-  fnSTARTOF(date: Date, unit?: any) {
-    return moment(date)
-      .startOf(unit || 'day')
-      .toDate();
+  fnSTARTOF(date: Date, unit?: any, format?: string) {
+    const md = moment(this.normalizeDate(date)).startOf(unit || 'day');
+    return format ? md.format(format) : md.toDate();
   }
 
   /**
-   * 返回日期的指定范围的末尾
+   * 返回日期的指定范围的末尾。
+   *
    * @namespace 日期函数
    * @example ENDOF(date[unit = "day"])
    * @param {date} date 日期对象
    * @param {string} unit 比如可以传入 'day'、'month'、'year' 或者 `week` 等等
+   * @param {string} format 日期格式，可选
    * @returns {date} 新的日期对象
    */
-  fnENDOF(date: Date, unit?: any) {
-    return moment(date)
-      .endOf(unit || 'day')
-      .toDate();
+  fnENDOF(date: Date, unit?: any, format?: string) {
+    const md = moment(this.normalizeDate(date)).endOf(unit || 'day');
+    return format ? md.format(format) : md.toDate();
   }
 
   normalizeDate(raw: any): Date {
-    if (typeof raw === 'number' || !isNaN(raw)) {
-      return new Date(Number(raw));
-    }
+    if (typeof raw === 'string' || typeof raw === 'number') {
+      let formats = ['', 'YYYY-MM-DD HH:mm:ss', 'X'];
 
-    if (typeof raw === 'string') {
-      const formats = ['', 'YYYY-MM-DD HH:mm:ss', 'X'];
-
+      if (/^\d{10}((\.\d+)*)$/.test(raw.toString())) {
+        formats = ['X', 'x', 'YYYY-MM-DD HH:mm:ss', ''];
+      } else if (/^\d{13}((\.\d+)*)$/.test(raw.toString())) {
+        formats = ['x', 'X', 'YYYY-MM-DD HH:mm:ss', ''];
+      }
       while (formats.length) {
         const format = formats.shift()!;
         const date = moment(raw, format);
@@ -1545,8 +1667,15 @@ export class Evaluator {
     return raw;
   }
 
+  normalizeDateRange(raw: string | Date[]): Date[] {
+    return (Array.isArray(raw) ? raw : raw.split(',')).map((item: any) =>
+      this.normalizeDate(String(item).trim())
+    );
+  }
+
   /**
-   * 返回日期的年份
+   * 返回日期的年份。
+   *
    * @namespace 日期函数
    * @example YEAR(date)
    * @param {date} date 日期对象
@@ -1571,7 +1700,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回日期的天
+   * 返回日期的天。
+   *
    * @namespace 日期函数
    * @example DAY(date)
    * @param {date} date 日期对象
@@ -1583,7 +1713,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回日期的小时
+   * 返回日期的小时。
+   *
    * @param {date} date 日期对象
    * @namespace 日期函数
    * @example HOUR(date)
@@ -1595,7 +1726,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回日期的分
+   * 返回日期的分。
+   *
    * @param {date} date 日期对象
    * @namespace 日期函数
    * @example MINUTE(date)
@@ -1607,7 +1739,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回日期的秒
+   * 返回日期的秒。
+   *
    * @param {date} date 日期对象
    * @namespace 日期函数
    * @example SECOND(date)
@@ -1619,7 +1752,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回两个日期相差多少年
+   * 返回两个日期相差多少年。
+   *
    * @param {date} endDate 日期对象
    * @param {date} startDate 日期对象
    * @namespace 日期函数
@@ -1633,7 +1767,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回两个日期相差多少分钟
+   * 返回两个日期相差多少分钟。
+   *
    * @param {date} endDate 日期对象
    * @param {date} startDate 日期对象
    * @namespace 日期函数
@@ -1647,7 +1782,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回两个日期相差多少天
+   * 返回两个日期相差多少天。
+   *
    * @param {date} endDate 日期对象
    * @param {date} startDate 日期对象
    * @namespace 日期函数
@@ -1661,7 +1797,8 @@ export class Evaluator {
   }
 
   /**
-   * 返回两个日期相差多少小时
+   * 返回两个日期相差多少小时。
+   *
    * @param {date} endDate 日期对象
    * @param {date} startDate 日期对象
    * @namespace 日期函数
@@ -1675,11 +1812,11 @@ export class Evaluator {
   }
 
   /**
-   * 修改日期，对日期进行加减天、月份、年等操作
+   * 修改日期，对日期进行加减天、月份、年等操作。
    *
    * 示例：
    *
-   * DATEMODIFY(A, -2, 'month')
+   * DATEMODIFY(A, -2, 'month')，
    *
    * 对日期 A 进行往前减2月的操作。
    *
@@ -1711,7 +1848,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断两个日期，是否第一个日期在第二个日期的前面
+   * 判断两个日期，是否第一个日期在第二个日期的前面，是则返回 true，否则返回 false。
    *
    * @param {date} a 第一个日期
    * @param {date} b 第二个日期
@@ -1727,7 +1864,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断两个日期，是否第一个日期在第二个日期的后面
+   * 判断两个日期，是否第一个日期在第二个日期的后面，是则返回 true，否则返回 false。
    *
    * @param {date} a 第一个日期
    * @param {date} b 第二个日期
@@ -1743,7 +1880,35 @@ export class Evaluator {
   }
 
   /**
-   * 判断两个日期，是否第一个日期在第二个日期的前面或者相等
+   * 判断日期是否在指定范围内，是则返回 true，否则返回 false。
+   *
+   * 示例：BETWEENRANGE('2021/12/6', ['2021/12/5','2021/12/7'])。
+   *
+   * @param {any} date 第一个日期
+   * @param {any[]} daterange 日期范围
+   * @param {string} unit 单位，默认是 'day'， 即之比较到天
+   * @param {string} inclusivity 包容性规则，默认为'[]'。[ 表示包含、( 表示排除，如果使用包容性参数，则必须传入两个指示符，如'()'表示左右范围都排除
+   * @namespace 日期函数
+   * @example BETWEENRANGE(date, [start, end])
+   * @returns {boolean} 判断结果
+   */
+  fnBETWEENRANGE(
+    date: Date,
+    daterange: Date[],
+    unit: any = 'day',
+    inclusivity: '[]' | '()' | '(]' | '[)' = '[]'
+  ) {
+    const range = this.normalizeDateRange(daterange);
+    return moment(this.normalizeDate(date)).isBetween(
+      range[0],
+      range[1],
+      unit,
+      inclusivity
+    );
+  }
+
+  /**
+   * 判断两个日期，是否第一个日期在第二个日期的前面或者相等，是则返回 true，否则返回 false。
    *
    * @param {date} a 第一个日期
    * @param {date} b 第二个日期
@@ -1759,7 +1924,7 @@ export class Evaluator {
   }
 
   /**
-   * 判断两个日期，是否第一个日期在第二个日期的后面或者相等
+   * 判断两个日期，是否第一个日期在第二个日期的后面或者相等，是则返回 true，否则返回 false。
    *
    * @param {date} a 第一个日期
    * @param {date} b 第二个日期
@@ -1775,7 +1940,7 @@ export class Evaluator {
   }
 
   /**
-   * 返回数组的长度
+   * 返回数组的长度。
    *
    * @param {Array<any>} arr 数组
    * @namespace 数组
@@ -1800,17 +1965,150 @@ export class Evaluator {
       throw new Error('expected an anonymous function get ' + iterator);
     }
 
-    return (Array.isArray(value) ? value : []).map((item, index) =>
-      this.callAnonymousFunction(iterator, [item, index])
+    return (Array.isArray(value) ? value : []).map((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
     );
   }
 
   /**
-   * 数组过滤掉 false、null、0 和 ""
+   * 数据做数据过滤，需要搭配箭头函数一起使用，注意箭头函数只支持单表达式用法。
+   * 将第二个箭头函数返回为 false 的成员过滤掉。
+   *
+   * @param {Array<any>} arr 数组
+   * @param {Function<any>} iterator 箭头函数
+   * @namespace 数组
+   * @example ARRAYFILTER(arr, item => item)
+   * @returns {boolean} 结果
+   */
+  fnARRAYFILTER(value: any, iterator: any) {
+    if (!iterator || iterator.type !== 'anonymous_function') {
+      throw new Error('expected an anonymous function get ' + iterator);
+    }
+
+    return (Array.isArray(value) ? value : []).filter((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
+    );
+  }
+
+  /**
+   * 数据做数据查找，需要搭配箭头函数一起使用，注意箭头函数只支持单表达式用法。
+   * 找出第二个箭头函数返回为 true 的成员的索引。
    *
    * 示例：
    *
-   * COMPACT([0, 1, false, 2, '', 3]) 得到 [1, 2, 3]
+   * ARRAYFINDINDEX([0, 2, false], item => item === 2) 得到 1。
+   *
+   * @param {Array<any>} arr 数组
+   * @param {Function<any>} iterator 箭头函数
+   * @namespace 数组
+   * @example ARRAYFINDINDEX(arr, item => item === 2)
+   * @returns {number} 结果
+   */
+  fnARRAYFINDINDEX(arr: any[], iterator: any) {
+    if (!iterator || iterator.type !== 'anonymous_function') {
+      throw new Error('expected an anonymous function get ' + iterator);
+    }
+
+    return (Array.isArray(arr) ? arr : []).findIndex((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
+    );
+  }
+
+  /**
+   * 数据做数据查找，需要搭配箭头函数一起使用，注意箭头函数只支持单表达式用法。
+   * 找出第二个箭头函数返回为 true 的成员。
+   *
+   * 示例：
+   *
+   * ARRAYFIND([0, 2, false], item => item === 2) 得到 2。
+   *
+   * @param {Array<any>} arr 数组
+   * @param {Function<any>} iterator 箭头函数
+   * @namespace 数组
+   * @example ARRAYFIND(arr, item => item === 2)
+   * @returns {any} 结果
+   */
+  fnARRAYFIND(arr: any[], iterator: any) {
+    if (!iterator || iterator.type !== 'anonymous_function') {
+      throw new Error('expected an anonymous function get ' + iterator);
+    }
+
+    return (Array.isArray(arr) ? arr : []).find((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
+    );
+  }
+
+  /**
+   * 数据做数据遍历判断，需要搭配箭头函数一起使用，注意箭头函数只支持单表达式用法。
+   * 判断第二个箭头函数是否存在返回为 true 的成员，是则返回 true，否则返回 false。
+   *
+   * 示例：
+   *
+   * ARRAYSOME([0, 2, false], item => item === 2) 得到 true。
+   *
+   * @param {Array<any>} arr 数组
+   * @param {Function<any>} iterator 箭头函数
+   * @namespace 数组
+   * @example ARRAYSOME(arr, item => item === 2)
+   * @returns {boolean} 结果
+   */
+  fnARRAYSOME(arr: any[], iterator: any) {
+    if (!iterator || iterator.type !== 'anonymous_function') {
+      throw new Error('expected an anonymous function get ' + iterator);
+    }
+
+    return (Array.isArray(arr) ? arr : []).some((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
+    );
+  }
+
+  /**
+   * 数据做数据遍历判断，需要搭配箭头函数一起使用，注意箭头函数只支持单表达式用法。
+   * 判断第二个箭头函数返回是否都为 true，是则返回 true，否则返回 false。
+   *
+   * 示例：
+   *
+   * ARRAYEVERY([0, 2, false], item => item === 2) 得到 false
+   *
+   * @param {Array<any>} arr 数组
+   * @param {Function<any>} iterator 箭头函数
+   * @namespace 数组
+   * @example ARRAYEVERY(arr, item => item === 2)
+   * @returns {boolean} 结果
+   */
+  fnARRAYEVERY(arr: any[], iterator: any) {
+    if (!iterator || iterator.type !== 'anonymous_function') {
+      throw new Error('expected an anonymous function get ' + iterator);
+    }
+
+    return (Array.isArray(arr) ? arr : []).every((item, index, arr) =>
+      this.callAnonymousFunction(iterator, [item, index, arr])
+    );
+  }
+
+  /**
+   * 判断数据中是否存在指定元素。
+   *
+   * 示例：
+   *
+   * ARRAYINCLUDES([0, 2, false], 2) 得到 true。
+   *
+   * @param {Array<any>} arr 数组
+   * @param {any} item 元素
+   * @namespace 数组
+   * @example ARRAYINCLUDES(arr, 2)
+   * @returns {any} 结果
+   */
+  fnARRAYINCLUDES(arr: any[], item: any) {
+    return (Array.isArray(arr) ? arr : []).includes(item);
+  }
+
+  /**
+   * 数组过滤掉 false、null、0 和 ""。
+   *
+   * 示例：
+   *
+   * COMPACT([0, 1, false, 2, '', 3]) 得到 [1, 2, 3]。
    *
    * @param {Array<any>} arr 数组
    * @namespace 数组
@@ -1833,11 +2131,11 @@ export class Evaluator {
   }
 
   /**
-   * 数组转成字符串
+   * 数组转成字符串。
    *
    * 示例：
    *
-   * JOIN(['a', 'b', 'c'], '=') 得到 'a=b=c'
+   * JOIN(['a', 'b', 'c'], '=') 得到 'a=b=c'。
    *
    * @param {Array<any>} arr 数组
    * @param { String} separator 分隔符
@@ -1854,11 +2152,11 @@ export class Evaluator {
   }
 
   /**
-   * 数组合并
+   * 数组合并。
    *
    * 示例：
    *
-   * CONCAT(['a', 'b', 'c'], ['1'], ['3']) 得到 ['a', 'b', 'c', '1', '3']
+   * CONCAT(['a', 'b', 'c'], ['1'], ['3']) 得到 ['a', 'b', 'c', '1', '3']。
    *
    * @param {Array<any>} arr 数组
    * @namespace 数组
@@ -1873,11 +2171,11 @@ export class Evaluator {
   }
 
   /**
-   * 数组去重，第二个参数「field」，可指定根据该字段去重
+   * 数组去重，第二个参数「field」，可指定根据该字段去重。
    *
    * 示例：
    *
-   * UNIQ([{a: '1'}, {b: '2'}, {a: '1'}]， 'id')
+   * UNIQ([{a: '1'}, {b: '2'}, {a: '1'}]， 'id')。
    *
    * @param {Array<any>} arr 数组
    * @param {string} field 字段
@@ -1889,9 +2187,97 @@ export class Evaluator {
   fnUNIQ(arr: any[], field?: string) {
     return field ? uniqBy(arr, field) : uniqWith(arr, isEqual);
   }
+
+  /**
+   * 将JS对象转换成JSON字符串。
+   *
+   * 示例：
+   *
+   * ENCODEJSON({name: 'amis'}) 得到 '{"name":"amis"}'。
+   *
+   * @param {object} obj JS对象
+   * @namespace 编码
+   * @example ENCODEJSON({name: 'amis'})
+   * @returns {string} 结果
+   */
+  fnENCODEJSON(obj: object): string {
+    return JSON.stringify(obj);
+  }
+
+  /**
+   * 解析JSON编码数据，返回JS对象。
+   *
+   * 示例：
+   *
+   * DECODEJSON('{\"name\": "amis"}') 得到 {name: 'amis'}。
+   *
+   * @param {string} str 字符串
+   * @namespace 编码
+   * @example DECODEJSON('{\"name\": "amis"}')
+   * @returns {object} 结果
+   */
+  fnDECODEJSON(str: string): object {
+    return JSON.parse(str);
+  }
+
+  /**
+   * 根据对象或者数组的path路径获取值。 如果解析 value 是 undefined 会以 defaultValue 取代。
+   *
+   * 示例：
+   *
+   * GET([0, 2, {name: 'amis', age: 18}], 1) 得到 2，
+   * GET([0, 2, {name: 'amis', age: 18}], '2.name') 得到 'amis'，
+   * GET({arr: [{name: 'amis', age: 18}]}, 'arr[0].name') 得到 'amis'，
+   * GET({arr: [{name: 'amis', age: 18}]}, 'arr.0.name') 得到 'amis'，
+   * GET({arr: [{name: 'amis', age: 18}]}, 'arr.1.name', 'not-found') 得到 'not-found'。
+   *
+   * @param {any} obj 对象或数组
+   * @param {string} path 路径
+   * @param {any} defaultValue 如果解析不到则返回该值
+   * @namespace 其他
+   * @example GET(arr, 2)
+   * @returns {any} 结果
+   */
+  fnGET(obj: any, path: string, defaultValue?: any) {
+    return get(obj, path, defaultValue);
+  }
+
+  /**
+   * 判断是否为类型支持：string, number, array, date, plain-object。
+   *
+   * @param {string} 判断对象
+   * @namespace 其他
+   * @example ISTYPE([{a: '1'}, {b: '2'}, {a: '1'}], 'array')
+   * @returns {boolean} 结果
+   */
+  fnISTYPE(
+    target: any,
+    type: 'string' | 'number' | 'array' | 'date' | 'plain-object' | 'nil'
+  ) {
+    switch (type) {
+      case 'string':
+        return typeof target === 'string';
+
+      case 'number':
+        return typeof target === 'number';
+
+      case 'array':
+        return Array.isArray(target);
+
+      case 'date':
+        return !!(target && target instanceof Date);
+
+      case 'plain-object':
+        return isPlainObject(target);
+
+      case 'nil':
+        return !target;
+    }
+    return false;
+  }
 }
 
-function getCookie(name: string) {
+export function getCookie(name: string) {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) {
@@ -1900,7 +2286,7 @@ function getCookie(name: string) {
   return undefined;
 }
 
-function parseJson(str: string, defaultValue?: any) {
+export function parseJson(str: string, defaultValue?: any) {
   try {
     return JSON.parse(str);
   } catch (e) {
@@ -1908,9 +2294,9 @@ function parseJson(str: string, defaultValue?: any) {
   }
 }
 
-function stripNumber(number: number) {
+export function stripNumber(number: number) {
   if (typeof number === 'number' && !Number.isInteger(number)) {
-    return parseFloat(number.toPrecision(12));
+    return parseFloat(number.toPrecision(16));
   } else {
     return number;
   }
@@ -1918,7 +2304,7 @@ function stripNumber(number: number) {
 
 // 如果只有一个成员，同时第一个成员为 args
 // 则把它展开，当成是多个参数，毕竟公式里面还不支持 ...args 语法，
-function normalizeArgs(args: Array<any>) {
+export function normalizeArgs(args: Array<any>) {
   if (args.length === 1 && Array.isArray(args[0])) {
     args = args[0];
   }

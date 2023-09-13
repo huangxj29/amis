@@ -6,8 +6,7 @@ import {
   localeable,
   ClassNamesFn,
   utils,
-  getRange,
-  isMobile
+  getRange
 } from 'amis-core';
 import {Icon} from '../icons';
 import Picker from '../Picker';
@@ -46,7 +45,7 @@ interface CustomTimeViewProps extends LocaleProps {
   onClose?: () => void;
   onConfirm?: (value: number[], types: string[]) => void;
   setDateTimeState: (state: any, callback?: () => void) => void;
-  useMobileUI: boolean;
+  mobileUI: boolean;
   showToolbar?: boolean;
   onChange: (value: moment.Moment) => void;
   timeConstraints?: any;
@@ -555,7 +554,7 @@ export class CustomTimeView extends React.Component<
     const offset = (value - min) / step;
     const height = 28; /** 单个选项的高度 */
 
-    elf?.parentNode?.scrollTo({
+    elf?.parentNode?.scrollTo?.({
       top: offset * height,
       behavior: label === 'init' ? 'auto' : 'smooth'
     });
@@ -611,7 +610,8 @@ export class CustomTimeView extends React.Component<
       viewDate,
       isEndDate,
       classnames: cx,
-      timeRangeHeader
+      timeRangeHeader,
+      mobileUI
     } = this.props;
 
     const __ = this.props.translate;
@@ -620,7 +620,7 @@ export class CustomTimeView extends React.Component<
     const inputs: Array<React.ReactNode> = [];
     const timeConstraints = this.timeConstraints;
 
-    if (isMobile() && this.props.useMobileUI) {
+    if (mobileUI) {
       return (
         <div className={cx('CalendarTime')}>{this.renderTimeViewPicker()}</div>
       );
@@ -683,9 +683,11 @@ export class CustomTimeView extends React.Component<
                         <div
                           key={option.value}
                           className={cx('CalendarInput-sugsItem', {
+                            'is-mobile': mobileUI,
                             'is-highlight': selectedDate
                               ? option.value === date.format(formatMap[type])
-                              : option.value === options?.[0]?.value
+                              : option.value === options?.[0]?.value &&
+                                !mobileUI
                           })}
                           onClick={() => {
                             this.setTime(type, parseInt(option.value, 10));
@@ -727,7 +729,7 @@ export class CustomTimeView extends React.Component<
           <div className={cx('TimeFooterWrapper')}>
             <div className={cx('QuickWrapper')}>{quickLists}</div>
             <a
-              className={cx('Button', 'Button--primary', 'Button--sm')}
+              className={cx('Button', 'Button--primary', 'Button--size-sm')}
               onClick={this.confirm}
             >
               {__('confirm')}

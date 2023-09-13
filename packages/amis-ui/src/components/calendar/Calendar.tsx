@@ -12,6 +12,9 @@ import {
   utils
 } from 'amis-core';
 import {PickerOption} from '../PickerColumn';
+import 'moment/locale/zh-cn';
+import 'moment/locale/de';
+import type {RendererEnv} from 'amis-core';
 
 export type DateType =
   | 'year'
@@ -48,6 +51,7 @@ interface BaseDatePickerProps {
   viewMode?: 'years' | 'months' | 'days' | 'time' | 'quarters';
   dateFormat?: boolean | string;
   inputFormat?: boolean | string;
+  displayForamt?: boolean | string;
   timeFormat?: any;
   input?: boolean;
   locale: string;
@@ -88,12 +92,13 @@ interface BaseDatePickerProps {
     content: string | React.ReactElement;
     color?: string;
   }>;
+  env?: RendererEnv;
   largeMode?: boolean;
   todayActiveStyle?: React.CSSProperties;
   onScheduleClick?: (scheduleData: any) => void;
   hideHeader?: boolean;
   updateOn?: string;
-  useMobileUI?: boolean;
+  mobileUI?: boolean;
   embed?: boolean;
   closeOnSelect?: boolean;
   showToolbar?: boolean;
@@ -105,7 +110,7 @@ interface BaseDatePickerProps {
 }
 
 interface BaseDatePickerState {
-  inputFormat?: boolean | string;
+  displayForamt?: boolean | string;
   currentView: string;
   viewDate: moment.Moment;
   selectedDate: moment.Moment;
@@ -312,7 +317,7 @@ class BaseDatePicker extends React.Component<
 
     return {
       updateOn: updateOn,
-      inputFormat: formats.datetime,
+      displayForamt: formats.datetime,
       viewDate: viewDate,
       selectedDate: selectedDate,
       inputValue: inputValue,
@@ -399,6 +404,7 @@ class BaseDatePicker extends React.Component<
 
     [
       'inputFormat',
+      'displayForamt',
       'onChange',
       'onClose',
       'requiredConfirm',
@@ -415,9 +421,10 @@ class BaseDatePicker extends React.Component<
       'onScheduleClick',
       'hideHeader',
       'updateOn',
-      'useMobileUI',
+      'mobileUI',
       'showToolbar',
-      'embed'
+      'embed',
+      'env'
     ].forEach(key => (props[key] = (this.props as any)[key]));
 
     return props;
@@ -470,7 +477,7 @@ class BaseDatePicker extends React.Component<
     if (!this.props.value) {
       this.setState({
         selectedDate: date,
-        inputValue: date.format(state.inputFormat as string)
+        inputValue: date.format(state.displayForamt as string)
       });
     }
     this.props.onChange && this.props.onChange(date);
@@ -480,7 +487,9 @@ class BaseDatePicker extends React.Component<
     // todo 没看懂这个是啥意思，好像没啥用
     const currentShould =
       this.props.viewMode === 'months' &&
-      !/^mm$/i.test((this.props.inputFormat as string) || '');
+      !/^mm$/i.test(
+        ((this.props.inputFormat || this.props.displayForamt) as string) || ''
+      );
     const nextViews = {
       month: currentShould ? 'months' : 'days',
       year: currentShould ? 'months' : 'days',
@@ -555,14 +564,14 @@ class BaseDatePicker extends React.Component<
       this.setState({
         selectedDate: date,
         viewDate: date?.clone().startOf('month'),
-        inputValue: date?.format(this.state.inputFormat),
+        inputValue: date?.format(this.state.displayForamt),
         open: open
       });
     } else {
       this.setState({
         selectedDate: date,
         viewDate: date?.clone().startOf('month'),
-        inputValue: date?.format(this.state.inputFormat)
+        inputValue: date?.format(this.state.displayForamt)
       });
       if (this.props.closeOnSelect && close) {
         that.closeCalendar();
@@ -636,12 +645,16 @@ class BaseDatePicker extends React.Component<
       this.state.viewDate ||
       moment()
     ).clone();
-    const date = convertArrayValueToMoment(value, types, currentDate);
+    let date = convertArrayValueToMoment(value, types, currentDate);
+
+    if (types?.[1] === 'quarter') {
+      date = date.startOf('quarter').date(currentDate.date());
+    }
 
     if (!this.props.value) {
       this.setState({
         selectedDate: date,
-        inputValue: date!.format(this.state.inputFormat as string)
+        inputValue: date!.format(this.state.displayForamt as string)
       });
     }
     this.props.onChange && this.props.onChange(date);
@@ -649,7 +662,8 @@ class BaseDatePicker extends React.Component<
   };
 
   render() {
-    const {viewMode, timeFormat, dateFormat, timeRangeHeader} = this.props;
+    const {viewMode, timeFormat, dateFormat, timeRangeHeader, mobileUI} =
+      this.props;
     const Component = CustomCalendarContainer as any;
     const viewProps = this.getComponentProps();
 
@@ -688,17 +702,16 @@ class BaseDatePicker extends React.Component<
           key="dt"
           className={cx(
             'rdtPicker',
+            {
+              'is-mobile-year': mobileUI && viewMode === 'years'
+            },
+            {'is-mobile-embed': mobileUI && viewProps.embed},
             timeFormat && !dateFormat
               ? 'rdtPickerTimeWithoutD'
               : timeFormat && dateFormat
               ? 'rdtPickerTime'
               : dateFormat && !timeFormat
               ? 'rdtPickerDate'
-              : '',
-            viewMode === 'months' ||
-              viewMode === 'years' ||
-              viewMode === 'quarters'
-              ? 'rdtPickerNotDays'
               : ''
           )}
         >

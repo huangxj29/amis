@@ -23,7 +23,7 @@ import {ActionSchema} from './Action';
 import {Card} from 'amis-ui';
 import {findDOMNode} from 'react-dom';
 import {Icon} from 'amis-ui';
-import type {IItem} from 'amis-core/lib/store/list';
+import type {IItem} from 'amis-core';
 
 export type CardBodyField = SchemaObject & {
   /**
@@ -59,7 +59,7 @@ export type CardBodyField = SchemaObject & {
 
 /**
  * Card 卡片渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/card
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/card
  */
 export interface CardSchema extends BaseSchema {
   /**
@@ -298,7 +298,8 @@ export class CardRenderer extends React.Component<CardProps> {
       itemAction,
       onAction,
       onCheck,
-      selectable
+      selectable,
+      checkOnItemClick
     } = this.props;
 
     if (href) {
@@ -315,7 +316,7 @@ export class CardRenderer extends React.Component<CardProps> {
       return;
     }
 
-    selectable && onCheck?.(item);
+    selectable && checkOnItemClick && onCheck?.(item);
   }
 
   handleAction(e: React.UIEvent<any>, action: ActionObject, ctx: object) {
@@ -324,7 +325,7 @@ export class CardRenderer extends React.Component<CardProps> {
     onAction && onAction(e, action, ctx || item.data);
   }
 
-  handleCheck(e: React.MouseEvent<any>) {
+  handleCheck() {
     const item = this.props.item;
     this.props.onCheck && this.props.onCheck(item);
   }
@@ -352,7 +353,6 @@ export class CardRenderer extends React.Component<CardProps> {
       selectable,
       checkable,
       selected,
-      checkOnItemClick,
       multiple,
       hideCheckToggler,
       classnames: cx,
@@ -385,10 +385,10 @@ export class CardRenderer extends React.Component<CardProps> {
         <Checkbox
           key="check"
           className={cx('Card-checkbox')}
-          type={multiple ? 'checkbox' : 'radio'}
+          type={multiple !== false ? 'checkbox' : 'radio'}
           disabled={!checkable}
           checked={selected}
-          onChange={checkOnItemClick ? noop : this.handleCheck}
+          onChange={this.handleCheck}
         />
       );
     }
@@ -761,7 +761,7 @@ export class CardRenderer extends React.Component<CardProps> {
         footerClassName={footerClassName}
         secondaryClassName={secondaryClassName}
         bodyClassName={bodyClassName}
-        onClick={this.isHaveLink() ? this.handleClick : undefined}
+        onClick={this.isHaveLink() ? this.handleClick : this.handleCheck}
       ></Card>
     );
   }
@@ -795,6 +795,7 @@ export class CardItemFieldRenderer extends TableCell {
       render,
       style,
       wrapperComponent: Component,
+      contentsOnly,
       labelClassName,
       value,
       data,
@@ -832,9 +833,10 @@ export class CardItemFieldRenderer extends TableCell {
       );
     }
 
-    if (!Component) {
+    if (contentsOnly) {
       return body as JSX.Element;
     }
+    Component = Component || 'div';
 
     return (
       <Component

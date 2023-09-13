@@ -1,5 +1,5 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import {Renderer, RendererProps, CustomStyle} from 'amis-core';
 import {filter} from 'amis-core';
 import {
   resolveVariable,
@@ -10,10 +10,11 @@ import Image, {ImageThumbProps, imagePlaceholder} from './Image';
 import {autobind, getPropValue} from 'amis-core';
 import {BaseSchema, SchemaClassName, SchemaUrlPath} from '../Schema';
 import {Icon} from 'amis-ui';
+import type {ImageToolbarAction} from './Image';
 
 /**
  * 图片集展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/images
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/images
  */
 export interface ImagesSchema extends BaseSchema {
   /**
@@ -74,6 +75,11 @@ export interface ImagesSchema extends BaseSchema {
   enlargeAble?: boolean;
 
   /**
+   * 放大时是否显示图片集
+   */
+  enlargetWithImages?: boolean;
+
+  /**
    * 是否显示尺寸。
    */
   showDimensions?: boolean;
@@ -89,6 +95,21 @@ export interface ImagesSchema extends BaseSchema {
   listClassName?: SchemaClassName;
 
   /**
+   * 放大详情图 CSS 类名
+   */
+  imageGallaryClassName?: SchemaClassName;
+
+  /**
+   * 是否展示图片工具栏
+   */
+  showToolbar?: boolean;
+
+  /**
+   * 工具栏配置
+   */
+  toolbarActions?: ImageToolbarAction[];
+
+  /**
    * 是否展示删除图标
    */
   deleteAble?: boolean;
@@ -100,11 +121,13 @@ export interface ImagesProps
   extends RendererProps,
     Omit<ImagesSchema, 'type' | 'className'> {
   delimiter: string;
-
   onEnlarge?: (
     info: ImageThumbProps & {
       list?: Array<
-        Pick<ImageThumbProps, 'src' | 'originalSrc' | 'title' | 'caption'>
+        Pick<
+          ImageThumbProps,
+          'src' | 'originalSrc' | 'title' | 'caption' | 'showToolbar'
+        >
       >;
     }
   ) => void;
@@ -163,6 +186,7 @@ export class ImagesField extends React.Component<ImagesProps> {
   render() {
     const {
       className,
+      style,
       defaultImage,
       thumbMode,
       thumbRatio,
@@ -173,10 +197,20 @@ export class ImagesField extends React.Component<ImagesProps> {
       source,
       delimiter,
       enlargeAble,
+      enlargeWithGallary,
       src,
       originalSrc,
       listClassName,
       options,
+      showToolbar,
+      toolbarActions,
+      imageGallaryClassName,
+      galleryControlClassName,
+      id,
+      wrapperCustomStyle,
+      env,
+      themeCss,
+      imagesControlClassName,
       deleteAble
     } = this.props;
 
@@ -203,7 +237,17 @@ export class ImagesField extends React.Component<ImagesProps> {
     this.list = list;
 
     return (
-      <div className={cx('ImagesField', className)}>
+      <div
+        className={cx(
+          'ImagesField',
+          className,
+          imagesControlClassName,
+          wrapperCustomStyle
+            ? `wrapperCustomStyle-${id?.replace('u:', '')}`
+            : ''
+        )}
+        style={style}
+      >
         {Array.isArray(list) ? (
           <div className={cx('Images', listClassName)}>
             {list.map((item: any, index: number) => (
@@ -225,7 +269,15 @@ export class ImagesField extends React.Component<ImagesProps> {
                 thumbMode={thumbMode}
                 thumbRatio={thumbRatio}
                 enlargeAble={enlargeAble!}
+                enlargeWithGallary={enlargeWithGallary}
                 onEnlarge={this.handleEnlarge}
+                showToolbar={showToolbar}
+                imageGallaryClassName={
+                  galleryControlClassName
+                    ? imageGallaryClassName + ' ' + galleryControlClassName
+                    : imageGallaryClassName
+                }
+                toolbarActions={toolbarActions}
                 overlays={
                   deleteAble ? (
                     <a onClick={this.removeFile.bind(this, item)}>
@@ -248,6 +300,24 @@ export class ImagesField extends React.Component<ImagesProps> {
         ) : (
           placeholder
         )}
+        <CustomStyle
+          config={{
+            wrapperCustomStyle,
+            id,
+            themeCss,
+            classNames: [
+              {
+                key: 'imagesControlClassName',
+                value: imagesControlClassName
+              },
+              {
+                key: 'galleryControlClassName',
+                value: galleryControlClassName
+              }
+            ]
+          }}
+          env={env}
+        />
       </div>
     );
   }

@@ -11,7 +11,7 @@ export type HboxRow = SchemaObject & {
 
 /**
  * 垂直布局控件
- * 文档：https://baidu.gitee.io/amis/docs/components/vbox
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/vbox
  */
 export interface VBoxSchema extends BaseSchema {
   type: 'vbox';
@@ -47,10 +47,10 @@ export default class VBox extends React.Component<HBoxProps, object> {
   }
 
   render() {
-    const {className, rows, classPrefix: ns} = this.props;
+    const {className, style, rows, classPrefix: ns} = this.props;
 
     return (
-      <div className={cx(`${ns}Vbox`, className)}>
+      <div className={cx(`${ns}Vbox`, className)} style={style}>
         {Array.isArray(rows)
           ? rows.map((row, key) => (
               <div

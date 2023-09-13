@@ -9,7 +9,7 @@ import type {ColorMapType} from 'amis-ui/lib/components/Progress';
 
 /**
  * 进度展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/progress
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/progress
  */
 export interface ProgressSchema extends BaseSchema {
   type: 'progress';
@@ -121,6 +121,7 @@ export class ProgressField extends React.Component<ProgressProps, object> {
       data,
       mode,
       className,
+      style,
       placeholder,
       progressClassName,
       map,
@@ -171,6 +172,7 @@ export class ProgressField extends React.Component<ProgressProps, object> {
         gapDegree={gapDegree}
         gapPosition={gapPosition}
         className={className}
+        style={style}
         progressClassName={progressClassName}
         threshold={threshold}
         showThresholdText={showThresholdText}

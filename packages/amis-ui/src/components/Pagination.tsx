@@ -98,7 +98,9 @@ export interface BasicPaginationProps {
 export interface PaginationProps
   extends BasicPaginationProps,
     ThemeProps,
-    LocaleProps {}
+    LocaleProps {
+  popOverContainer?: any;
+}
 export interface PaginationState {
   pageNum: string;
   perPage: number;
@@ -224,9 +226,11 @@ export class Pagination extends React.Component<
   }
 
   getLastPage() {
-    const {total, perPage, lastPage, activePage, hasNext} = this.props;
+    const {total, lastPage, activePage, hasNext} = this.props;
+    const perPage = this.state.perPage;
+
     // 输入total，重新计算lastPage
-    if (total || total === 0) {
+    if (total && perPage) {
       return Math.ceil(total / (perPage as number));
     }
     if (lastPage) {
@@ -253,7 +257,6 @@ export class Pagination extends React.Component<
   render() {
     const {
       layout,
-      maxButtons,
       mode,
       activePage,
       total,
@@ -262,11 +265,15 @@ export class Pagination extends React.Component<
       classnames: cx,
       showPageInput,
       className,
+      style,
       disabled,
       hasNext,
+      popOverContainer,
       popOverContainerSelector,
+      mobileUI,
       translate: __
     } = this.props;
+    let maxButtons = this.props.maxButtons;
     const {pageNum, perPage} = this.state;
     const lastPage = this.getLastPage();
 
@@ -280,6 +287,7 @@ export class Pagination extends React.Component<
             {disabled: disabled},
             className
           )}
+          style={style}
         >
           <ul
             key="pager-items"
@@ -434,11 +442,21 @@ export class Pagination extends React.Component<
       </li>
     );
 
+    if (mobileUI) {
+      pageButtons = [
+        pageButtons[0],
+        this.renderPageItem(activePage),
+        pageButtons[pageButtons.length - 1]
+      ];
+    }
+
     const go = (
       <div className={cx('Pagination-inputGroup Pagination-item')} key="go">
-        <span className={cx('Pagination-inputGroup-left')} key="go-left">
-          {__('Pagination.goto')}
-        </span>
+        {!mobileUI ? (
+          <span className={cx('Pagination-inputGroup-left')} key="go-left">
+            {__('Pagination.goto')}
+          </span>
+        ) : null}
         <input
           className={cx('Pagination-inputGroup-input')}
           key="go-input"
@@ -478,11 +496,11 @@ export class Pagination extends React.Component<
       <Select
         key="perpage"
         className={cx('Pagination-perpage', 'Pagination-item')}
-        overlayPlacement="right-bottom-right-top"
         clearable={false}
         disabled={disabled}
         value={perPage}
         options={selection}
+        popOverContainer={popOverContainer}
         popOverContainerSelector={popOverContainerSelector}
         onChange={(p: any) => {
           this.setState({

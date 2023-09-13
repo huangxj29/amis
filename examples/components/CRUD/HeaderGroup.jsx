@@ -40,19 +40,22 @@ export default {
           name: 'id',
           label: 'ID',
           remark: 'ID',
-          groupName: 'A'
+          groupName: 'A',
+          fixed: 'left'
         },
         {
           name: 'grade',
           label: 'CSS grade',
           remark: 'CSS grade',
-          groupName: 'A'
+          groupName: 'A',
+          fixed: 'left'
         },
         {
           name: 'engine',
           label: 'Rendering engine',
           remark: 'Rendering engine',
-          groupName: 'A'
+          groupName: 'A',
+          fixed: 'left'
         },
         {
           name: 'browser',
@@ -63,13 +66,15 @@ export default {
           name: 'platform',
           label: 'Platform(s)',
           remark: 'Platform(s)',
-          groupName: 'B'
+          groupName: 'B',
+          fixed: 'right'
         },
         {
           name: 'version',
           label: 'Engine version',
           remark: 'Engine version',
-          groupName: 'B'
+          groupName: 'B',
+          fixed: 'right'
         }
       ],
       data: {

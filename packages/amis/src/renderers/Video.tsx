@@ -4,7 +4,6 @@
  */
 
 import React from 'react';
-
 import {
   Player,
   Shortcut,
@@ -23,7 +22,7 @@ import {BaseSchema, SchemaClassName, SchemaUrlPath} from '../Schema';
 
 /**
  * 视频播放器
- * 文档：https://baidu.gitee.io/amis/docs/components/video
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/video
  */
 export interface VideoSchema extends BaseSchema {
   /**
@@ -57,6 +56,11 @@ export interface VideoSchema extends BaseSchema {
    */
   framesClassName?: SchemaClassName;
 
+  // 用于设置行内样式
+  style?: {
+    [propName: string]: any;
+  };
+
   /**
    * 如果是实时的，请标记一下
    */
@@ -73,6 +77,11 @@ export interface VideoSchema extends BaseSchema {
    * 是否初始静音
    */
   muted?: boolean;
+
+  /**
+   * 是否循环播放
+   */
+  loop?: boolean;
 
   /**
    * 配置播放器 className
@@ -632,8 +641,7 @@ export default class Video extends React.Component<VideoProps, VideoState> {
       muted,
       name,
       data,
-      amisConfig,
-      locals,
+      loop,
       isLive,
       minVideoDuration,
       videoType,
@@ -686,6 +694,7 @@ export default class Video extends React.Component<VideoProps, VideoState> {
           autoPlay={autoPlay}
           muted={muted}
           aspectRatio={aspectRatio}
+          loop={loop}
         >
           {rates && rates.length ? (
             <ControlBar>
@@ -762,10 +771,20 @@ export default class Video extends React.Component<VideoProps, VideoState> {
   }
 
   render() {
-    let {splitPoster, className, classPrefix: ns, classnames: cx} = this.props;
+    let {
+      splitPoster,
+      className,
+      style,
+      classPrefix: ns,
+      classnames: cx
+    } = this.props;
 
     return (
-      <div className={cx(`Video`, className)} onClick={this.onClick as any}>
+      <div
+        className={cx(`Video`, className)}
+        onClick={this.onClick as any}
+        style={style}
+      >
         {this.renderFrames()}
         {splitPoster ? this.renderPosterAndPlayer() : this.renderPlayer()}
       </div>

@@ -1,6 +1,5 @@
-import omit from 'lodash/omit';
-import {Api} from '../types';
-import {normalizeApiResponseData} from '../utils/api';
+import {Api, ApiObject} from '../types';
+import {normalizeApi, normalizeApiResponseData} from '../utils/api';
 import {ServerError} from '../utils/errors';
 import {createObject, isEmpty} from '../utils/helper';
 import {RendererEvent} from '../utils/renderer-event';
@@ -13,15 +12,13 @@ import {
 
 export interface IAjaxAction extends ListenerAction {
   action: 'ajax';
-  args: {
-    api: Api;
-    messages?: {
-      success: string;
-      failed: string;
-    };
-    options?: Record<string, any>;
-    [propName: string]: any;
+  api: Api;
+  messages?: {
+    success: string;
+    failed: string;
   };
+  options?: Record<string, any>;
+  [propName: string]: any;
 }
 
 /**
@@ -45,18 +42,35 @@ export class AjaxAction implements RendererAction {
     if (!renderer.props.env?.fetcher) {
       throw new Error('env.fetcher is required!');
     }
+
+    if (!action.api) {
+      throw new Error('api is required!');
+    }
+
     if (this.fetcherType === 'download' && action.actionType === 'download') {
-      if ((action as any).args?.api) {
-        (action as any).args.api.responseType = 'blob';
+      if ((action as any).api) {
+        (action as any).api.responseType = 'blob';
       }
     }
 
     const env = event.context.env;
+    const silent = action?.options?.silent;
+    const messages = (action?.api as ApiObject)?.messages;
+    let api = normalizeApi(action.api);
+
+    // 如果没配置data数据映射，则给一个空对象，避免将当前数据域作为接口请求参数
+    if ((api as any)?.data == undefined) {
+      api = {
+        ...api,
+        data: {}
+      };
+    }
+
     try {
       const result = await env.fetcher(
-        action.args?.api as string,
-        omit(action.args ?? {}, ['api', 'options', 'messages']),
-        action.args?.options ?? {}
+        api,
+        action.data ?? {},
+        action?.options ?? {}
       );
       const responseData =
         !isEmpty(result.data) || result.ok
@@ -76,16 +90,18 @@ export class AjaxAction implements RendererAction {
           }
         })
       );
-
-      if (!action.args?.options?.silent) {
+      if (!silent) {
         if (!result.ok) {
           throw new ServerError(
-            action.args?.messages?.failed ?? result.msg,
+            messages?.failed ?? action.messages?.failed ?? result.msg,
             result
           );
         } else {
           const msg =
-            action.args?.messages?.success ?? result.msg ?? result.defaultMsg;
+            messages?.success ??
+            action.messages?.success ??
+            result.msg ??
+            result.defaultMsg;
           msg &&
             env.notify(
               'success',
@@ -102,7 +118,7 @@ export class AjaxAction implements RendererAction {
 
       return result.data;
     } catch (e) {
-      if (!action.args?.options?.silent) {
+      if (!silent) {
         if (e.type === 'ServerError') {
           const result = (e as ServerError).response;
           env.notify(

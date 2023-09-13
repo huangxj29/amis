@@ -16,6 +16,7 @@ import pick from 'lodash/pick';
 import {resolveVariableAndFilter} from '../utils/tpl-builtin';
 import {normalizeApiResponseData} from '../utils/api';
 import {matchSorter} from 'match-sorter';
+import {filter} from '../utils/tpl';
 
 class ServerError extends Error {
   type = 'ServerError';
@@ -52,6 +53,21 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
       return createObject(self.data, {
         ...self.query
       });
+    },
+
+    get toolbarData() {
+      // 包两层，主要是为了处理以下 case
+      // 里面放了个 form，form 提交过来的时候不希望把 items 这些发送过来。
+      // 因为会把数据呈现在地址栏上。
+      return createObject(
+        createObject(self.data, {
+          ...self.query,
+          items: self.items.concat(),
+          selectedItems: self.selectedItems.concat(),
+          unSelectedItems: self.unSelectedItems.concat()
+        }),
+        {}
+      );
     },
 
     get mergedData() {
@@ -101,26 +117,27 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
       replace: boolean = false
     ) {
       const originQuery = self.query;
-      self.query = replace
+      const query: any = replace
         ? {
             ...values
           }
         : {
-            ...self.query,
+            ...originQuery,
             ...values
           };
 
-      if (self.query[pageField || 'page']) {
-        self.page = parseInt(self.query[pageField || 'page'], 10);
-      }
+      if (isObjectShallowModified(originQuery, query, false)) {
+        if (query[pageField || 'page']) {
+          self.page = parseInt(query[pageField || 'page'], 10);
+        }
 
-      if (self.query[perPageField || 'perPage']) {
-        self.perPage = parseInt(self.query[perPageField || 'perPage'], 10);
-      }
+        if (query[perPageField || 'perPage']) {
+          self.perPage = parseInt(query[perPageField || 'perPage'], 10);
+        }
 
-      updater &&
-        isObjectShallowModified(originQuery, self.query, false) &&
-        setTimeout(updater.bind(null, `?${qsstringify(self.query)}`), 4);
+        self.query = query;
+        updater && setTimeout(updater.bind(null, `?${qsstringify(query)}`), 4);
+      }
     }
 
     const fetchInitData: (
@@ -166,14 +183,33 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
             options.columns.forEach((column: any) => {
               let value: any;
               const key = column.name;
-              if (
-                column.searchable &&
-                key &&
-                (value = getVariable(self.query, key))
-              ) {
-                items = matchSorter(items, value, {
-                  keys: [key]
-                });
+
+              if ((column.searchable || column.filterable) && key) {
+                // value可能为null、undefined、''、0
+                value = getVariable(self.query, key);
+                if (value != null) {
+                  if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                      const arr = [...items];
+                      let arrItems: Array<any> = [];
+                      value.forEach(item => {
+                        arrItems = [
+                          ...arrItems,
+                          ...matchSorter(arr, item, {
+                            keys: [key]
+                          })
+                        ];
+                      });
+                      items = items.filter((item: any) =>
+                        arrItems.find(a => a === item)
+                      );
+                    }
+                  } else {
+                    items = matchSorter(items, value, {
+                      keys: [key]
+                    });
+                  }
+                }
               }
             });
           }
@@ -223,7 +259,10 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
 
         if (!json.ok) {
           self.updateMessage(
-            json.msg ?? options.errorMessage ?? self.__('CRUD.fetchFailed'),
+            (api as ApiObject)?.messages?.failed ??
+              json.msg ??
+              options.errorMessage ??
+              self.__('CRUD.fetchFailed'),
             true
           );
           getEnv(self).notify(
@@ -266,14 +305,16 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
             items = result.items || result.rows;
           }
 
-          // 如果不按照 items 格式返回，就拿第一个数组当成 items
           if (!Array.isArray(items)) {
+            // 如果不按照 items 格式返回，就拿第一个数组当成 items
             for (const key of Object.keys(result)) {
               if (result.hasOwnProperty(key) && Array.isArray(result[key])) {
                 items = result[key];
                 break;
               }
             }
+          } else if (items == null) {
+            items = [];
           }
 
           if (!Array.isArray(items)) {
@@ -316,9 +357,27 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
                   key &&
                   (value = getVariable(self.query, key))
                 ) {
-                  filteredItems = matchSorter(filteredItems, value, {
-                    keys: [key]
-                  });
+                  if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                      const arr = [...filteredItems];
+                      let arrItems: Array<any> = [];
+                      value.forEach(item => {
+                        arrItems = [
+                          ...arrItems,
+                          ...matchSorter(arr, item, {
+                            keys: [key]
+                          })
+                        ];
+                      });
+                      filteredItems = filteredItems.filter(item =>
+                        arrItems.find(a => a === item)
+                      );
+                    }
+                  } else {
+                    filteredItems = matchSorter(filteredItems, value, {
+                      keys: [key]
+                    });
+                  }
                 }
               });
             }
@@ -361,7 +420,10 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
           }
 
           self.updateMessage(
-            json.msg ?? options.successMessage ?? json.defaultMsg
+            (api as ApiObject).messages?.success ??
+              json.msg ??
+              options.successMessage ??
+              json.defaultMsg
           );
 
           // 配置了获取成功提示后提示，默认是空不会提示。
@@ -385,7 +447,7 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
           return;
         }
 
-        console.error(e.stack);
+        console.error(e);
         env.notify('error', e.message);
         return;
       }
@@ -393,7 +455,11 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
 
     function changePage(page: number, perPage?: number | string) {
       self.page = page;
-      perPage && (self.perPage = parseInt(perPage as string, 10));
+      perPage && changePerPage(perPage);
+    }
+
+    function changePerPage(perPage: number | string) {
+      self.perPage = parseInt(perPage as string, 10);
     }
 
     function selectAction(action: ActionObject) {
@@ -432,7 +498,10 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
 
         if (!json.ok) {
           self.updateMessage(
-            json.msg ?? options.errorMessage ?? self.__('saveFailed'),
+            (api as ApiObject)?.messages?.failed ??
+              json.msg ??
+              options.errorMessage ??
+              self.__('saveFailed'),
             true
           );
           getEnv(self).notify(
@@ -448,7 +517,10 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
           throw new ServerError(self.msg);
         } else {
           self.updateMessage(
-            json.msg ?? options.successMessage ?? json.defaultMsg
+            (api as ApiObject)?.messages?.success ??
+              json.msg ??
+              options.successMessage ??
+              json.defaultMsg
           );
           self.msg &&
             getEnv(self).notify(
@@ -532,9 +604,17 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
     };
 
     const exportAsCSV = async (
-      options: {loadDataOnce?: boolean; api?: Api; data?: any} = {}
+      options: {
+        loadDataOnce?: boolean;
+        api?: Api;
+        data?: any;
+        filename?: string;
+      } = {}
     ) => {
       let items = options.loadDataOnce ? self.data.itemsRaw : self.data.items;
+      const filename = options.filename
+        ? filter(options.filename, options.data, '| raw')
+        : 'data';
 
       if (options.api) {
         const env = getEnv(self);
@@ -573,7 +653,7 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
               type: 'text/plain;charset=utf-8'
             }
           );
-          saveAs(blob, 'data.csv');
+          saveAs(blob, `${filename}.csv`);
         }
       });
     };
@@ -582,6 +662,7 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
       return createObject(superData, {
         total: self.total,
         page: self.page,
+        perPage: self.perPage,
         items: self.items.concat(),
         selectedItems: self.selectedItems.concat(),
         unSelectedItems: self.unSelectedItems.concat()
@@ -592,6 +673,10 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
       self.columns = columns;
     };
 
+    const updateTotal = (total: number) => {
+      self.total = total || 0;
+    };
+
     return {
       getData,
       updateSelectData,
@@ -599,6 +684,7 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
       updateQuery,
       fetchInitData,
       changePage,
+      changePerPage,
       selectAction,
       saveRemote,
       setFilterTogglable,
@@ -608,7 +694,8 @@ export const CRUDStore = ServiceStore.named('CRUDStore')
       setInnerModalOpened,
       initFromScope,
       exportAsCSV,
-      updateColumns
+      updateColumns,
+      updateTotal
     };
   });
 

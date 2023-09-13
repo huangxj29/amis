@@ -1,8 +1,12 @@
 import React from 'react';
-import {FormItem, FormControlProps, FormBaseControl} from 'amis-core';
+import {
+  FormItem,
+  FormControlProps,
+  prettyBytes,
+  resolveEventData
+} from 'amis-core';
 import find from 'lodash/find';
 import isPlainObject from 'lodash/isPlainObject';
-import ImageControl from './InputImage';
 import {Payload, ApiObject, ApiString, ActionObject} from 'amis-core';
 import {qsstringify, createObject, guid, isEmpty} from 'amis-core';
 import {
@@ -21,15 +25,15 @@ import {
   FormBaseControlSchema,
   SchemaApi,
   SchemaClassName,
-  SchemaTokenizeableString,
-  SchemaUrlPath
+  SchemaTokenizeableString
 } from '../../Schema';
 import merge from 'lodash/merge';
 import omit from 'lodash/omit';
+import {filter} from 'amis-core';
 
 /**
  * File 文件上传控件
- * 文档：https://baidu.gitee.io/amis/docs/components/form/file
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/file
  */
 export interface FileControlSchema extends FormBaseControlSchema {
   /**
@@ -345,7 +349,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     file: any;
     executor: () => void;
   }> = [];
-  initAutoFill: boolean;
+  initedFilled = false;
 
   static valueToFile(
     value: string | FileValue,
@@ -395,7 +399,6 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     const joinValues = props.joinValues;
     const delimiter = props.delimiter as string;
     let files: Array<FileValue> = [];
-    this.initAutoFill = !!props.initAutoFill;
 
     if (value && value instanceof Blob) {
       files = [value as any];
@@ -435,11 +438,16 @@ export default class FileControl extends React.Component<FileProps, FileState> {
   }
 
   componentDidMount() {
-    if (this.initAutoFill) {
-      const {formInited, addHook} = this.props;
-      formInited || !addHook
-        ? this.syncAutoFill()
-        : addHook(this.syncAutoFill, 'init');
+    const {formInited, addHook} = this.props;
+
+    if (formInited || !addHook) {
+      this.initedFilled = true;
+      this.props.initAutoFill && this.syncAutoFill();
+    } else if (addHook) {
+      addHook(() => {
+        this.initedFilled = true;
+        this.props.initAutoFill && this.syncAutoFill();
+      }, 'init');
     }
   }
 
@@ -491,7 +499,9 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         {
           files: files
         },
-        props.formInited !== false ? this.syncAutoFill : undefined
+        props.changeMotivation !== 'formInited' && this.initedFilled
+          ? this.syncAutoFill
+          : undefined
       );
     }
   }
@@ -530,8 +540,8 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         // this.props.env.alert(
         //   __('File.maxSize', {
         //     filename: file[nameField as keyof typeof file] || file.name,
-        //     actualSize: ImageControl.formatFileSize(file.size),
-        //     maxSize: ImageControl.formatFileSize(maxSize)
+        //     actualSize: prettyBytes(file.size),
+        //     maxSize: prettyBytes(maxSize)
         //   })
         // );
         file.state = 'invalid';
@@ -861,9 +871,10 @@ export default class FileControl extends React.Component<FileProps, FileState> {
           (ret.data as any).value || (ret.data as any).url || ret.data;
 
         const dispatcher = await this.dispatchEvent('success', {
-          ...file,
-          value,
-          state: 'uploaded'
+          ...file, // 保留历史结构
+          item: file,
+          result: ret.data,
+          value
         });
         if (dispatcher?.prevented) {
           return;
@@ -876,7 +887,10 @@ export default class FileControl extends React.Component<FileProps, FileState> {
         });
       })
       .catch(async error => {
-        const dispatcher = await this.dispatchEvent('fail', {file, error});
+        const dispatcher = await this.dispatchEvent('fail', {
+          item: file,
+          error
+        });
         if (dispatcher?.prevented) {
           return;
         }
@@ -888,7 +902,10 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     const files = this.state.files.concat();
     const removeFile = files[index];
     // 触发移出文件事件
-    const dispatcher = await this.dispatchEvent('remove', removeFile);
+    const dispatcher = await this.dispatchEvent('remove', {
+      ...removeFile, // 保留历史结构
+      item: removeFile
+    });
     if (dispatcher?.prevented) {
       return;
     }
@@ -1013,9 +1030,9 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
     // Note: File类型字段放在后面，可以支持第三方云存储鉴权
     fd.append(config.fieldName || 'file', file);
-
+    api.data = fd;
     try {
-      return await this._send(file, api, fd, {}, onProgress);
+      return await this._send(file, api, {}, onProgress);
     } finally {
       this.removeFileCanelExecutor(file);
     }
@@ -1167,12 +1184,12 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
           // Note: File类型字段放在后面，可以支持第三方云存储鉴权
           fd.append(config.fieldName || 'file', blob, file.name);
+          api.data = fd;
 
           return self
             ._send(
               file,
               api,
-              fd,
               {},
               progress => updateProgress(task.partNumber, progress),
               3
@@ -1217,7 +1234,6 @@ export default class FileControl extends React.Component<FileProps, FileState> {
   async _send(
     file: FileX,
     api: ApiObject | ApiString,
-    data?: any,
     options?: object,
     onProgress?: (progress: number) => void,
     maxRetryLimit = 0
@@ -1230,7 +1246,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
     }
 
     try {
-      const result = await env.fetcher(api, data, {
+      const result = await env.fetcher(api, this.props.data, {
         method: 'post',
         ...options,
         withCredentials: true,
@@ -1254,14 +1270,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       return result;
     } catch (error) {
       if (maxRetryLimit > 0) {
-        return this._send(
-          file,
-          api,
-          data,
-          options,
-          onProgress,
-          maxRetryLimit - 1
-        );
+        return this._send(file, api, options, onProgress, maxRetryLimit - 1);
       }
       throw error;
     }
@@ -1296,21 +1305,27 @@ export default class FileControl extends React.Component<FileProps, FileState> {
   }
 
   async dispatchEvent(e: string, data?: Record<string, any>) {
-    const {dispatchEvent} = this.props;
+    const {dispatchEvent, multiple} = this.props;
     const getEventData = (item: Record<string, any>) => ({
       name: item.path || item.name,
       value: item.value,
       state: item.state,
       error: item.error
     });
-    const value = data
+    const value: any = data
       ? getEventData(data)
       : this.state.files.map(item => getEventData(item));
+
     return dispatchEvent(
       e,
-      createObject(this.props.data, {
-        file: value
-      })
+      resolveEventData(
+        this.props,
+        {
+          ...data,
+          file: multiple ? value : value?.[0]
+        },
+        'file'
+      )
     );
   }
 
@@ -1337,6 +1352,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       descriptionClassName,
       hideUploadButton,
       className,
+      style,
       btnClassName,
       btnUploadClassName,
       classnames: cx,
@@ -1345,8 +1361,11 @@ export default class FileControl extends React.Component<FileProps, FileState> {
       downloadUrl,
       templateUrl,
       drag,
+      data,
       documentation,
-      documentLink
+      documentLink,
+      env,
+      container
     } = this.props;
     let {files, uploading, error} = this.state;
     const nameField = this.props.nameField || 'name';
@@ -1424,7 +1443,9 @@ export default class FileControl extends React.Component<FileProps, FileState> {
                   </div>
                   {maxSize ? (
                     <div className={cx('FileControl-sizeTip')}>
-                      {__('File.sizeLimit', {maxSize})}
+                      {__('File.sizeLimit', {
+                        maxSize: prettyBytes(maxSize, 1024)
+                      })}
                     </div>
                   ) : null}
                 </div>
@@ -1450,9 +1471,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
                         ? __('File.repick')
                         : multiple && files.length
                         ? __('File.continueAdd')
-                        : btnLabel
-                        ? btnLabel
-                        : __('File.upload')}
+                        : filter(btnLabel, data) || __('File.upload')}
                     </span>
                   </Button>
                 </>
@@ -1471,7 +1490,7 @@ export default class FileControl extends React.Component<FileProps, FileState> {
 
         {maxSize && !drag ? (
           <div className={cx('FileControl-sizeTip')}>
-            {__('File.sizeLimit', {maxSize})}
+            {__('File.sizeLimit', {maxSize: prettyBytes(maxSize, 1024)})}
           </div>
         ) : null}
 
@@ -1480,26 +1499,30 @@ export default class FileControl extends React.Component<FileProps, FileState> {
             {files.map((file, index) => {
               const filename =
                 file[nameField as keyof typeof file] ||
-                (file as FileValue).filename;
+                (file as FileValue).filename ||
+                file.name;
 
               return (
                 <li key={file.id}>
                   <TooltipWrapper
                     placement="bottom"
-                    tooltipClassName={cx('FileControl-list-tooltip')}
+                    container={container || env?.getModalContainer}
+                    tooltipClassName={cx(
+                      'FileControl-list-tooltip',
+                      (file.state === 'invalid' || file.state === 'error') &&
+                        'is-invalid'
+                    )}
                     tooltip={
                       file.state === 'invalid' || file.state === 'error'
                         ? (file as FileValue).error ||
                           (maxSize && file.size > maxSize
                             ? __('File.maxSize', {
                                 filename: file.name,
-                                actualSize: ImageControl.formatFileSize(
-                                  file.size
-                                ),
-                                maxSize: ImageControl.formatFileSize(maxSize)
+                                actualSize: prettyBytes(file.size, 1024),
+                                maxSize: prettyBytes(maxSize, 1024)
                               })
                             : '')
-                        : ''
+                        : filename
                     }
                   >
                     <div

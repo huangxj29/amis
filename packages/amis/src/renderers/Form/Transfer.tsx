@@ -4,9 +4,12 @@ import find from 'lodash/find';
 import {
   OptionsControlProps,
   OptionsControl,
-  FormOptionsControl
+  FormOptionsControl,
+  resolveEventData,
+  str2function,
+  getOptionValueBindField
 } from 'amis-core';
-import {Transfer} from 'amis-ui';
+import {SpinnerExtraProps, Transfer} from 'amis-ui';
 import type {Option} from 'amis-core';
 import {
   autobind,
@@ -16,7 +19,8 @@ import {
   findTree,
   findTreeIndex,
   getTree,
-  spliceTree
+  spliceTree,
+  mapTree
 } from 'amis-core';
 import {Spinner} from 'amis-ui';
 import {optionValueCompare} from 'amis-core';
@@ -24,14 +28,18 @@ import {resolveVariable} from 'amis-core';
 import {FormOptionsSchema, SchemaApi, SchemaObject} from '../../Schema';
 import {Selection as BaseSelection} from 'amis-ui';
 import {ResultList} from 'amis-ui';
-import {ActionObject} from 'amis-core';
+import {ActionObject, toNumber} from 'amis-core';
 import type {ItemRenderStates} from 'amis-ui/lib/components/Selection';
+import {supportStatic} from './StaticHoc';
+import {matchSorter} from 'match-sorter';
 
 /**
  * Transfer
- * 文档：https://baidu.gitee.io/amis/docs/components/form/transfer
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/transfer
  */
-export interface TransferControlSchema extends FormOptionsSchema {
+export interface TransferControlSchema
+  extends FormOptionsSchema,
+    SpinnerExtraProps {
   type: 'transfer';
 
   /**
@@ -128,6 +136,31 @@ export interface TransferControlSchema extends FormOptionsSchema {
    * 右侧列表搜索框提示
    */
   resultSearchPlaceholder?: string;
+
+  /**
+   * 统计数字
+   */
+  statistics?: boolean;
+
+  /**
+   * 单个选项的高度，主要用于虚拟渲染
+   */
+  itemHeight?: number;
+
+  /**
+   * 在选项数量达到多少时开启虚拟渲染
+   */
+  virtualThreshold?: number;
+
+  /**
+   * 当在value值未匹配到当前options中的选项时，是否value值对应文本飘红显示
+   */
+  showInvalidMatch?: boolean;
+
+  /**
+   * 树形模式下，仅选中子节点
+   */
+  onlyChildren?: boolean;
 }
 
 export interface BaseTransferProps
@@ -139,13 +172,36 @@ export interface BaseTransferProps
       | 'className'
       | 'descriptionClassName'
       | 'inputClassName'
-    > {
+    >,
+    SpinnerExtraProps {
   resultItemRender?: (option: Option) => JSX.Element;
+  virtualThreshold?: number;
+  itemHeight?: number;
+  /**
+   * 检索函数
+   */
+  filterOption?: 'string';
 }
 
+type OptionsControlWithSpinnerProps = OptionsControlProps & SpinnerExtraProps;
+
+export const getCustomFilterOption = (filterOption?: string) => {
+  switch (typeof filterOption) {
+    case 'string':
+      return str2function(filterOption, 'options', 'inputValue', 'option');
+    case 'function':
+      return filterOption;
+    default:
+      return null;
+  }
+};
 export class BaseTransferRenderer<
-  T extends OptionsControlProps = BaseTransferProps
+  T extends OptionsControlWithSpinnerProps = BaseTransferProps
 > extends React.Component<T> {
+  static defaultProps = {
+    multiple: true
+  };
+
   tranferRef?: any;
 
   reload() {
@@ -164,7 +220,9 @@ export class BaseTransferRenderer<
       extractValue,
       options,
       dispatchEvent,
-      setOptions
+      setOptions,
+      selectMode,
+      deferApi
     } = this.props;
     let newValue: any = value;
     let newOptions = options.concat();
@@ -176,11 +234,18 @@ export class BaseTransferRenderer<
           optionValueCompare(
             item[(valueField as string) || 'value'],
             (valueField as string) || 'value'
-          )
+          ),
+          {
+            resolve: getOptionValueBindField(valueField),
+            value: item[valueField as string] || 'value'
+          }
         );
 
         if (!indexes) {
-          newOptions.push(item);
+          newOptions.push({
+            ...item,
+            visible: false
+          });
         } else if (optionModified) {
           const origin = getTree(newOptions, indexes);
           newOptions = spliceTree(newOptions, indexes, 1, {
@@ -202,16 +267,54 @@ export class BaseTransferRenderer<
         joinValues || extractValue
           ? value[(valueField as string) || 'value']
           : value;
+      const indexes = findTreeIndex(
+        options,
+        optionValueCompare(
+          value[(valueField as string) || 'value'],
+          (valueField as string) || 'value'
+        )
+      );
+
+      if (!indexes) {
+        newOptions.push({
+          ...value,
+          visible: false
+        });
+      } else if (optionModified) {
+        const origin = getTree(newOptions, indexes);
+        newOptions = spliceTree(newOptions, indexes, 1, {
+          ...origin,
+          ...value
+        });
+      }
     }
 
-    (newOptions.length > options.length || optionModified) &&
+    // 是否是有懒加载的树，这时不能将 value 添加到 options。因为有可能 value 在懒加载结果中
+    const isTreeDefer =
+      selectMode === 'tree' &&
+      (!!deferApi ||
+        !!findTree(
+          options,
+          (option: Option) => option.deferApi || option.defer
+        ));
+
+    if (
+      isTreeDefer === true ||
+      newOptions.length > options.length ||
+      optionModified
+    ) {
       setOptions(newOptions, true);
+    }
 
     // 触发渲染器事件
-    const rendererEvent = await dispatchEvent('change', {
-      value: newValue,
-      options
-    });
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {
+        value: newValue,
+        options,
+        items: options // 为了保持名字统一
+      })
+    );
     if (rendererEvent?.prevented) {
       return;
     }
@@ -233,9 +336,8 @@ export class BaseTransferRenderer<
       valueField,
       env,
       data,
-      setSearchFilteredOptions,
-      multiple,
-      translate: __
+      translate: __,
+      filterOption
     } = this.props;
 
     if (searchApi) {
@@ -255,23 +357,26 @@ export class BaseTransferRenderer<
         const result =
           payload.data.options || payload.data.items || payload.data;
         if (!Array.isArray(result)) {
-          throw new Error('CRUD.invalidArray');
+          throw new Error(__('CRUD.invalidArray'));
         }
 
-        const res = result.map(item => {
+        return mapTree(result, item => {
           let resolved: any = null;
           const value = item[valueField || 'value'];
 
           // 只有 value 值有意义的时候，再去找；否则直接返回
           if (Array.isArray(options) && value !== null && value !== undefined) {
             resolved = find(options, optionValueCompare(value, valueField));
+            if (item?.children) {
+              resolved = {
+                ...resolved,
+                children: item.children
+              };
+            }
           }
 
           return resolved || item;
         });
-        // 单选输入框显示value 而不是 label的问题
-        !multiple && setSearchFilteredOptions(res);
-        return res;
       } catch (e) {
         if (!env.isCancel(e)) {
           env.notify('error', e.message);
@@ -280,16 +385,28 @@ export class BaseTransferRenderer<
         return [];
       }
     } else if (term) {
-      const regexp = string2regExp(term);
+      const labelKey = (labelField as string) || 'label';
+      const valueKey = (valueField as string) || 'value';
+      const option = {keys: [labelKey, valueKey]};
+
+      if (filterOption) {
+        const customFilterOption = getCustomFilterOption(filterOption);
+        if (customFilterOption) {
+          return customFilterOption(options, term, option);
+        } else {
+          env.notify('error', '自定义检索函数不符合要求');
+          return [];
+        }
+      }
 
       return filterTree(
         options,
-        (option: Option) => {
+        (option: Option, key: number, level: number, paths: Array<Option>) => {
           return !!(
             (Array.isArray(option.children) && option.children.length) ||
-            (option[(valueField as string) || 'value'] &&
-              (regexp.test(option[(labelField as string) || 'label']) ||
-                regexp.test(option[(valueField as string) || 'value'])))
+            !!matchSorter([option].concat(paths), term, {
+              keys: [labelField || 'label', valueField || 'value']
+            }).length
           );
         },
         0,
@@ -302,36 +419,30 @@ export class BaseTransferRenderer<
 
   @autobind
   handleResultSearch(term: string, item: Option) {
-    const {valueField} = this.props;
+    const {valueField, labelField} = this.props;
     const regexp = string2regExp(term);
-    return regexp.test(item[(valueField as string) || 'value']);
+    const labelTest = item[(labelField as string) || 'label'];
+    const valueTest = item[(valueField as string) || 'value'];
+    return regexp.test(labelTest) || regexp.test(valueTest);
   }
 
   @autobind
   optionItemRender(option: Option, states: ItemRenderStates) {
     const {menuTpl, render, data} = this.props;
 
-    if (menuTpl) {
-      return render(`item/${states.index}`, menuTpl, {
-        data: createObject(createObject(data, states), option)
-      });
-    }
-
-    return BaseSelection.itemRender(option, states);
+    return render(`item/${states.index}`, menuTpl, {
+      data: createObject(createObject(data, states), option)
+    });
   }
 
   @autobind
   resultItemRender(option: Option, states: ItemRenderStates) {
     const {valueTpl, render, data} = this.props;
 
-    if (valueTpl) {
-      return render(`value/${states.index}`, valueTpl, {
-        onChange: states.onChange,
-        data: createObject(createObject(data, states), option)
-      });
-    }
-
-    return ResultList.itemRender(option);
+    return render(`value/${states.index}`, valueTpl, {
+      onChange: states.onChange,
+      data: createObject(createObject(data, states), option)
+    });
   }
 
   @autobind
@@ -345,11 +456,14 @@ export class BaseTransferRenderer<
     colIndex: number,
     rowIndex: number
   ) {
-    const {render, data} = this.props;
+    const {render, data, classnames: cx, showInvalidMatch} = this.props;
     return render(
       `cell/${colIndex}/${rowIndex}`,
       {
         type: 'text',
+        className: cx({
+          'is-invalid': showInvalidMatch ? option?.__unmatched : false
+        }),
         ...column
       },
       {
@@ -369,8 +483,8 @@ export class BaseTransferRenderer<
 
   @autobind
   onSelectAll(options: Option[]) {
-    const {dispatchEvent} = this.props;
-    dispatchEvent('selectAll', options);
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent('selectAll', createObject(data, {items: options}));
   }
 
   // 动作
@@ -386,12 +500,18 @@ export class BaseTransferRenderer<
       case 'selectAll':
         this.tranferRef?.selectAll();
         break;
+      case 'clearSearch': {
+        this.tranferRef?.clearSearch(data);
+        break;
+      }
     }
   }
 
+  @supportStatic()
   render() {
     let {
       className,
+      style,
       classnames: cx,
       selectedOptions,
       showArrow,
@@ -409,10 +529,21 @@ export class BaseTransferRenderer<
       selectTitle,
       resultTitle,
       menuTpl,
+      valueTpl,
       searchPlaceholder,
       resultListModeFollowSelect = false,
       resultSearchPlaceholder,
-      resultSearchable = false
+      resultSearchable = false,
+      statistics,
+      labelField,
+      valueField,
+      virtualThreshold,
+      itemHeight,
+      loadingConfig,
+      showInvalidMatch,
+      onlyChildren,
+      mobileUI,
+      noResultsText
     } = this.props;
 
     // 目前 LeftOptions 没有接口可以动态加载
@@ -435,6 +566,7 @@ export class BaseTransferRenderer<
     return (
       <div className={cx('TransferControl', className)}>
         <Transfer
+          onlyChildren={onlyChildren}
           value={selectedOptions}
           options={options}
           disabled={disabled}
@@ -459,13 +591,29 @@ export class BaseTransferRenderer<
           searchPlaceholder={searchPlaceholder}
           resultSearchable={resultSearchable}
           resultSearchPlaceholder={resultSearchPlaceholder}
-          optionItemRender={this.optionItemRender}
-          resultItemRender={this.resultItemRender}
+          statistics={statistics}
+          labelField={labelField}
+          valueField={valueField}
+          optionItemRender={menuTpl ? this.optionItemRender : undefined}
+          resultItemRender={valueTpl ? this.resultItemRender : undefined}
           onSelectAll={this.onSelectAll}
           onRef={this.getRef}
+          virtualThreshold={virtualThreshold}
+          itemHeight={
+            toNumber(itemHeight) > 0 ? toNumber(itemHeight) : undefined
+          }
+          loadingConfig={loadingConfig}
+          showInvalidMatch={showInvalidMatch}
+          mobileUI={mobileUI}
+          noResultsText={noResultsText}
         />
 
-        <Spinner overlay key="info" show={loading} />
+        <Spinner
+          overlay
+          key="info"
+          loadingConfig={loadingConfig}
+          show={loading}
+        />
       </div>
     );
   }

@@ -1,5 +1,5 @@
 import React = require('react');
-import {render, waitFor} from '@testing-library/react';
+import {fireEvent, render, waitFor, screen} from '@testing-library/react';
 import '../../src';
 import {render as amisRender} from '../../src';
 import {makeEnv, wait} from '../helper';
@@ -980,4 +980,182 @@ describe('Renderer:table selectable & itemCheckableOn', () => {
       container.querySelector('[data-id="1"] [type=checkbox][disabled=""]')!
     ).toBeInTheDocument();
   });
+});
+
+describe('dbClick', () => {
+  test('should call the function when double clicking a row of the table rows', async () => {
+    const fn = jest.fn();
+    const schema: any = {
+      type: 'table',
+      data: {
+        items: rows
+      },
+      columns: [
+        {
+          name: 'engine',
+          label: 'Engine'
+        }
+      ],
+      onEvent: {
+        rowDbClick: {
+          actions: [
+            {
+              actionType: 'custom',
+              script: fn
+            }
+          ]
+        }
+      }
+    };
+
+    render(amisRender(schema, {}, makeEnv({})));
+
+    await waitFor(() => {
+      const ele = screen.getAllByText('Trident');
+      fireEvent.dblClick(ele[0]);
+      expect(fn).toBeCalledTimes(1);
+    });
+  });
+});
+
+test('Renderer:table-accessSuperData1', () => {
+  const {container, getByText} = render(
+    amisRender(
+      {
+        type: 'table',
+        data: {
+          abc: 'super-abc',
+          items: [{id: 'id-1', efg: 'efg-2'}]
+        },
+        columns: [
+          {name: 'id', label: 'Id'},
+          {name: 'abc', label: 'Abc'}
+        ]
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  const td1 = container.querySelector('tr:first-child>td:nth-child(1)');
+  const td2 = container.querySelector('tr:first-child>td:nth-child(2)');
+
+  expect(td1?.textContent).toBe('id-1');
+  expect(td2?.textContent).toBe('-');
+});
+
+test('Renderer:table-accessSuperData2', () => {
+  const {container, getByText} = render(
+    amisRender(
+      {
+        type: 'table',
+        canAccessSuperData: true,
+        data: {
+          abc: 'super-abc',
+          items: [{id: 'id-1', efg: 'efg-2'}]
+        },
+        columns: [
+          {name: 'id', label: 'Id'},
+          {name: 'abc', label: 'Abc'}
+        ]
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  const td1 = container.querySelector('tr:first-child>td:nth-child(1)');
+  const td2 = container.querySelector('tr:first-child>td:nth-child(2)');
+
+  expect(td1?.textContent).toBe('id-1');
+  expect(td2?.textContent).toBe('super-abc');
+});
+
+test('Renderer:table-accessSuperData3', () => {
+  const {container, getByText} = render(
+    amisRender(
+      {
+        type: 'table',
+
+        data: {
+          abc: 'super-abc',
+          items: [{id: 'id-1', efg: 'efg-2'}]
+        },
+        columns: [
+          {name: 'id', label: 'Id'},
+          {name: 'abc', label: 'Abc', canAccessSuperData: true}
+        ]
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  const td1 = container.querySelector('tr:first-child>td:nth-child(1)');
+  const td2 = container.querySelector('tr:first-child>td:nth-child(2)');
+
+  expect(td1?.textContent).toBe('id-1');
+  expect(td2?.textContent).toBe('super-abc');
+});
+
+test('Renderer:table-accessSuperData4', () => {
+  const {container, getByText} = render(
+    amisRender(
+      {
+        type: 'table',
+        canAccessSuperData: true,
+        data: {
+          abc: 'super-abc',
+          items: [{id: 'id-1', efg: 'efg-2'}]
+        },
+        columns: [
+          {name: 'id', label: 'Id'},
+          {name: 'abc', label: 'Abc', canAccessSuperData: false}
+        ]
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  const td1 = container.querySelector('tr:first-child>td:nth-child(1)');
+  const td2 = container.querySelector('tr:first-child>td:nth-child(2)');
+
+  expect(td1?.textContent).toBe('id-1');
+  expect(td2?.textContent).toBe('-');
+});
+
+test('Renderer:table-each', () => {
+  const {container, getByText} = render(
+    amisRender(
+      {
+        type: 'table',
+
+        data: {
+          items: [{id: 'id-1', eachData: 'a,b,c'}]
+        },
+        columns: [
+          {name: 'id', label: 'Id'},
+          {
+            source: '${eachData|split}',
+            label: '循环',
+            type: 'each',
+            placeholder: '暂无内容',
+            items: {
+              type: 'tpl',
+              tpl: "<span class='label label-info m-l-sm'><%= this.item %></span>"
+            }
+          }
+        ]
+      },
+      {},
+      makeEnv({})
+    )
+  );
+
+  const td2 = container.querySelector('tr:first-child>td:nth-child(2)');
+
+  expect(td2?.innerHTML).toBe(
+    '<div class="cxd-Each"><span class="cxd-TplField"><span><span class="label label-info m-l-sm">a</span></span></span><span class="cxd-TplField"><span><span class="label label-info m-l-sm">b</span></span></span><span class="cxd-TplField"><span><span class="label label-info m-l-sm">c</span></span></span></div>'
+  );
 });

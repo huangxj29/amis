@@ -1,12 +1,13 @@
-import React, {Suspense} from 'react';
+import React from 'react';
 import Dropzone from 'react-dropzone';
-import {autobind, createObject} from 'amis-core';
+import {autobind, createObject, isObject, resolveEventData} from 'amis-core';
 import {FormItem, FormControlProps, FormBaseControl} from 'amis-core';
 import {FormBaseControlSchema} from '../../Schema';
+import type {CellValue, CellRichTextValue} from 'exceljs';
 
 /**
  * Excel 解析
- * 文档：https://baidu.gitee.io/amis/docs/components/form/input-excel
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/input-excel
  */
 export interface InputExcelControlSchema extends FormBaseControlSchema {
   /**
@@ -17,22 +18,35 @@ export interface InputExcelControlSchema extends FormBaseControlSchema {
   /**
    * 是否解析所有 sheet，默认情况下只解析第一个
    */
-  allSheets: boolean;
+  allSheets?: boolean;
 
   /**
    * 解析模式，array 是解析成二维数组，object 是将第一列作为字段名，解析为对象数组
    */
-  parseMode: 'array' | 'object';
+  parseMode?: 'array' | 'object';
 
   /**
    * 是否包含空内容，主要用于二维数组模式
    */
-  includeEmpty: boolean;
+  includeEmpty?: boolean;
 
   /**
    * 纯文本模式
    */
-  plainText: boolean;
+  plainText?: boolean;
+
+  /**
+   * 解析图片
+   */
+  parseImage?: boolean;
+
+  /** 图片解析结果使用 data URI 格式 */
+  imageDataURI?: boolean;
+
+  /**
+   * 占位文本提示
+   */
+  placeholder?: string;
 }
 
 export interface ExcelProps
@@ -56,7 +70,9 @@ export default class ExcelControl extends React.PureComponent<
     allSheets: false,
     parseMode: 'object',
     includeEmpty: true,
-    plainText: true
+    plainText: true,
+    parseImage: false,
+    imageDataURI: true
   };
 
   state: ExcelControlState = {
@@ -73,48 +89,178 @@ export default class ExcelControl extends React.PureComponent<
 
   @autobind
   handleDrop(files: File[]) {
-    const {allSheets, onChange, dispatchEvent, data} = this.props;
     const excel = files[0];
+    const fileName = excel.name;
     const reader = new FileReader();
     reader.readAsArrayBuffer(excel);
     reader.onload = async () => {
       if (reader.result) {
-        import('exceljs').then(async (ExcelJS: any) => {
-          this.ExcelJS = ExcelJS;
-          const workbook = new ExcelJS.Workbook();
-          await workbook.xlsx.load(reader.result);
-          let sheetsResult: any[] = [];
-          if (allSheets) {
-            workbook.eachSheet((worksheet: any) => {
-              sheetsResult.push({
-                sheetName: worksheet.name,
-                data: this.readWorksheet(worksheet)
-              });
-            });
-          } else {
-            const worksheet = workbook.worksheets[0];
-            sheetsResult = this.readWorksheet(worksheet);
-          }
-          const dispatcher = await this.dispatchEvent('change', sheetsResult);
-          if (dispatcher?.prevented) {
-            return;
-          }
-          onChange(sheetsResult);
-          this.setState({filename: files[0].name});
-        });
+        // 如果是 xls 就用 xlsx 解析一下转成 xlsx 然后用 exceljs 解析
+        // 为啥不直接用 xlsx 解析内容？因为它的社区版本不支持读图片，只有收费版才支持
+        if (fileName.toLowerCase().endsWith('.xls')) {
+          import('xlsx').then(XLSX => {
+            const workbook = XLSX.read(
+              new Uint8Array(reader.result as ArrayBuffer),
+              {
+                cellDates: true
+              }
+            );
+            const xlsxFile = XLSX.writeXLSX(workbook, {type: 'array'});
+            this.processExcelFile(xlsxFile, fileName);
+          });
+        } else {
+          this.processExcelFile(reader.result, fileName);
+        }
       }
     };
+  }
+
+  processExcelFile(excelData: ArrayBuffer | string, fileName: string) {
+    const {allSheets, onChange, parseImage} = this.props;
+    import('exceljs').then(async (ExcelJS: any) => {
+      this.ExcelJS = ExcelJS;
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(excelData);
+      let sheetsResult: any = [];
+      if (allSheets) {
+        workbook.eachSheet((worksheet: any) => {
+          const sheetState = worksheet.state || 'visible';
+          // hidden 的不处理
+          if (sheetState === 'hidden') {
+            return;
+          }
+          if (parseImage) {
+            sheetsResult.push({
+              sheetName: worksheet.name,
+              data: this.readWorksheet(worksheet),
+              images: this.readImages(worksheet, workbook)
+            });
+          } else {
+            sheetsResult.push({
+              sheetName: worksheet.name,
+              data: this.readWorksheet(worksheet)
+            });
+          }
+        });
+      } else {
+        const worksheet = workbook.worksheets.find(
+          (sheet: any) => sheet.state !== 'hidden'
+        );
+
+        if (parseImage) {
+          const images = this.readImages(worksheet, workbook);
+          sheetsResult = {
+            data: this.readWorksheet(worksheet),
+            images
+          };
+        } else {
+          sheetsResult = this.readWorksheet(worksheet);
+        }
+      }
+      const dispatcher = await this.dispatchEvent('change', sheetsResult);
+      if (dispatcher?.prevented) {
+        return;
+      }
+      onChange(sheetsResult);
+      this.setState({filename: fileName});
+    });
+  }
+
+  /** 读取工作表里的图片 */
+  readImages(worksheet: any, workbook: any) {
+    const {imageDataURI} = this.props;
+    const images = worksheet.getImages();
+    const imgResult: string[] = [];
+    for (const image of images) {
+      const img = workbook.getImage(+image.imageId);
+      const imgBase64 = this.encodeBase64Bytes(img.buffer);
+      if (imageDataURI) {
+        const extension = img.extension || 'png';
+        imgResult.push(`data:image/${extension};base64,` + imgBase64);
+      } else {
+        imgResult.push(imgBase64);
+      }
+    }
+    return imgResult;
+  }
+
+  /** 将 buffer 转成 base64 */
+  encodeBase64Bytes(bytes: Uint8Array): string {
+    return btoa(
+      bytes.reduce((acc, current) => acc + String.fromCharCode(current), '')
+    );
   }
 
   async dispatchEvent(eventName: string, eventData?: Record<string, any>) {
     const {dispatchEvent, data} = this.props;
     return await dispatchEvent(
       eventName,
-      createObject(data, {
-        value: eventData
-      })
+      resolveEventData(this.props, {value: eventData})
     );
   }
+
+  /**
+   * 检查当前单元格数据是否为富文本
+   *
+   * @reference https://github.com/exceljs/exceljs#rich-text
+   */
+  isRichTextValue(value: any) {
+    return !!(
+      value &&
+      isObject(value) &&
+      value.hasOwnProperty('richText') &&
+      Array.isArray(value?.richText)
+    );
+  }
+
+  /**
+   * 将富文本类型的单元格内容转化为Plain Text
+   *
+   * @param {CellRichTextValue} cellValue 单元格值
+   * @param {Boolean} html 是否输出为html格式
+   */
+  richText2PlainString(cellValue: CellRichTextValue, html = false) {
+    const result = cellValue.richText.map(({text, font = {}}) => {
+      let outputStr = text;
+
+      /* 如果以HTML格式输出，简单处理一下样式 */
+      if (html) {
+        let styles = '';
+        const htmlTag = font?.bold
+          ? 'strong'
+          : font?.italic
+          ? 'em'
+          : font?.vertAlign === 'superscript'
+          ? 'sup'
+          : font?.vertAlign === 'subscript'
+          ? 'sub'
+          : 'span';
+
+        if (font?.strike) {
+          styles += 'text-decoration: line-through;';
+        } else if (font?.underline) {
+          styles += 'text-decoration: underline;';
+        }
+
+        if (font?.outline) {
+          styles += 'outline: solid;';
+        }
+
+        if (font?.size) {
+          styles += `font-size: ${font.size}px;`;
+        }
+
+        outputStr = `<${htmlTag} ${
+          styles ? `style=${styles}` : ''
+        }>${text}</${htmlTag}>`;
+      }
+
+      return outputStr;
+    });
+
+    return result.join('');
+  }
+
   /**
    * 读取单个 sheet 的内容
    */
@@ -124,8 +270,25 @@ export default class ExcelControl extends React.PureComponent<
 
     if (parseMode === 'array') {
       worksheet.eachRow((row: any, rowNumber: number) => {
-        const values = row.values;
+        let values = row.values;
         values.shift(); // excel 返回的值是从 1 开始的，0 节点永远是 null
+        if (plainText) {
+          values = values.map((item: any) => {
+            if (item instanceof Object) {
+              if (item.hyperlink) {
+                if (item.hyperlink.startsWith('mailto:')) {
+                  return item.hyperlink.substring(7);
+                }
+                return item.hyperlink;
+              } else if (item.result) {
+                return item.result;
+              } else if (item.richText) {
+                return this.richText2PlainString(item);
+              }
+            }
+            return item;
+          });
+        }
         result.push(values);
       });
       return result;
@@ -134,7 +297,11 @@ export default class ExcelControl extends React.PureComponent<
       worksheet.eachRow((row: any, rowNumber: number) => {
         // 将第一列作为字段名
         if (rowNumber == 1) {
-          firstRowValues = row.values;
+          firstRowValues = (row.values ?? []).map((item: CellValue) =>
+            this.isRichTextValue(item)
+              ? this.richText2PlainString(item as CellRichTextValue)
+              : item
+          );
         } else {
           const data: any = {};
           if (includeEmpty) {
@@ -149,12 +316,13 @@ export default class ExcelControl extends React.PureComponent<
                 const ExcelValueType = this.ExcelJS.ValueType;
                 if (cell.type === ExcelValueType.Hyperlink) {
                   value = cell.value.hyperlink;
+                  if (value.startsWith('mailto:')) {
+                    value = value.substring(7);
+                  }
                 } else if (cell.type === ExcelValueType.Formula) {
                   value = cell.value.result;
                 } else if (cell.type === ExcelValueType.RichText) {
-                  value = cell.value.richText
-                    .map((item: any) => item.text)
-                    .join('');
+                  value = this.richText2PlainString(cell.value);
                 } else if (cell.type === ExcelValueType.Error) {
                   value = '';
                 }
@@ -186,9 +354,9 @@ export default class ExcelControl extends React.PureComponent<
       className,
       classnames: cx,
       classPrefix: ns,
-      value,
       disabled,
-      translate: __
+      translate: __,
+      placeholder
     } = this.props;
 
     return (
@@ -196,7 +364,7 @@ export default class ExcelControl extends React.PureComponent<
         <Dropzone
           key="drop-zone"
           onDrop={this.handleDrop}
-          accept=".xlsx"
+          accept=".xlsx,.xls"
           multiple={false}
           disabled={disabled}
         >
@@ -209,7 +377,7 @@ export default class ExcelControl extends React.PureComponent<
                     filename: this.state.filename
                   })
                 ) : (
-                  <p>{__('Excel.placeholder')}</p>
+                  <p>{placeholder ?? __('Excel.placeholder')}</p>
                 )}
               </div>
             </section>

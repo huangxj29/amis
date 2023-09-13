@@ -12,11 +12,10 @@ import {FormBaseControlSchema} from '../../Schema';
 
 /**
  * 图标选择器
- * 文档：https://baidu.gitee.io/amis/docs/components/form/icon-picker
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/icon-picker
  */
 export interface IconPickerControlSchema extends FormBaseControlSchema {
   type: 'icon-picker';
-
   // 这就不应该成为一个 amis 控件。。。
 }
 
@@ -282,7 +281,7 @@ export default class IconPickerControl extends React.PureComponent<
                 {!value || (inputValue && isOpen) ? null : (
                   <div className={cx('IconPickerControl-value')}>
                     <i className={cx(value)} />
-                    {value}
+                    {typeof value === 'string' ? value : ''}
                   </div>
                 )}
 
@@ -374,7 +373,7 @@ export default class IconPickerControl extends React.PureComponent<
   }
 
   render(): JSX.Element {
-    const {className, classPrefix: ns, inputOnly, disabled} = this.props;
+    const {className, style, classPrefix: ns, inputOnly, disabled} = this.props;
 
     let input = this.renderFontIcons();
 

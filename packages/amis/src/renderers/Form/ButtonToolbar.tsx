@@ -5,7 +5,7 @@ import {FormControlProps, FormItem} from 'amis-core';
 
 /**
  * Button Toolar 渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/button-toolbar
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/button-toolbar
  */
 export interface ButtonToolbarSchema extends BaseSchema {
   /**
@@ -42,7 +42,7 @@ export default class ButtonToolbar extends React.Component<
   }
 
   render() {
-    const {buttons, className, classnames: cx, render} = this.props;
+    const {buttons, className, classnames: cx, render, style} = this.props;
 
     return (
       <div className={cx('ButtonToolbar', className)}>

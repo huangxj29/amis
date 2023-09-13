@@ -26,8 +26,7 @@ import {
   getTreeDepth,
   flattenTree,
   keyToPath,
-  getVariable,
-  isObject
+  getVariable
 } from '../utils/helper';
 import {reaction} from 'mobx';
 import {
@@ -54,8 +53,9 @@ import findIndex from 'lodash/findIndex';
 import isPlainObject from 'lodash/isPlainObject';
 import {normalizeOptions} from '../utils/normalizeOptions';
 import {optionValueCompare} from '../utils/optionValueCompare';
-import {Option} from '../types';
-import {isEqual} from 'lodash';
+import type {Option} from '../types';
+import isEqual from 'lodash/isEqual';
+import {resolveEventData} from '../utils';
 
 export {Option};
 
@@ -104,6 +104,11 @@ export interface FormOptionsControl extends FormBaseControl {
    * 分割符
    */
   delimiter?: string;
+
+  /**
+   * 多选模式，值太多时是否避免折行
+   */
+  valuesNoWrap?: boolean;
 
   /**
    * 开启后将选中的选项 value 的值封装为数组，作为当前表单项的值。
@@ -161,11 +166,6 @@ export interface FormOptionsControl extends FormBaseControl {
    * 编辑时调用的 API
    */
   editApi?: BaseApiObject | string;
-
-  /**
-   * 编辑时调用的初始化 API
-   */
-  initEditApi?: BaseApiObject | string;
 
   /**
    * 选项修改的表单项
@@ -253,8 +253,8 @@ export interface OptionsProps
   creatable?: boolean;
   addApi?: Api;
   addControls?: Array<any>;
+  editInitApi?: Api;
   editApi?: Api;
-  initEditApi?: Api;
   editControls?: Array<any>;
   deleteApi?: Api;
   deleteConfirmText?: string;
@@ -351,6 +351,15 @@ export function registerOptionsControl(config: OptionsConfig) {
               this.syncAutoFill(formItem.getSelectedOptions(formItem.tmpValue))
           )
         );
+
+        if (
+          options &&
+          formItem.tmpValue &&
+          formItem.getSelectedOptions(formItem.tmpValue).length
+        ) {
+          this.syncAutoFill(formItem.getSelectedOptions(formItem.tmpValue));
+        }
+
         // 默认全选。这里会和默认值\回填值逻辑冲突，所以如果有配置source则不执行默认全选
         if (
           multiple &&
@@ -396,6 +405,8 @@ export function registerOptionsControl(config: OptionsConfig) {
       } else if (nextProps.source || nextProps.autoComplete) {
         return true;
       } else if (nextProps.formItem?.expressionsInOptions) {
+        return true;
+      } else if (nextProps.formItem?.filteredOptions) {
         return true;
       }
 
@@ -467,8 +478,6 @@ export function registerOptionsControl(config: OptionsConfig) {
             )
             .then(() => this.normalizeValue());
         }
-      } else if (!isEqual(props.value, prevProps.value) && props.formInited) {
-        this.normalizeValue();
       }
 
       if (prevProps.value !== props.value || formItem?.expressionsInOptions) {
@@ -483,13 +492,13 @@ export function registerOptionsControl(config: OptionsConfig) {
     }
 
     async dispatchOptionEvent(eventName: string, eventData: any = '') {
-      const {dispatchEvent, options, data} = this.props;
+      const {dispatchEvent, options} = this.props;
       const rendererEvent = await dispatchEvent(
         eventName,
-        createObject(data, {
-          value: eventData,
-          options
-        })
+        resolveEventData(
+          this.props,
+          {value: eventData, options, items: options} // 为了保持名字统一
+        )
       );
       // 返回阻塞标识
       return !!rendererEvent?.prevented;
@@ -550,6 +559,8 @@ export function registerOptionsControl(config: OptionsConfig) {
                 selectedOptions[0]
               )
         );
+        const tmpData = {...data};
+        const result = {...toSync};
 
         Object.keys(autoFill).forEach(key => {
           const keys = keyToPath(key);
@@ -557,15 +568,16 @@ export function registerOptionsControl(config: OptionsConfig) {
           // 如果左边的 key 是一个路径
           // 这里不希望直接把原始对象都给覆盖没了
           // 而是保留原始的对象，只修改指定的属性
-          if (keys.length > 1 && isPlainObject(data[keys[0]])) {
-            const obj = {...data[keys[0]]};
+          if (keys.length > 1 && isPlainObject(tmpData[keys[0]])) {
             const value = getVariable(toSync, key);
-            toSync[keys[0]] = obj;
-            setVariable(toSync, key, value);
+
+            // 存在情况：依次更新同一子路径的多个key，eg: a.b.c1 和 a.b.c2，所以需要同步更新data
+            setVariable(tmpData, key, value);
+            result[keys[0]] = tmpData[keys[0]];
           }
         });
 
-        onBulkChange(toSync);
+        onBulkChange(result);
       }
     }
 
@@ -578,38 +590,16 @@ export function registerOptionsControl(config: OptionsConfig) {
         multiple,
         formItem,
         valueField,
-        delimiter,
         enableNodePath,
         pathSeparator,
         onChange
       } = this.props;
 
-      if (!formItem || !formItem.options.length) {
+      if (!formItem || joinValues !== false || !formItem.options.length) {
         return;
       }
 
-      if (joinValues !== false) {
-        // 只处理多选且值为 array 的情况，因为理应为分隔符隔开的字符串
-        if (!(multiple && Array.isArray(value))) return;
-
-        const selectedOptions = formItem.getSelectedOptions(value);
-
-        onChange?.(
-          (multiple
-            ? selectedOptions.concat()
-            : selectedOptions.length
-            ? [selectedOptions[0]]
-            : []
-          )
-            .map((selectedOption: Option) => {
-              return typeof selectedOption === 'string' ||
-                typeof selectedOption === 'number'
-                ? selectedOption
-                : selectedOption[valueField || 'value'];
-            })
-            .join(delimiter || ',')
-        );
-      } else if (
+      if (
         extractValue === false &&
         (typeof value === 'string' || typeof value === 'number')
       ) {
@@ -619,13 +609,12 @@ export function registerOptionsControl(config: OptionsConfig) {
         extractValue === true &&
         value &&
         !(
-          (multiple &&
-            Array.isArray(value) &&
+          (Array.isArray(value) &&
             value.every(
               val => typeof val === 'string' || typeof val === 'number'
             )) ||
-          (!multiple &&
-            (typeof value === 'string' || typeof value === 'number'))
+          typeof value === 'string' ||
+          typeof value === 'number'
         )
       ) {
         const selectedOptions = formItem
@@ -828,14 +817,16 @@ export function registerOptionsControl(config: OptionsConfig) {
         return;
       }
 
-      return formItem.loadOptions(
-        source,
-        data,
-        undefined,
-        false,
-        isInit ? setPrinstineValue : onChange,
-        setError
-      );
+      return isAlive(formItem)
+        ? formItem.loadOptions(
+            source,
+            data,
+            undefined,
+            false,
+            isInit ? setPrinstineValue : onChange,
+            setError
+          )
+        : undefined;
     }
 
     @autobind
@@ -947,13 +938,6 @@ export function registerOptionsControl(config: OptionsConfig) {
         );
     }
 
-    // 单选输入框显示value 而不是 label的问题
-    @autobind
-    setSearchFilteredOptions(options: Array<any>) {
-      const formItem = this.props.formItem as IFormItemStore;
-      formItem && formItem.setSearchFilteredOptions(options, this.props.data);
-    }
-
     @autobind
     syncOptions() {
       const formItem = this.props.formItem as IFormItemStore;
@@ -1056,7 +1040,11 @@ export function registerOptionsControl(config: OptionsConfig) {
           });
 
           if (!payload.ok) {
-            env.notify('error', payload.msg || __('Options.createFailed'));
+            env.notify(
+              'error',
+              (addApi as BaseApiObject)?.messages?.failed ??
+                (payload.msg || __('Options.createFailed'))
+            );
             result = null;
           } else {
             result = payload.data || result;
@@ -1123,7 +1111,7 @@ export function registerOptionsControl(config: OptionsConfig) {
         labelField,
         onOpenDialog,
         editApi,
-        initEditApi = null,
+        editInitApi,
         env,
         source,
         data,
@@ -1158,8 +1146,8 @@ export function registerOptionsControl(config: OptionsConfig) {
               ...editDialog,
               body: {
                 type: 'form',
+                initApi: editInitApi,
                 api: editApi,
-                initApi: initEditApi,
                 controls: editControls
               }
             },
@@ -1178,7 +1166,11 @@ export function registerOptionsControl(config: OptionsConfig) {
           );
 
           if (!payload.ok) {
-            env.notify('error', payload.msg || __('saveFailed'));
+            env.notify(
+              'error',
+              (editApi as BaseApiObject)?.messages?.failed ??
+                (payload.msg || __('saveFailed'))
+            );
             result = null;
           } else {
             result = payload.data || result;
@@ -1261,7 +1253,11 @@ export function registerOptionsControl(config: OptionsConfig) {
             method: 'delete'
           });
           if (!result.ok) {
-            env.notify('error', result.msg || __('deleteFailed'));
+            env.notify(
+              'error',
+              (deleteApi as BaseApiObject)?.messages?.failed ??
+                (result.msg || __('deleteFailed'))
+            );
             return;
           }
         }
@@ -1308,7 +1304,8 @@ export function registerOptionsControl(config: OptionsConfig) {
         pathSeparator,
         delimiter = ',',
         labelField = 'label',
-        valueField = 'value'
+        valueField = 'value',
+        translate: __
       } = this.props;
 
       const {nodePathArray, nodeValueArray} = normalizeNodePath(
@@ -1323,6 +1320,7 @@ export function registerOptionsControl(config: OptionsConfig) {
       return (
         <Control
           {...this.props}
+          placeholder={__(this.props.placeholder)}
           ref={this.inputRef}
           options={formItem ? formItem.filteredOptions : []}
           onToggle={this.handleToggle}

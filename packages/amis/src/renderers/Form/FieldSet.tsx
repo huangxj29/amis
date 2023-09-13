@@ -7,7 +7,7 @@ import type {FormHorizontal} from 'amis-core';
 
 /**
  * FieldSet 表单项集合
- * 文档：https://baidu.gitee.io/amis/docs/components/form/fieldset
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/fieldset
  */
 export interface FieldSetControlSchema
   extends Omit<FormBaseControl, 'size'>,
@@ -89,6 +89,14 @@ export default class FieldSetControl extends React.Component<
     collapsable: false
   };
 
+  static propsList: Array<string> = [
+    'collapsable',
+    'collapsed',
+    'collapseTitle',
+    'titlePosition',
+    'collapseTitle'
+  ];
+
   renderBody(): JSX.Element {
     const {
       body,
@@ -109,14 +117,13 @@ export default class FieldSetControl extends React.Component<
 
     let props: any = {
       store,
-      data: store!.data,
+      data: store?.data,
       render,
       disabled,
       formMode: subFormMode || formMode,
       formHorizontal: subFormHorizontal || formHorizontal
     };
     mode && (props.mode = mode);
-    typeof collapsable !== 'undefined' && (props.collapsable = collapsable);
     horizontal && (props.horizontal = horizontal);
 
     return (

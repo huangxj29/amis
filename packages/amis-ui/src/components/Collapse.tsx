@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import {ClassNamesFn, themeable} from 'amis-core';
+import {ClassNamesFn, ThemeProps, themeable} from 'amis-core';
 import Transition, {
   EXITED,
   ENTERING,
@@ -14,6 +14,7 @@ import Transition, {
 import {autobind} from 'amis-core';
 import {isClickOnInput} from 'amis-core';
 import {TranslateFn} from 'amis-core';
+import {Icon} from './icons';
 
 const collapseStyles: {
   [propName: string]: string;
@@ -23,7 +24,7 @@ const collapseStyles: {
   [ENTERING]: 'in'
 };
 
-export interface CollapseProps {
+export interface CollapseProps extends ThemeProps {
   id?: string;
   key?: string;
   collapseId?: string;
@@ -31,8 +32,7 @@ export interface CollapseProps {
   mountOnEnter?: boolean;
   unmountOnExit?: boolean;
   className?: string;
-  classPrefix: string;
-  classnames: ClassNamesFn;
+  style?: any;
   headerPosition?: 'top' | 'bottom';
   header?: React.ReactNode;
   body: any;
@@ -50,6 +50,9 @@ export interface CollapseProps {
   headingComponent?: any;
   translate?: TranslateFn;
   propsUpdate?: boolean;
+  partial?: boolean;
+  children?: React.ReactNode | Array<React.ReactNode>;
+  divideLine?: boolean;
 }
 
 export interface CollapseState {
@@ -103,10 +106,31 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
     if (props.disabled || props.collapsable === false) {
       return;
     }
-    props.onCollapse && props.onCollapse(props, !this.state.collapsed);
+    const newCollapsed = !this.state.collapsed;
+    props.onCollapse?.(props, newCollapsed);
     this.setState({
-      collapsed: !this.state.collapsed
+      collapsed: newCollapsed
     });
+  }
+
+  /** 变更组件的折叠状态 */
+  @autobind
+  changeCollapsedState(targetState: boolean) {
+    const {disabled, collapsable} = this.props;
+    const {collapsed: currentState} = this.state;
+
+    if (disabled || collapsable === false || currentState === targetState) {
+      return;
+    }
+
+    this.setState(
+      {
+        collapsed: targetState
+      },
+      () => {
+        this.props.onCollapse?.(this.props, targetState);
+      }
+    );
   }
 
   contentDom: any;
@@ -154,6 +178,7 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
       wrapperComponent: WrapperComponent,
       headingComponent: HeadingComponent,
       className,
+      style,
       headingClassName,
       headerPosition,
       collapseHeader,
@@ -165,7 +190,8 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
       showArrow,
       expandIcon,
       disabled,
-      children
+      children,
+      mobileUI
     } = this.props;
 
     const finalHeader = this.state.collapsed
@@ -177,7 +203,11 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
         <HeadingComponent
           key="header"
           onClick={this.toggleCollapsed}
-          className={cx(`Collapse-header`, headingClassName)}
+          className={cx(
+            `Collapse-header`,
+            {'is-mobile': mobileUI},
+            headingClassName
+          )}
         >
           {showArrow && collapsable ? (
             expandIcon ? (
@@ -189,7 +219,14 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
                 )
               })
             ) : (
-              <span className={cx('Collapse-arrow')} />
+              <span className={cx('Collapse-arrow-wrap')}>
+                <Icon
+                  icon="right-arrow-bold"
+                  className={cx('Collapse-arrow', 'icon')}
+                  classNameProp={cx('Collapse-arrow')}
+                  iconContent="Collapse-arrow"
+                />
+              </span>
             )
           ) : (
             ''
@@ -237,6 +274,7 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
         className={cx(
           `Collapse`,
           {
+            'is-mobile': mobileUI,
             'is-active': !this.state.collapsed,
             [`Collapse--${size}`]: size,
             'Collapse--disabled': disabled,
@@ -244,6 +282,7 @@ export class Collapse extends React.Component<CollapseProps, CollapseState> {
           },
           className
         )}
+        style={style}
       >
         {dom}
       </WrapperComponent>

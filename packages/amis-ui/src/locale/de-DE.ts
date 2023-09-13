@@ -44,6 +44,7 @@ register('de-DE', {
   'CRUD.invalidArray': '"data.items" muss ein Array sein',
   'CRUD.invalidData': '"data" ist leer',
   'CRUD.loadMore': 'Weitere laden',
+  'CRUD.loadMoreDisableTip': 'Keine Daten oder letzte Seite',
   'CRUD.perPage': 'Pro Seite',
   'CRUD.stat': '{{page}} von {{lastPage}} insgesamt: {{total}}.',
   'CRUD.paginationGoText': 'Wechseln zu',
@@ -56,6 +57,7 @@ register('de-DE', {
   'Pagination.totalCount': 'total {{total}} items',
   'Date.titleYear': '',
   'Date.titleMonth': '',
+  'Date.titleQuarter': '',
   'Date.titleDate': '',
   'Date.titleTime': '',
   'Date.daysago': 'Vor {{days}} Tag(en)',
@@ -66,6 +68,7 @@ register('de-DE', {
   'Date.hoursago': 'Vor {{hours}} Stunde(n)',
   'Date.hourslater': '{{hours}} Stunde(n) später',
   'Date.invalid': 'Ungültiges Datum',
+  'Number.invalid': 'Ungültige Zahl',
   'Date.monday': 'Montag',
   'Date.monthsago': 'Vor {{months}} Monat(en)',
   'Date.monthslater': '{{months}} Monat(e) später',
@@ -130,17 +133,18 @@ register('de-DE', {
   'File.failed': 'Fehlerhafte Dateien',
   'File.invalidType': '{{files}} entspricht nicht Typ `{{accept}}`',
   'File.maxSize':
-    '{{filename}} überschreitet die maximale Größe von {{maxsize}} (in Byte)',
+    '{{filename}} überschreitet die maximale Größe von {{maxSize}}',
   'File.pause': 'Hochladen anhalten',
   'File.repick': 'Erneut suswählen',
   'File.result':
     'Erfolgreich hochgeladene Dateien: {{uploaded}}, nicht hochgeladene Dateien: {{failed}}',
   'File.retry': 'Wiederholen',
+  'File.sizeLimit': 'Die maximale Dateigröße ist {{maxSize}}',
   'File.start': 'Hochladen beginnen',
   'File.upload': 'Hochladen',
-  'Image.upload': 'Hochladen',
   'File.uploadFailed': 'Zurückgegebene Daten der Upload-API sind leer',
   'File.uploading': 'Wird hochgeladen...',
+  'File.imageAfterCrop': 'Beschnittenes Bild',
   'FormItem.autoFillLoadFailed':
     'Die Schnittstelle hat einen Fehler zurückgegeben, bitte sorgfältig prüfen',
   'FormItem.autoFillSuggest': 'Referenzdateneingabe',
@@ -151,6 +155,11 @@ register('de-DE', {
   'Form.unique': 'Aktueller Wert ist nicht eindeutig',
   'Form.validateFailed': 'Fehler bei der Überprüfung der Formulareingabe',
   'Form.nestedError': 'Form kann nicht als Nachkomme von Form erscheinen',
+  'Iframe.invalid': 'Ungültige Iframe-URL',
+  'Iframe.invalidProtocol':
+    'HTTP-URL-Iframe kann nicht in https verwendet werden',
+  'Image.dragTip': 'Zum Sortieren ziehen',
+  'Image.upload': 'Bild hochladen',
   'Image.configError':
     'Es können nur eine Beschneidung oder mehrere festgelegt werden',
   'Image.crop': 'Bild beschneiden',
@@ -175,6 +184,7 @@ register('de-DE', {
   'Log.collapse': 'Falten',
   'link': 'Link',
   'loading': 'Wird geladen...',
+  'loadingFailed': 'Das Laden ist fehlgeschlagen',
   'LocationPicker.placeholder': 'Wählen Sie einen Ort',
   'Month.placeholder': 'Wählen Sie einen Monat',
   'Nav.sourceError': 'Fehler beim Abrufen des Links',
@@ -195,6 +205,7 @@ register('de-DE', {
   'Quarter.placeholder': 'Quartal auswählen',
   'Repeat.pre': 'Pro',
   'reset': 'Zurücksetzen',
+  'save': 'Konservierung',
   'saveFailed': 'Fehler beim Speichern',
   'saveSuccess': 'Erfolgreich gespeichert',
   'search': 'Suchen',
@@ -208,6 +219,7 @@ register('de-DE', {
   'Select.createLabel': 'Neue Option',
   'Select.placeholder': 'Auswählen',
   'Select.searchPromptText': 'Eingeben zum Suchen',
+  'Select.selected': 'Ausgewählt',
   'sort': 'Sortieren',
   'SubForm.button': 'Configurieren',
   'SubForm.editDetail': 'Details bearbeiten',
@@ -233,6 +245,9 @@ register('de-DE', {
   'Table.startSort': 'Klicken, um Sortierung zu starten',
   'Table.valueField': 'valueField muss vorhanden sein',
   'Table.index': 'Index',
+  'Table.add': 'Neu',
+  'Table.addButtonDisabledTip':
+    'Reichen Sie bei der Inhaltsbearbeitung zuerst ein und erstellen Sie dann eine neue Option',
   'Table.toggleColumn': 'Spalten anzeigen',
   'Table.searchFields': 'Abfragefelder setzen',
   'Tag.placeholder': 'Noch kein Tag',
@@ -280,6 +295,10 @@ register('de-DE', {
     'Kontrollieren Sie die Länge des Inhalts. Geben Sie nicht mehr als $1 Buchstaben ein.',
   'validate.minimum': 'Der Eingabewert ist kleiner als der Mindestwert von $1.',
   'validate.minLength': 'Geben Sie weitere Zeichen ein, mindestens $1.',
+  'validate.array.minLength':
+    'Bitte fügen Sie weitere Mitglieder hinzu, mindestens $1 Mitglieder',
+  'validate.array.maxLength':
+    'Bitte kontrollieren Sie die Anzahl der Mitglieder, die $1 nicht überschreiten darf',
   'validate.notEmptyString': 'Geben Sie nicht nur Leerzeichen ein.',
   'validate.isDateTimeSame':
     'Der aktuelle Datumswert ist ungültig, bitte geben Sie denselben Datumswert wie $1 ein',
@@ -305,6 +324,8 @@ register('de-DE', {
     'Der aktuelle Zeitwert ist ungültig. Bitte geben Sie einen Zeitwert ein, der gleich oder nach $1 ist',
   'validate.isTimeBetween':
     'Der aktuelle Zeitwert ist ungültig, bitte geben Sie einen Zeitwert zwischen $1 und $2 ein',
+  'validate.isVariableName':
+    'Bitte geben Sie einen gültigen Variablennamen ein',
   'validateFailed': 'Fehler bei der Überprüfung',
   'Wizard.configError': 'Konfigurationsfehler',
   'Wizard.finish': 'Ende',
@@ -325,6 +346,7 @@ register('de-DE', {
   'Condition.not': 'nicht',
   'Condition.and': 'und',
   'Condition.or': 'oder',
+  'Condition.collapse': 'entfalten',
   'Condition.add_cond': 'und Bedingung',
   'Condition.add_cond_group': 'Bedingungsgruppe hinzufügen',
   'Condition.delete_cond_group': 'Konditionsgruppe löschen',
@@ -353,6 +375,8 @@ register('de-DE', {
   'Condition.expression': 'Ausdruck',
   'Condition.formula_placeholder': 'Bitte geben Sie eine Formel ein',
   'Condition.fun_error': 'Funktion ist undefiniert',
+  'Condition.configured': 'Konfiguriert',
+  'Condition.isRequired': 'Bedingung kann nicht leer sein',
   'InputTable.uniqueError': 'Column `{{label}}` unique validate failed',
   'Timeline.collapseText': 'Falten',
   'Timeline.expandText': 'Entfalten',
@@ -364,6 +388,8 @@ register('de-DE', {
   'FormulaEditor.function': 'Funktion',
   'FormulaEditor.invalidData':
     'Überprüfungsfehler, position or reason is {{err}}',
+  'FormulaEditor.invalidValue':
+    'Überprüfungsfehler, reason is Falsches Werteformat',
   'pullRefresh.pullingText': 'Zum Aktualisieren nach unten ziehen...',
   'pullRefresh.loosingText': 'Zum Aktualisieren freigeben...',
   'pullRefresh.loadingText': 'Laden...',
@@ -374,6 +400,7 @@ register('de-DE', {
   'UserSelect.resultSort': 'Ergebnissortierung auswählen',
   'UserSelect.selected': 'Ausgewählt',
   'UserSelect.clear': 'leer',
+  'UserSelect.sure': 'Submit',
   'SchemaType.string': 'String',
   'SchemaType.number': 'Number',
   'SchemaType.integer': 'integer',
@@ -387,5 +414,8 @@ register('de-DE', {
   'JSONSchema.description': 'Description',
   'JSONSchema.key': 'Key',
   'JSONSchema.array_items': 'Items',
-  'TimeNow': 'Jetzt'
+  'TimeNow': 'Jetzt',
+  'Steps.step': 'Schritt {{index}}',
+  'FormulaInput.True': 'Treu',
+  'FormulaInput.False': 'Falsch'
 });

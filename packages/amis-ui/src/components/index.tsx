@@ -12,13 +12,16 @@ import {
   prompt,
   setRenderSchemaFn
 } from './Alert';
-import {default as ContextMenu, openContextMenus} from './ContextMenu';
+import {
+  default as ContextMenu,
+  openContextMenus,
+  closeContextMenus
+} from './ContextMenu';
 import AsideNav from './AsideNav';
 import Avatar from './Avatar';
 import Button from './Button';
 import Breadcrumb from './Breadcrumb';
 import Checkbox from './Checkbox';
-import Checkboxes from './Selection';
 import Collapse from './Collapse';
 import CollapseGroup from './CollapseGroup';
 import DatePicker from './DatePicker';
@@ -40,7 +43,7 @@ import Rating from './Rating';
 // import RichText from './RichText';
 import Select from './Select';
 import SparkLine from './SparkLine';
-import Spinner from './Spinner';
+import {default as Spinner, type SpinnerExtraProps} from './Spinner';
 import Switch from './Switch';
 import Textarea from './Textarea';
 import TitleBar from './TitleBar';
@@ -70,19 +73,23 @@ import SchemaVariableListPicker from './schema-editor/SchemaVariableListPicker';
 import SchemaVariableList from './schema-editor/SchemaVariableList';
 import VariableList from './formula/VariableList';
 import FormulaPicker from './formula/Picker';
+import {FormulaEditor} from './formula/Editor';
+import type {VariableItem} from './formula/Editor';
 import PickerContainer from './PickerContainer';
 import InputJSONSchema from './json-schema';
-import {Badge, BadgeObject, withBadge} from './Badge';
-import {getIcon, Icon, registerIcon} from './icons';
-import {RemoteOptionsProps, withRemoteConfig} from './WithRemoteConfig';
+import {Badge, withBadge} from './Badge';
+import type {BadgeObject} from './Badge';
+import {getIcon, getIconNames, Icon, registerIcon} from './icons';
+import {withRemoteConfig} from './WithRemoteConfig';
+import type {RemoteOptionsProps} from './WithRemoteConfig';
 import ConditionBuilder from './condition-builder';
-import {
+import type {
   ConditionBuilderFields,
   ConditionBuilderFuncs
 } from './condition-builder/types';
-import {ConditionBuilderConfig} from './condition-builder/config';
+import type {ConditionBuilderConfig} from './condition-builder/config';
 import CityArea from './CityArea';
-import {PresetColor} from './ColorPicker';
+import type {PresetColor} from './ColorPicker';
 import ListMenu from './ListMenu';
 import Input from './Input';
 import JSONSchemaEditor from './schema-editor';
@@ -97,17 +104,31 @@ import UserSelect from './UserSelect';
 import UserTabSelect from './UserTabSelect';
 import HeadCellDropDown from './table/HeadCellDropDown';
 import Card from './Card';
-import GridNav, {GridNavDirection, GridNavItem} from './GridNav';
+import GridNav, {GridNavItem} from './GridNav';
+import type {GridNavDirection} from './GridNav';
 import Link from './Link';
-import VirtualList from './virtual-list';
+import VirtualList, {AutoSizer} from './virtual-list';
 import {withStore} from './WithStore';
 import PopOverContainer from './PopOverContainer';
-import Pagination, {MODE_TYPE} from './Pagination';
+import Pagination from './Pagination';
 import Progress from './Progress';
 import Steps, {StepStatus} from './Steps';
 import Tag from './Tag';
 import Timeline from './Timeline';
 import ImageGallery from './ImageGallery';
+import BaiduMapPicker from './BaiduMapPicker';
+import MultilineText from './MultilineText';
+import Form from './Form';
+import FormField, {Controller} from './FormField';
+import Combo from './Combo';
+import InputTable from './InputTable';
+import type {InputTableColumnProps} from './InputTable';
+import ConfirmBox from './ConfirmBox';
+import DndContainer from './DndContainer';
+import Menu from './menu';
+import InputBoxWithSuggestion from './InputBoxWithSuggestion';
+import {CodeMirrorEditor} from './CodeMirror';
+import type CodeMirror from 'codemirror';
 
 export {
   NotFound,
@@ -119,12 +140,13 @@ export {
   setRenderSchemaFn,
   ContextMenu,
   openContextMenus,
+  closeContextMenus,
   Alert2,
   AsideNav,
   Button,
   Breadcrumb,
   Checkbox,
-  Checkboxes,
+  Selection as Checkboxes,
   Collapse,
   CollapseGroup,
   DatePicker,
@@ -147,6 +169,7 @@ export {
   Select,
   SparkLine,
   Spinner,
+  SpinnerExtraProps,
   Switch,
   Textarea,
   TitleBar,
@@ -165,6 +188,7 @@ export {
   AssociatedSelection,
   ResultBox,
   InputBox,
+  InputBoxWithSuggestion,
   SearchBox,
   ListGroup,
   NumberInput,
@@ -175,7 +199,10 @@ export {
   SchemaVariableList,
   VariableList,
   PickerContainer,
+  ConfirmBox,
   FormulaPicker,
+  VariableItem,
+  FormulaEditor,
   InputJSONSchema,
   withBadge,
   BadgeObject,
@@ -201,6 +228,7 @@ export {
   UserSelect,
   UserTabSelect,
   getIcon,
+  getIconNames,
   registerIcon,
   Badge,
   HeadCellDropDown,
@@ -212,6 +240,7 @@ export {
   GridNavItem,
   Link,
   VirtualList,
+  AutoSizer,
   withStore,
   PopOverContainer,
   Pagination,
@@ -220,5 +249,17 @@ export {
   StepStatus,
   Tag,
   Timeline,
-  ImageGallery
+  ImageGallery,
+  BaiduMapPicker,
+  MultilineText,
+  Form,
+  FormField,
+  Controller,
+  Combo,
+  InputTable,
+  InputTableColumnProps,
+  DndContainer,
+  Menu,
+  CodeMirror,
+  CodeMirrorEditor
 };

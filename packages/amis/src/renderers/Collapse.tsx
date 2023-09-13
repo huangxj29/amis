@@ -1,11 +1,19 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
-import {Collapse as BasicCollapse} from 'amis-ui';
+import {
+  ActionObject,
+  IScopedContext,
+  Renderer,
+  RendererProps,
+  ScopedContext,
+  autobind,
+  resolveEventData
+} from 'amis-core';
+import {Collapse as BasicCollapse, Icon} from 'amis-ui';
 import {BaseSchema, SchemaCollection, SchemaTpl, SchemaObject} from '../Schema';
 
 /**
  * Collapse 折叠渲染器，格式说明。
- * 文档：https://baidu.gitee.io/amis/docs/components/collapse
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/collapse
  */
 export interface CollapseSchema extends BaseSchema {
   /**
@@ -87,6 +95,10 @@ export interface CollapseSchema extends BaseSchema {
    * 卡片隐藏就销毁内容。
    */
   unmountOnExit?: boolean;
+  /**
+   * 标题内容分割线
+   */
+  divideLine?: boolean;
 }
 
 export interface CollapseProps
@@ -100,6 +112,57 @@ export interface CollapseProps
 }
 
 export default class Collapse extends React.Component<CollapseProps, {}> {
+  static propsList: Array<string> = [
+    'collapsable',
+    'collapsed',
+    'collapseTitle',
+    'showArrow',
+    'headerPosition',
+    'bodyClassName',
+    'headingClassName',
+    'collapseHeader',
+    'size'
+  ];
+
+  basicCollapse = React.createRef<any>();
+
+  @autobind
+  async handleCollapseChange(props: any, collapsed: boolean) {
+    const {dispatchEvent, onCollapse} = this.props;
+    const eventData = resolveEventData(this.props, {
+      collapsed
+    });
+
+    // 触发折叠器状态变更事件
+    const changeEvent = await dispatchEvent('change', eventData);
+
+    // 单独触发折叠 or 收起事件
+    const toggleEvent = await dispatchEvent(
+      collapsed ? 'collapse' : 'expand',
+      eventData
+    );
+
+    if (changeEvent?.prevented || toggleEvent?.prevented) {
+      return;
+    }
+
+    onCollapse?.(props, collapsed);
+  }
+
+  doAction(action: ActionObject, args: object, throwErrors: boolean): any {
+    if (this.props.disabled || this.props.collapsable === false) {
+      return;
+    }
+    if (['expand', 'collapse'].includes(action.actionType!)) {
+      const targetState = action.actionType === 'collapse';
+      this.handleCollapseChange(this.props, targetState);
+      const collapseInstance = (
+        this.basicCollapse?.current as any
+      )?.getWrappedInstance?.();
+      collapseInstance?.changeCollapsedState?.(targetState);
+    }
+  }
+
   render() {
     const {
       id,
@@ -109,6 +172,7 @@ export default class Collapse extends React.Component<CollapseProps, {}> {
       wrapperComponent,
       headingComponent,
       className,
+      style,
       headingClassName,
       children,
       titlePosition,
@@ -129,12 +193,16 @@ export default class Collapse extends React.Component<CollapseProps, {}> {
       disabled,
       collapsed,
       propsUpdate,
-      onCollapse
+      mobileUI,
+      divideLine
     } = this.props;
+
+    const heading = title || header || '';
 
     return (
       <BasicCollapse
         id={id}
+        ref={this.basicCollapse}
         classnames={cx}
         classPrefix={ns}
         mountOnEnter={mountOnEnter}
@@ -143,6 +211,7 @@ export default class Collapse extends React.Component<CollapseProps, {}> {
         wrapperComponent={wrapperComponent}
         headingComponent={headingComponent}
         className={className}
+        style={style}
         headingClassName={headingClassName}
         bodyClassName={bodyClassName}
         headerPosition={titlePosition || headerPosition}
@@ -152,18 +221,26 @@ export default class Collapse extends React.Component<CollapseProps, {}> {
         disabled={disabled}
         propsUpdate={propsUpdate}
         expandIcon={
-          expandIcon
-            ? render('arrow-icon', expandIcon || '', {
+          expandIcon ? (
+            typeof (expandIcon as any).icon === 'object' ? (
+              <Icon
+                cx={cx}
+                icon={(expandIcon as any).icon}
+                className={cx('Collapse-icon-tranform')}
+              />
+            ) : (
+              render('arrow-icon', expandIcon || '', {
                 className: cx('Collapse-icon-tranform')
               })
-            : null
+            )
+          ) : null
         }
         collapseHeader={
           collapseTitle || collapseHeader
             ? render('heading', collapseTitle || collapseHeader)
             : null
         }
-        header={render('heading', title || header || '')}
+        header={heading ? render('heading', heading) : null}
         body={
           children
             ? typeof children === 'function'
@@ -173,7 +250,9 @@ export default class Collapse extends React.Component<CollapseProps, {}> {
             ? render('body', body)
             : null
         }
-        onCollapse={onCollapse}
+        mobileUI={mobileUI}
+        onCollapse={this.handleCollapseChange}
+        divideLine={divideLine}
       ></BasicCollapse>
     );
   }
@@ -182,4 +261,18 @@ export default class Collapse extends React.Component<CollapseProps, {}> {
 @Renderer({
   type: 'collapse'
 })
-export class CollapseRenderer extends Collapse {}
+export class CollapseRenderer extends Collapse {
+  static contextType = ScopedContext;
+
+  constructor(props: CollapseProps, context: IScopedContext) {
+    super(props);
+
+    const scoped = context;
+    scoped.registerComponent(this);
+  }
+
+  componentWillUnmount() {
+    const scoped = this.context as IScopedContext;
+    scoped.unRegisterComponent(this);
+  }
+}

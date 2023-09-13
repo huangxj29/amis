@@ -106,7 +106,7 @@ export class BaiduMapPicker extends React.Component<
 
   componentWillUnmount() {
     this.ac?.dispose?.();
-    this.placeholderInput && document.body.removeChild(this.placeholderInput);
+    this.placeholderInput && document.body.removeChild(this.placeholderInput!);
 
     delete this.placeholderInput;
     delete this.map;
@@ -170,14 +170,16 @@ export class BaiduMapPicker extends React.Component<
         if (poiLength) {
           for (let i = 0; i < poiLength; i++) {
             const poi = result.getPoi(i);
-            const str = [
-              poi.province,
-              poi.city,
-              poi.district,
-              poi.street,
-              poi.business
-            ].join(' ');
-            sugs.indexOf(str) === -1 && sugs.push(str);
+            if (poi) {
+              const str = [
+                poi.province,
+                poi.city,
+                poi.district,
+                poi.street,
+                poi.business
+              ].join(' ');
+              sugs.indexOf(str) === -1 && sugs.push(str);
+            }
           }
           this.setState({
             sugs
@@ -328,15 +330,11 @@ export class BaiduMapPicker extends React.Component<
       onSearchComplete: () => {
         const results = local.getResults();
         const poi = results.getPoi(0);
-        if (poi) {
-          this.setState({
-            inputValue: poi.title,
-            sugs: []
-          });
-          this.getLocations(poi.point, true);
-        } else {
-          console.log(value + '未搜索到结果');
-        }
+        this.setState({
+          inputValue: poi?.title,
+          sugs: []
+        });
+        this.getLocations(poi?.point, true);
       }
     });
     local.search(value);

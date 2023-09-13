@@ -26,7 +26,7 @@ import {ActionSchema} from './Action';
 
 /**
  * 栏目容器渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/portlet
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/portlet
  */
 export interface PortletTabSchema extends Omit<BaseSchema, 'type'> {
   /**
@@ -144,11 +144,9 @@ export interface PortletSchema extends Omit<BaseSchema, 'type'> {
   /**
    * 自定义样式
    */
-  style?:
-    | string
-    | {
-        [propName: string]: any;
-      };
+  style?: {
+    [propName: string]: any;
+  };
 }
 
 export interface PortletProps

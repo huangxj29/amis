@@ -82,10 +82,15 @@ export const ServiceStore = iRendererStore
         fetchCancel = null;
 
         if (!json.ok) {
-          updateMessage(json.msg ?? (options && options.errorMessage), true);
+          updateMessage(
+            (api as ApiObject)?.messages?.failed ??
+              json.msg ??
+              (options && options.errorMessage),
+            true
+          );
           getEnv(self).notify(
             'error',
-            json.msg,
+            self.msg,
             json.msgTimeout !== undefined
               ? {
                   closeButton: true,
@@ -103,7 +108,7 @@ export const ServiceStore = iRendererStore
           reInitData(data, replace);
           self.hasRemoteData = true;
           if (options && options.onSuccess) {
-            const ret = options.onSuccess(json);
+            const ret = options.onSuccess(json, data);
 
             if (ret && ret.then) {
               yield ret;
@@ -111,7 +116,10 @@ export const ServiceStore = iRendererStore
           }
 
           updateMessage(
-            json.msg ?? (options && options.successMessage) ?? json.defaultMsg
+            (api as ApiObject)?.messages?.success ??
+              json.msg ??
+              (options && options.successMessage) ??
+              json.defaultMsg
           );
 
           // 配置了获取成功提示后提示，默认是空不会提示。
@@ -134,7 +142,7 @@ export const ServiceStore = iRendererStore
         }
 
         markFetching(false);
-        e.stack && console.error(e.stack);
+        console.error(e);
         let message = e.message || e;
         if (e && e.message === 'Network Error') {
           message = self.__('networkError');
@@ -189,7 +197,12 @@ export const ServiceStore = iRendererStore
         }
 
         if (!json.ok) {
-          updateMessage(json.msg ?? (options && options.errorMessage), true);
+          updateMessage(
+            (api as ApiObject)?.messages?.failed ??
+              json.msg ??
+              (options && options.errorMessage),
+            true
+          );
           getEnv(self).notify(
             'error',
             self.msg,
@@ -202,14 +215,18 @@ export const ServiceStore = iRendererStore
           );
         } else {
           if (options && options.onSuccess) {
-            const ret = options.onSuccess(json);
+            const ret = options.onSuccess(json, json.data);
 
             if (ret && ret.then) {
               yield ret;
             }
           }
 
-          updateMessage(json.msg ?? (options && options.successMessage));
+          updateMessage(
+            (api as ApiObject)?.messages?.success ??
+              json.msg ??
+              (options && options.successMessage)
+          );
 
           // 配置了获取成功提示后提示，默认是空不会提示。
           options &&
@@ -231,7 +248,7 @@ export const ServiceStore = iRendererStore
         }
 
         markFetching(false);
-        e.stack && console.error(e.stack);
+        console.error(e);
         let message = e.message || e;
         if (e && e.message === 'Network Error') {
           message = self.__('networkError');
@@ -284,7 +301,8 @@ export const ServiceStore = iRendererStore
           }
 
           updateMessage(
-            json.msg ??
+            (api as ApiObject)?.messages?.failed ??
+              json.msg ??
               (options && options.errorMessage) ??
               self.__('saveFailed'),
             true
@@ -292,14 +310,18 @@ export const ServiceStore = iRendererStore
           throw new ServerError(self.msg, json);
         } else {
           if (options && options.onSuccess) {
-            const ret = options.onSuccess(json);
+            const ret = options.onSuccess(json, json.data);
 
             if (ret && ret.then) {
               yield ret;
             }
           }
 
-          updateMessage(json.msg ?? (options && options.successMessage));
+          updateMessage(
+            (api as ApiObject)?.messages?.success ??
+              json.msg ??
+              (options && options.successMessage)
+          );
           self.msg &&
             getEnv(self).notify(
               'success',
@@ -322,7 +344,7 @@ export const ServiceStore = iRendererStore
           return;
         }
 
-        // console.log(e.stack);
+        console.error(e);
         if (e.type === 'ServerError') {
           const result = (e as ServerError).response;
           getEnv(self).notify(
@@ -388,7 +410,8 @@ export const ServiceStore = iRendererStore
 
         if (!json.ok) {
           updateMessage(
-            json.msg ??
+            (api as ApiObject)?.messages?.failed ??
+              json.msg ??
               (options && options.errorMessage) ??
               self.__('fetchFailed'),
             true
@@ -406,15 +429,23 @@ export const ServiceStore = iRendererStore
         } else {
           if (json.data) {
             const env = getEnv(self);
-            replaceText(json.data, env.replaceText, env.replaceTextIgnoreKeys);
+            json.data = replaceText(
+              json.data,
+              env.replaceText,
+              env.replaceTextIgnoreKeys
+            );
 
             self.schema = Array.isArray(json.data)
               ? json.data
-              : {
-                  type: 'wrapper',
-                  wrap: false,
-                  ...normalizeApiResponseData(json.data)
-                };
+              : Object.assign(
+                  json.data?.type
+                    ? {}
+                    : {
+                        type: 'wrapper',
+                        wrap: false
+                      },
+                  normalizeApiResponseData(json.data)
+                );
             self.schemaKey = '' + Date.now();
             isObject(json.data.data) &&
               self.updateData(
@@ -424,7 +455,11 @@ export const ServiceStore = iRendererStore
               );
           }
 
-          updateMessage(json.msg ?? (options && options.successMessage));
+          updateMessage(
+            (api as ApiObject)?.messages?.success ??
+              json.msg ??
+              (options && options.successMessage)
+          );
 
           // 配置了获取成功提示后提示，默认是空不会提示。
           options &&
@@ -446,7 +481,7 @@ export const ServiceStore = iRendererStore
           return;
         }
 
-        e.stack && console.error(e.stack);
+        console.error(e);
         let message = e.message || e;
         if (e && e.message === 'Network Error') {
           message = self.__('networkError');

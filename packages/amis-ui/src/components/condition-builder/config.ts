@@ -1,22 +1,20 @@
 import {
   FieldTypes,
-  OperatorType,
   ConditionBuilderFuncs,
   ConditionBuilderFields,
   ConditionBuilderType
 } from './types';
+import type {OperatorType} from 'amis-core';
 
 export interface BaseFieldConfig {
   operations: Array<OperatorType>;
 }
 
 export interface ConditionBuilderConfig {
-  valueTypes?: Array<'value' | 'field' | 'func' | 'formula'>;
+  valueTypes?: Array<'value' | 'field' | 'func'>;
   fields?: ConditionBuilderFields;
   funcs?: ConditionBuilderFuncs;
   maxLevel?: number; // 还没实现
-
-  // todo 起码需要支持 formula 组件可以自定义。
 
   // todo 很多还不能配置。
   types: {

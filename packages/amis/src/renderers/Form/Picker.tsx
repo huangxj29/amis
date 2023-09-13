@@ -1,34 +1,38 @@
 import React from 'react';
+import cx from 'classnames';
+import omit from 'lodash/omit';
+import find from 'lodash/find';
+import isEqual from 'lodash/isEqual';
+import findIndex from 'lodash/findIndex';
+import merge from 'lodash/merge';
 import {
   OptionsControl,
   OptionsControlProps,
-  Option,
-  FormOptionsControl
-} from 'amis-core';
-import cx from 'classnames';
-
-import {SchemaNode, Schema, ActionObject, PlainObject} from 'amis-core';
-import find from 'lodash/find';
-import {
-  anyChanged,
+  SchemaNode,
+  Schema,
+  ActionObject,
+  PlainObject,
   autobind,
   getVariable,
   noop,
   createObject,
-  isObjectShallowModified
+  filter,
+  isPureVariable,
+  resolveVariableAndFilter,
+  isApiOutdated,
+  isEffectiveApi,
+  resolveEventData,
+  isIntegerInRange
 } from 'amis-core';
-import findIndex from 'lodash/findIndex';
-import {Html} from 'amis-ui';
-import {filter} from 'amis-core';
-import {Icon} from 'amis-ui';
-import {dataMapping, isPureVariable, resolveVariableAndFilter} from 'amis-core';
-import {FormOptionsSchema, SchemaCollection, SchemaTpl} from '../../Schema';
-import {CRUDSchema} from '../CRUD';
-import {isApiOutdated, isEffectiveApi} from 'amis-core';
+import {Html, Icon, TooltipWrapper} from 'amis-ui';
+import {FormOptionsSchema, SchemaTpl} from '../../Schema';
+import intersectionWith from 'lodash/intersectionWith';
+import type {TooltipWrapperSchema} from '../TooltipWrapper';
+import type {Option} from 'amis-core';
 
 /**
  * Picker
- * 文档：https://baidu.gitee.io/amis/docs/components/form/picker
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/picker
  */
 export interface PickerControlSchema extends FormOptionsSchema {
   type: 'picker';
@@ -60,9 +64,39 @@ export interface PickerControlSchema extends FormOptionsSchema {
   modalMode?: 'dialog' | 'drawer';
 
   /**
+   * 弹窗的标题，默认为情选择
+   */
+  modalTitle?: string;
+
+  /**
    * 内嵌模式，也就是说不弹框了。
    */
   embed?: boolean;
+
+  /**
+   * 开启最大标签展示数量的相关配置
+   */
+  overflowConfig: {
+    /**
+     * 标签的最大展示数量，超出数量后以收纳浮层的方式展示，仅在多选模式开启后生效
+     */
+    maxTagCount?: number;
+
+    /**
+     * 开启最大标签展示数量后，收纳标签生效的位置，未开启内嵌模式默认为选择器, 开启后默认为选择器 + 模态框，可选值为'select'(选择器)、'crud'(增删改查)
+     */
+    displayPosition?: ('select' | 'crud')[];
+
+    /**
+     * 开启最大标签展示数量后，选择器内收纳标签的Popover配置
+     */
+    overflowTagPopover?: TooltipWrapperSchema;
+
+    /**
+     * 开启最大标签展示数量后，CRUD顶部内收纳标签的Popover配置
+     */
+    overflowTagPopoverInCRUD?: TooltipWrapperSchema;
+  };
 }
 
 export interface PickerProps extends OptionsControlProps {
@@ -82,6 +116,7 @@ export default class PickerControl extends React.PureComponent<
   any
 > {
   static propsList: Array<string> = [
+    'modalTitle',
     'modalMode',
     'pickerSchema',
     'labelField',
@@ -107,7 +142,24 @@ export default class PickerControl extends React.PureComponent<
         title: '${label|raw}'
       }
     },
-    embed: false
+    embed: false,
+    overflowConfig: {
+      /** 默认值为-1，不开启 */
+      maxTagCount: -1,
+      displayPosition: ['select', 'crud'],
+      overflowTagPopover: {
+        placement: 'top',
+        trigger: 'hover',
+        showArrow: false,
+        offset: [0, -10]
+      },
+      overflowTagPopoverInCRUD: {
+        placement: 'bottom',
+        trigger: 'hover',
+        showArrow: false,
+        offset: [0, 10]
+      }
+    }
   };
 
   state: PickerState = {
@@ -124,8 +176,9 @@ export default class PickerControl extends React.PureComponent<
 
   componentDidUpdate(prevProps: PickerProps) {
     const props = this.props;
+    const detectedProps = ['multiple', 'source', 'pickerSchema'];
 
-    if (anyChanged(['pickerSchema', 'multiple', 'source'], prevProps, props)) {
+    if (detectedProps.some(key => !isEqual(prevProps[key], props[key]))) {
       this.setState({
         schema: this.buildSchema(props)
       });
@@ -158,6 +211,7 @@ export default class PickerControl extends React.PureComponent<
 
     const ctx = createObject(data, {
       value: value,
+      [valueField || 'value']: value,
       op: 'loadOptions'
     });
 
@@ -227,7 +281,7 @@ export default class PickerControl extends React.PureComponent<
   }
 
   @autobind
-  handleModalConfirm(
+  async handleModalConfirm(
     values: Array<any>,
     action: ActionObject,
     ctx: any,
@@ -237,7 +291,8 @@ export default class PickerControl extends React.PureComponent<
       components,
       (item: any) => item.props.type === 'crud'
     );
-    this.handleChange(values[idx].items);
+
+    await this.handleChange(values[idx].items);
     this.close();
   }
 
@@ -252,10 +307,10 @@ export default class PickerControl extends React.PureComponent<
       options,
       data,
       dispatchEvent,
+      selectedOptions,
       setOptions,
       onChange
     } = this.props;
-
     let value: any = items;
 
     if (joinValues) {
@@ -283,9 +338,10 @@ export default class PickerControl extends React.PureComponent<
     });
 
     additionalOptions.length && setOptions(options.concat(additionalOptions));
+    const option = multiple ? items : items[0];
     const rendererEvent = await dispatchEvent(
       'change',
-      createObject(data, {value, option: items[0]})
+      resolveEventData(this.props, {value, option, selectedItems: option})
     );
     if (rendererEvent?.prevented) {
       return;
@@ -294,7 +350,21 @@ export default class PickerControl extends React.PureComponent<
     onChange(value);
   }
 
-  removeItem(index: number) {
+  @autobind
+  async handleItemClick(item: any) {
+    const {data, dispatchEvent} = this.props;
+
+    const rendererEvent = await dispatchEvent(
+      'itemClick',
+      createObject(data, {item})
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+  }
+
+  async removeItem(index: number) {
     const {
       selectedOptions,
       joinValues,
@@ -302,10 +372,11 @@ export default class PickerControl extends React.PureComponent<
       delimiter,
       valueField,
       onChange,
-      multiple
+      multiple,
+      dispatchEvent
     } = this.props;
     const items = selectedOptions.concat();
-    items.splice(index, 1);
+    const [option] = items.splice(index, 1);
 
     let value: any = items;
 
@@ -319,6 +390,14 @@ export default class PickerControl extends React.PureComponent<
         : (items[0] && items[0][valueField || 'value']) || '';
     } else {
       value = multiple ? items : items[0];
+    }
+
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {value, option, selectedItems: option})
+    );
+    if (rendererEvent?.prevented) {
+      return;
     }
 
     onChange(value);
@@ -363,48 +442,135 @@ export default class PickerControl extends React.PureComponent<
     onChange(resetValue !== void 0 ? resetValue : '');
   }
 
+  getOverflowConfig() {
+    const {overflowConfig} = this.props;
+
+    return merge(PickerControl.defaultProps.overflowConfig, overflowConfig);
+  }
+
+  renderTag(item: Option, index: number) {
+    const {
+      classPrefix: ns,
+      labelField,
+      labelTpl,
+      translate: __,
+      disabled,
+      env
+    } = this.props;
+
+    return (
+      <div
+        key={index}
+        className={cx(`${ns}Picker-value`, {
+          'is-disabled': disabled
+        })}
+      >
+        <span
+          className={`${ns}Picker-valueIcon`}
+          onClick={e => {
+            e.stopPropagation();
+            this.removeItem(index);
+          }}
+        >
+          ×
+        </span>
+        <span
+          className={`${ns}Picker-valueLabel`}
+          onClick={e => {
+            e.stopPropagation();
+            this.handleItemClick(item);
+          }}
+        >
+          {labelTpl ? (
+            <Html html={filter(labelTpl, item)} filterHtml={env.filterHtml} />
+          ) : (
+            `${
+              getVariable(item, labelField || 'label') ||
+              getVariable(item, 'id')
+            }`
+          )}
+        </span>
+      </div>
+    );
+  }
+
   renderValues() {
     const {
       classPrefix: ns,
       selectedOptions,
-      labelField,
-      labelTpl,
       translate: __,
-      disabled
+      disabled,
+      multiple,
+      popOverContainer
     } = this.props;
+    const {maxTagCount, overflowTagPopover} = this.getOverflowConfig();
+    const totalCount = selectedOptions.length;
+    let tags = selectedOptions;
+    const enableOverflow =
+      multiple !== false &&
+      isIntegerInRange(maxTagCount, {
+        start: 0,
+        end: totalCount,
+        left: 'inclusive',
+        right: 'exclusive'
+      });
+
+    /** 多选且开启限制标签数量 */
+    if (enableOverflow) {
+      tags = [
+        ...selectedOptions.slice(0, maxTagCount),
+        {label: `+ ${totalCount - maxTagCount} ...`, value: '__overflow_tag__'}
+      ];
+    }
 
     return (
       <div className={`${ns}Picker-values`}>
-        {selectedOptions.map((item, index) => (
-          <div
-            key={index}
-            className={cx(`${ns}Picker-value`, {
-              'is-disabled': disabled
-            })}
-          >
-            <span
-              data-tooltip={__('delete')}
-              data-position="bottom"
-              className={`${ns}Picker-valueIcon`}
-              onClick={e => {
-                e.stopPropagation();
-                this.removeItem(index);
-              }}
-            >
-              ×
-            </span>
-            <span className={`${ns}Picker-valueLabel`}>
-              {labelTpl ? (
-                <Html html={filter(labelTpl, item)} />
-              ) : (
-                `${
-                  getVariable(item, labelField || 'label') ||
-                  getVariable(item, 'id')
-                }`
-              )}
-            </span>
-          </div>
-        ))}
+        {tags.map((item, index) => {
+          if (enableOverflow && index === maxTagCount) {
+            return (
+              <TooltipWrapper
+                key={index}
+                container={popOverContainer}
+                tooltip={{
+                  tooltipClassName: cx(
+                    'Picker-overflow',
+                    overflowTagPopover?.tooltipClassName
+                  ),
+                  title: __('已选项'),
+                  ...omit(overflowTagPopover, [
+                    'children',
+                    'content',
+                    'tooltipClassName'
+                  ]),
+                  children: () => {
+                    return (
+                      <div className={cx(`${ns}Picker-overflow-wrapper`)}>
+                        {selectedOptions
+                          .slice(maxTagCount, totalCount)
+                          .map((overflowItem, rawIndex) => {
+                            const key = rawIndex + maxTagCount;
+
+                            return this.renderTag(overflowItem, key);
+                          })}
+                      </div>
+                    );
+                  }
+                }}
+              >
+                <div
+                  key={index}
+                  className={cx(`${ns}Picker-value`, {
+                    'is-disabled': disabled
+                  })}
+                >
+                  <span className={`${ns}Picker-valueLabel`}>{item.label}</span>
+                </div>
+              </TooltipWrapper>
+            );
+          }
+
+          return this.renderTag(item, index);
+        })}
       </div>
     );
   }
@@ -418,8 +584,11 @@ export default class PickerControl extends React.PureComponent<
       multiple,
       valueField,
       embed,
-      source
+      source,
+      strictMode
     } = this.props;
+    const {maxTagCount, overflowTagPopoverInCRUD, displayPosition} =
+      this.getOverflowConfig();
 
     return render('modal-body', this.state.schema, {
       value: selectedOptions,
@@ -427,33 +596,77 @@ export default class PickerControl extends React.PureComponent<
       primaryField: valueField,
       options: source ? [] : options,
       multiple,
-      onSelect: embed ? this.handleChange : undefined,
+      strictMode,
+      onSelect: embed
+        ? (selectedItems: Array<any>, unSelectedItems: Array<any>) => {
+            // 选择行后，crud 会给出连续多次事件，且selectedItems会变化，会导致初始化和点击无效
+            // 过滤掉一些无用事件，否则会导致 value 错误
+            if (
+              !Array.isArray(selectedItems) ||
+              !Array.isArray(unSelectedItems) ||
+              (!selectedItems.length && !unSelectedItems.length)
+            ) {
+              return;
+            }
+
+            // 取交集，判断是否是无效事件，需要考虑顺序问题
+            const intersections = intersectionWith(
+              selectedItems,
+              selectedOptions,
+              (a: any, b: any) => {
+                // 需要考虑没有配置 valueField，而且值里面又没有 value 字段的情况
+                const aValue = a[valueField || 'value'];
+                const bValue = b[valueField || 'value'];
+                return aValue || bValue
+                  ? aValue === bValue
+                  : // selectedOptions 中有 Options 自动添加的 value 字段，所以去掉后才能比较
+                    isEqual(omit(a, 'value'), omit(b, 'value'));
+              }
+            );
+            if (
+              // 前后数量都一样说明是重复事件
+              intersections.length === selectedItems.length &&
+              intersections.length === selectedOptions.length
+            ) {
+              return;
+            }
+
+            this.handleChange(selectedItems);
+          }
+        : undefined,
       ref: this.crudRef,
-      popOverContainer
+      popOverContainer,
+      ...(embed ||
+      (Array.isArray(displayPosition) && displayPosition.includes('crud'))
+        ? {maxTagCount, overflowTagPopover: overflowTagPopoverInCRUD}
+        : {})
     }) as JSX.Element;
   }
-
   render() {
     const {
       className,
+      style,
+      modalClassName,
       classnames: cx,
       disabled,
       render,
       modalMode,
       source,
       size,
-      env,
       clearable,
       multiple,
       placeholder,
       embed,
-      value,
       selectedOptions,
       translate: __,
-      popOverContainer
+      popOverContainer,
+      modalTitle,
+      data,
+      mobileUI
     } = this.props;
+
     return (
-      <div className={cx(`PickerControl`, className)}>
+      <div className={cx(`PickerControl`, {'is-mobile': mobileUI}, className)}>
         {embed ? (
           <div className={cx('Picker')}>
             {this.renderBody({popOverContainer})}
@@ -484,6 +697,7 @@ export default class PickerControl extends React.PureComponent<
                   onKeyDown={this.handleKeyDown}
                   onFocus={this.handleFocus}
                   onBlur={this.handleBlur}
+                  readOnly={mobileUI}
                 />
               </div>
 
@@ -494,16 +708,24 @@ export default class PickerControl extends React.PureComponent<
               ) : null}
 
               <span onClick={this.open} className={cx('Picker-btn')}>
-                <Icon icon="window-restore" className="icon" />
+                <Icon
+                  icon="window-restore"
+                  className="icon"
+                  iconContent="Picker-icon"
+                />
               </span>
             </div>
 
             {render(
               'modal',
               {
-                title: __('Select.placeholder'),
+                title:
+                  modalTitle && typeof modalTitle === 'string'
+                    ? filter(modalTitle, data)
+                    : __('Select.placeholder'),
                 size: size,
                 type: modalMode,
+                className: modalClassName,
                 body: {
                   children: this.renderBody
                 }

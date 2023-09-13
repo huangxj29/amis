@@ -30,6 +30,49 @@ export function createObject(
   return obj;
 }
 
+export function extractObjectChain(value: any) {
+  const result: Array<object> = value ? [value] : [];
+  while (value?.__super) {
+    result.unshift(value.__super);
+    value = value.__super;
+  }
+  return result;
+}
+
+export function createObjectFromChain(chain: Array<object>) {
+  return chain
+    .filter(item => item)
+    .reduce((proto, value) => {
+      proto = proto || Object.prototype;
+      if (Object.isFrozen(proto)) {
+        proto = cloneObject(proto);
+      }
+
+      return Object.assign(
+        Object.create(proto, {
+          __super: {
+            value: proto,
+            writable: false,
+            enumerable: false
+          }
+        }),
+        value
+      );
+    });
+}
+
+/**
+ * 向最近一层插入新链
+ * @param obj
+ * @param value
+ * @returns
+ */
+export function injectObjectChain(obj: any, value: any) {
+  const chain = extractObjectChain(obj);
+  chain.splice(chain.length - 1, 0, value);
+  return createObjectFromChain(chain);
+}
+
 export function cloneObject(target: any, persistOwnProps: boolean = true) {
   const obj =
     target && target.__super

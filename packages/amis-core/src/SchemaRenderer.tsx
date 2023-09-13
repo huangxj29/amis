@@ -5,36 +5,40 @@ import LazyComponent from './components/LazyComponent';
 import {
   filterSchema,
   loadRenderer,
-  RendererComponent,
   RendererConfig,
   RendererEnv,
   RendererProps,
   resolveRenderer
 } from './factory';
 import {asFormItem} from './renderers/Item';
-import {ScopedContext} from './Scoped';
+import {IScopedContext, ScopedContext} from './Scoped';
 import {Schema, SchemaNode} from './types';
 import {DebugWrapper} from './utils/debug';
 import getExprProperties from './utils/filter-schema';
-import {anyChanged, chainEvents, autobind, createObject} from './utils/helper';
+import {anyChanged, chainEvents, autobind} from './utils/helper';
 import {SimpleMap} from './utils/SimpleMap';
-
 import {bindEvent, dispatchEvent, RendererEvent} from './utils/renderer-event';
 import {isAlive} from 'mobx-state-tree';
 import {reaction} from 'mobx';
 import {resolveVariableAndFilter} from './utils/tpl-builtin';
+import {buildStyle} from './utils/style';
+import {StatusScopedProps} from './StatusScoped';
+import {evalExpression, filter} from './utils/tpl';
 
-interface SchemaRendererProps extends Partial<RendererProps> {
+interface SchemaRendererProps
+  extends Partial<Omit<RendererProps, 'statusStore'>>,
+    StatusScopedProps {
   schema: Schema;
   $path: string;
   env: RendererEnv;
 }
 
-const defaultOmitList = [
+export const RENDERER_TRANSMISSION_OMIT_PROPS = [
   'type',
   'name',
   '$ref',
   'className',
+  'style',
   'data',
   'children',
   'ref',
@@ -44,6 +48,8 @@ const defaultOmitList = [
   'hiddenOn',
   'disabled',
   'disabledOn',
+  'static',
+  'staticOn',
   'component',
   'detectField',
   'defaultValue',
@@ -52,7 +58,13 @@ const defaultOmitList = [
   'requiredOn',
   'syncSuperStore',
   'mode',
-  'body'
+  'body',
+  'id',
+  'inputOnly',
+  'label',
+  'renderLabel',
+  'trackExpression',
+  'editorSetting'
 ];
 
 const componentCache: SimpleMap = new SimpleMap();
@@ -71,6 +83,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
 
   reaction: any;
   unbindEvent: (() => void) | undefined = undefined;
+  isStatic: any = undefined;
 
   constructor(props: SchemaRendererProps) {
     super(props);
@@ -78,15 +91,24 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
     this.renderChild = this.renderChild.bind(this);
     this.reRender = this.reRender.bind(this);
     this.resolveRenderer(this.props);
-
     this.dispatchEvent = this.dispatchEvent.bind(this);
 
-    // 监听topStore更新
+    // 监听statusStore更新
     this.reaction = reaction(
-      () =>
-        `${props.topStore.visibleState[props.schema.id || props.$path]}${
-          props.topStore.disableState[props.schema.id || props.$path]
-        }`,
+      () => {
+        const id = filter(props.schema.id, props.data);
+        const name = filter(props.schema.name, props.data);
+        return `${
+          props.statusStore.visibleState[id] ??
+          props.statusStore.visibleState[name]
+        }${
+          props.statusStore.disableState[id] ??
+          props.statusStore.disableState[name]
+        }${
+          props.statusStore.staticState[id] ??
+          props.statusStore.staticState[name]
+        }`;
+      },
       () => this.forceUpdate()
     );
   }
@@ -203,9 +225,15 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
 
   async dispatchEvent(
     e: React.MouseEvent<any>,
-    data: any
+    data: any,
+    renderer?: React.Component<RendererProps> // for didmount
   ): Promise<RendererEvent<any> | void> {
-    return await dispatchEvent(e, this.cRef, this.context, data);
+    return await dispatchEvent(
+      e,
+      this.cRef || renderer,
+      this.context as IScopedContext,
+      data
+    );
   }
 
   renderChild(
@@ -219,7 +247,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
     let {schema: _, $path: __, env, render, ...rest} = this.props;
     let {path: $path} = this.resolveRenderer(this.props);
 
-    const omitList = defaultOmitList.concat();
+    const omitList = RENDERER_TRANSMISSION_OMIT_PROPS.concat();
     if (this.renderer) {
       const Component = this.renderer.component;
       Component.propsList &&
@@ -228,6 +256,15 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
 
     return render!(`${$path}${region ? `/${region}` : ''}`, node || '', {
       ...omit(rest, omitList),
+      defaultStatic:
+        (this.renderer?.type &&
+        ['drawer', 'dialog'].includes(this.renderer.type)
+          ? false
+          : undefined) ??
+        this.isStatic ??
+        (_.staticOn
+          ? evalExpression(_.staticOn, rest.data)
+          : _.static ?? rest.defaultStatic),
       ...subProps,
       data: subProps.data || rest.data,
       env: env
@@ -244,7 +281,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
       $path: _,
       schema: __,
       rootStore,
-      topStore,
+      statusStore,
       render,
       ...rest
     } = this.props;
@@ -263,17 +300,23 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
     const detectData =
       schema &&
       (schema.detectField === '&' ? rest : rest[schema.detectField || 'data']);
-    const exprProps: any = detectData
+    let exprProps: any = detectData
       ? getExprProperties(schema, detectData, undefined, rest)
       : {};
 
     // 控制显隐
-    const visible = isAlive(topStore)
-      ? topStore.visibleState[schema.id || $path]
+    const id = filter(schema.id, rest.data);
+    const name = filter(schema.name, rest.data);
+    const visible = isAlive(statusStore)
+      ? statusStore.visibleState[id] ?? statusStore.visibleState[name]
       : undefined;
-    const disable = isAlive(topStore)
-      ? topStore.disableState[schema.id || $path]
+    const disable = isAlive(statusStore)
+      ? statusStore.disableState[id] ?? statusStore.disableState[name]
       : undefined;
+    const isStatic = isAlive(statusStore)
+      ? statusStore.staticState[id] ?? statusStore.staticState[name]
+      : undefined;
+    this.isStatic = isStatic;
 
     if (
       visible === false ||
@@ -302,7 +345,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
             render: this.renderChild,
             forwardedRef: this.refFn,
             rootStore,
-            topStore,
+            statusStore,
             dispatchEvent: this.dispatchEvent
           });
     } else if (typeof schema.component === 'function') {
@@ -331,7 +374,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
             forwardedRef: isSFC ? this.refFn : undefined,
             render: this.renderChild,
             rootStore,
-            topStore,
+            statusStore,
             dispatchEvent: this.dispatchEvent
           });
     } else if (Object.keys(schema).length === 0) {
@@ -360,7 +403,7 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
           $schema={schema}
           retry={this.reRender}
           rootStore={rootStore}
-          topStore={topStore}
+          statusStore={statusStore}
           dispatchEvent={this.dispatchEvent}
         />
       );
@@ -391,34 +434,49 @@ export class SchemaRenderer extends React.Component<SchemaRendererProps, any> {
       return null;
     }
 
+    // withStore 里面会处理，而且会实时处理
+    // 这里处理反而导致了问题
+    if (renderer.storeType) {
+      exprProps = {};
+    }
+
     const isClassComponent = Component.prototype?.isReactComponent;
-    const $schema = {...schema, ...exprProps};
     let props = {
       ...theme.getRendererConfig(renderer.name),
       ...restSchema,
-      ...exprProps,
       ...chainEvents(rest, restSchema),
+      ...exprProps,
       // value: defaultValue, // 备注: 此处并没有将value传递给渲染器
       defaultData: restSchema.defaultData ?? defaultData,
       defaultValue: restSchema.defaultValue ?? defaultValue,
       defaultActiveKey: defaultActiveKey,
       propKey: propKey,
       $path: $path,
-      $schema: $schema,
+      $schema: schema,
       ref: this.refFn,
       render: this.renderChild,
       rootStore,
-      topStore,
-      dispatchEvent: this.dispatchEvent
+      statusStore,
+      dispatchEvent: this.dispatchEvent,
+      mobileUI: schema.useMobileUI === false ? false : rest.mobileUI
     };
+
+    // style 支持公式
+    if (schema.style) {
+      (props as any).style = buildStyle(schema.style, detectData);
+    }
 
     if (disable !== undefined) {
       (props as any).disabled = disable;
     }
 
+    if (isStatic !== undefined) {
+      (props as any).static = isStatic;
+    }
+
     // 自动解析变量模式，主要是方便直接引入第三方组件库，无需为了支持变量封装一层
     if (renderer.autoVar) {
-      for (const key of Object.keys($schema)) {
+      for (const key of Object.keys(schema)) {
         if (typeof props[key] === 'string') {
           props[key] = resolveVariableAndFilter(
             props[key],

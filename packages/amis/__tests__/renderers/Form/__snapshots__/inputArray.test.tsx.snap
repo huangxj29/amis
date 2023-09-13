@@ -13,6 +13,7 @@ exports[`Renderer:inputArray 1`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <div
             class="cxd-Panel cxd-Panel--default cxd-Panel--form"
@@ -139,12 +140,12 @@ exports[`Renderer:inputArray 1`] = `
                           class="cxd-Combo-toolbar"
                         >
                           <button
-                            class="cxd-Button cxd-Button--default cxd-Combo-addBtn"
+                            class="cxd-Button cxd-Button--default cxd-Button--size-default cxd-Combo-addBtn"
                             type="button"
                           >
                             <icon-mock
-                              classname="icon icon-plus"
-                              icon="plus"
+                              classname="icon icon-plus-fine"
+                              icon="plus-fine"
                             />
                             <span>
                               新增
@@ -164,7 +165,7 @@ exports[`Renderer:inputArray 1`] = `
                 class="cxd-Panel-btnToolbar cxd-Panel-footer"
               >
                 <button
-                  class="cxd-Button cxd-Button--primary"
+                  class="cxd-Button cxd-Button--primary cxd-Button--size-default"
                   type="submit"
                 >
                   <span>
@@ -233,6 +234,7 @@ exports[`Renderer:inputArray with draggable & draggableTip 1`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <div
             class="cxd-Panel cxd-Panel--default cxd-Panel--form"
@@ -520,12 +522,12 @@ exports[`Renderer:inputArray with draggable & draggableTip 1`] = `
                           class="cxd-Combo-toolbar"
                         >
                           <button
-                            class="cxd-Button cxd-Button--default cxd-Combo-addBtn"
+                            class="cxd-Button cxd-Button--default cxd-Button--size-default cxd-Combo-addBtn"
                             type="button"
                           >
                             <icon-mock
-                              classname="icon icon-plus"
-                              icon="plus"
+                              classname="icon icon-plus-fine"
+                              icon="plus-fine"
                             />
                             <span>
                               新增
@@ -550,7 +552,7 @@ exports[`Renderer:inputArray with draggable & draggableTip 1`] = `
                 class="cxd-Panel-btnToolbar cxd-Panel-footer"
               >
                 <button
-                  class="cxd-Button cxd-Button--primary"
+                  class="cxd-Button cxd-Button--primary cxd-Button--size-default"
                   type="submit"
                 >
                   <span>
@@ -619,6 +621,7 @@ exports[`Renderer:inputArray with minLength & maxLength 1`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <div
             class="cxd-Panel cxd-Panel--default cxd-Panel--form"
@@ -786,12 +789,12 @@ exports[`Renderer:inputArray with minLength & maxLength 1`] = `
                           class="cxd-Combo-toolbar"
                         >
                           <button
-                            class="cxd-Button cxd-Button--default cxd-Combo-addBtn"
+                            class="cxd-Button cxd-Button--default cxd-Button--size-default cxd-Combo-addBtn"
                             type="button"
                           >
                             <icon-mock
-                              classname="icon icon-plus"
-                              icon="plus"
+                              classname="icon icon-plus-fine"
+                              icon="plus-fine"
                             />
                             <span>
                               新增
@@ -811,7 +814,7 @@ exports[`Renderer:inputArray with minLength & maxLength 1`] = `
                 class="cxd-Panel-btnToolbar cxd-Panel-footer"
               >
                 <button
-                  class="cxd-Button cxd-Button--primary"
+                  class="cxd-Button cxd-Button--primary cxd-Button--size-default"
                   type="submit"
                 >
                   <span>
@@ -880,6 +883,7 @@ exports[`Renderer:inputArray with removable & addable & addButtonText: false 1`]
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <div
             class="cxd-Panel cxd-Panel--default cxd-Panel--form"
@@ -1059,7 +1063,7 @@ exports[`Renderer:inputArray with removable & addable & addButtonText: false 1`]
                 class="cxd-Panel-btnToolbar cxd-Panel-footer"
               >
                 <button
-                  class="cxd-Button cxd-Button--primary"
+                  class="cxd-Button cxd-Button--primary cxd-Button--size-default"
                   type="submit"
                 >
                   <span>
@@ -1128,6 +1132,7 @@ exports[`Renderer:inputArray with removable & addable & addButtonText: false 2`]
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <div
             class="cxd-Panel cxd-Panel--default cxd-Panel--form"
@@ -1254,12 +1259,12 @@ exports[`Renderer:inputArray with removable & addable & addButtonText: false 2`]
                           class="cxd-Combo-toolbar"
                         >
                           <button
-                            class="cxd-Button cxd-Button--default cxd-Combo-addBtn"
+                            class="cxd-Button cxd-Button--default cxd-Button--size-default cxd-Combo-addBtn"
                             type="button"
                           >
                             <icon-mock
-                              classname="icon icon-plus"
-                              icon="plus"
+                              classname="icon icon-plus-fine"
+                              icon="plus-fine"
                             />
                             <span>
                               我是增加按钮
@@ -1279,7 +1284,7 @@ exports[`Renderer:inputArray with removable & addable & addButtonText: false 2`]
                 class="cxd-Panel-btnToolbar cxd-Panel-footer"
               >
                 <button
-                  class="cxd-Button cxd-Button--primary"
+                  class="cxd-Button cxd-Button--primary cxd-Button--size-default"
                   type="submit"
                 >
                   <span>

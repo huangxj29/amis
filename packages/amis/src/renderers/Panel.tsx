@@ -1,5 +1,9 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import {
+  RENDERER_TRANSMISSION_OMIT_PROPS,
+  Renderer,
+  RendererProps
+} from 'amis-core';
 import {SchemaNode, ActionObject} from 'amis-core';
 import {getScrollParent, autobind} from 'amis-core';
 import {findDOMNode} from 'react-dom';
@@ -13,10 +17,11 @@ import {
 import {ActionSchema} from './Action';
 import {Collapse} from 'amis-ui';
 import {FormHorizontal} from 'amis-core';
+import omit from 'lodash/omit';
 
 /**
  * Panel渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/panel
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/panel
  */
 export interface PanelSchema extends BaseSchema {
   /**
@@ -190,6 +195,7 @@ export default class Panel extends React.Component<PanelProps> {
     const {
       type,
       className,
+      style,
       data,
       header,
       body,
@@ -207,6 +213,7 @@ export default class Panel extends React.Component<PanelProps> {
       formHorizontal,
       subFormMode,
       subFormHorizontal,
+      id,
       collapsedAble,
       collapsed,
       ...rest
@@ -214,7 +221,7 @@ export default class Panel extends React.Component<PanelProps> {
 
     const subProps = {
       data,
-      ...rest,
+      ...omit(rest, RENDERER_TRANSMISSION_OMIT_PROPS),
       formMode: subFormMode || formMode,
       formHorizontal: subFormHorizontal || formHorizontal
     };
@@ -245,9 +252,9 @@ export default class Panel extends React.Component<PanelProps> {
 
   render() {
     const {
-      id,
       type,
       className,
+      style,
       data,
       header,
       body,
@@ -263,6 +270,7 @@ export default class Panel extends React.Component<PanelProps> {
       affixFooter,
       classPrefix: ns,
       classnames: cx,
+      id,
       collapsedAble,
       collapsed,
       ...rest
@@ -302,7 +310,7 @@ export default class Panel extends React.Component<PanelProps> {
     ) : null;
 
     return (
-      // <div className={cx(`Panel`, className || `Panel--default`)}>
+      // <div className={cx(`Panel`, className || `Panel--default`)} style={style}>
       //   {header ? (
       //     <div className={cx(headerClassName || `Panel-heading`)}>
       //       {render('header', header, subProps)}
@@ -333,7 +341,7 @@ export default class Panel extends React.Component<PanelProps> {
       //     </div>
       //   ) : null}
       // </div>
-      <div className={cx(`Panel`, className || `Panel--default`)}>
+      <div className={cx(`Panel`, className || `Panel--default`)} style={style}>
         <Collapse
           id={id}
           classnames={cx}

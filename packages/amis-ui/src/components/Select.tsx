@@ -5,7 +5,11 @@
  * @date 2017-11-07
  */
 
-import {uncontrollable} from 'amis-core';
+import {
+  getOptionValue,
+  getOptionValueBindField,
+  uncontrollable
+} from 'amis-core';
 import React from 'react';
 import isInteger from 'lodash/isInteger';
 import omit from 'lodash/omit';
@@ -16,7 +20,6 @@ import {PopOver} from 'amis-core';
 import TooltipWrapper from './TooltipWrapper';
 import Downshift, {ControllerStateAndHelpers} from 'downshift';
 import {closeIcon, Icon} from './icons';
-// @ts-ignore
 import {matchSorter} from 'match-sorter';
 import {
   noop,
@@ -24,8 +27,7 @@ import {
   findTree,
   autobind,
   ucFirst,
-  normalizeNodePath,
-  isMobile
+  normalizeNodePath
 } from 'amis-core';
 import find from 'lodash/find';
 import isPlainObject from 'lodash/isPlainObject';
@@ -36,15 +38,29 @@ import {ClassNamesFn, themeable, ThemeProps} from 'amis-core';
 import Checkbox from './Checkbox';
 import Input from './Input';
 import {LocaleProps, localeable} from 'amis-core';
-import Spinner from './Spinner';
+import Spinner, {SpinnerExtraProps} from './Spinner';
 import type {Option, Options} from 'amis-core';
 import {RemoteOptionsProps, withRemoteConfig} from './WithRemoteConfig';
 import Picker from './Picker';
 import PopUp from './PopUp';
+import BasePopover, {PopOverOverlay} from './PopOverContainer';
+import SelectMobile from './SelectMobile';
 
 import type {TooltipObject} from '../components/TooltipWrapper';
 
 export {Option, Options};
+
+export const defaultFilterOption = (
+  options: Option[],
+  inputValue: string,
+  option: {keys: string[]}
+): Option[] =>
+  matchSorter(options, inputValue, {
+    threshold: matchSorter.rankings.CONTAINS,
+    ...option
+  });
+
+export type FilterOption = typeof defaultFilterOption;
 
 export interface OptionProps {
   className?: string;
@@ -95,20 +111,29 @@ export function value2array(
   >,
   enableNodePath: boolean = false
 ): Array<Option> {
+  const {
+    labelField,
+    valueField = 'value',
+    pathSeparator,
+    delimiter,
+    options,
+    multi,
+    multiple
+  } = props;
   if (enableNodePath) {
     value = normalizeNodePath(
       value,
       enableNodePath,
-      props.labelField,
-      props.valueField,
-      props.pathSeparator,
-      props.delimiter
+      labelField,
+      valueField,
+      pathSeparator,
+      delimiter
     ).nodeValueArray;
   }
 
-  if (props.multi || props.multiple) {
+  if (multi || multiple) {
     if (typeof value === 'string') {
-      value = value.split(props.delimiter || ',');
+      value = value.split(delimiter || ',');
     }
 
     if (!Array.isArray(value)) {
@@ -122,8 +147,8 @@ export function value2array(
     return value
       .map(
         (value: any) =>
-          expandValue(value, props.options, props.valueField) ||
-          (isObject(value) && value.hasOwnProperty(props.valueField || 'value')
+          expandValue(value, options, valueField) ||
+          (isObject(value) && value.hasOwnProperty(valueField)
             ? value
             : undefined)
       )
@@ -132,15 +157,10 @@ export function value2array(
     value = value[0];
   }
 
-  let expandedValue = expandValue(
-    value as OptionValue,
-    props.options,
-    props.valueField
-  );
+  let expandedValue = expandValue(value as OptionValue, options, valueField);
   return expandedValue
     ? [expandedValue]
-    : isObject(value) &&
-      (value as Option).hasOwnProperty(props.valueField || 'value')
+    : isObject(value) && (value as Option).hasOwnProperty(valueField || 'value')
     ? [value as Option]
     : [];
 }
@@ -173,10 +193,10 @@ export function expandValue(
     value = (value as Option)[valueField || 'value'] ?? '';
   }
 
-  return findTree(
-    options,
-    optionValueCompare(value, valueField || 'value')
-  ) as Option;
+  return findTree(options, optionValueCompare(value, valueField || 'value'), {
+    resolve: getOptionValueBindField(valueField),
+    value: getOptionValue(value, valueField)
+  }) as Option;
 }
 
 export function matchOptionValue(
@@ -295,7 +315,11 @@ export function normalizeOptions(
 
 const DownshiftChangeTypes = Downshift.stateChangeTypes;
 
-interface SelectProps extends OptionProps, ThemeProps, LocaleProps {
+export interface SelectProps
+  extends OptionProps,
+    ThemeProps,
+    LocaleProps,
+    SpinnerExtraProps {
   className?: string;
   popoverClassName?: string;
   showInvalidMatch?: boolean;
@@ -317,6 +341,7 @@ interface SelectProps extends OptionProps, ThemeProps, LocaleProps {
       searchable?: boolean;
     }
   ) => JSX.Element;
+  renderValueLabel?: (item: Option) => JSX.Element;
   searchable?: boolean;
   options: Array<Option>;
   value: any;
@@ -335,6 +360,7 @@ interface SelectProps extends OptionProps, ThemeProps, LocaleProps {
   popOverContainer?: any;
   popOverContainerSelector?: string;
   overlayPlacement?: string;
+  overlay?: PopOverOverlay;
   onChange: (value: void | string | Option | Array<Option>) => void;
   onFocus?: Function;
   onBlur?: Function;
@@ -344,7 +370,6 @@ interface SelectProps extends OptionProps, ThemeProps, LocaleProps {
   defaultCheckAll?: boolean;
   simpleValue?: boolean;
   defaultOpen?: boolean;
-  useMobileUI?: boolean;
 
   /**
    * 边框模式，全边框，还是半边框，或者没边框。
@@ -369,6 +394,11 @@ interface SelectProps extends OptionProps, ThemeProps, LocaleProps {
    * 收纳标签的Popover配置
    */
   overflowTagPopover?: TooltipObject;
+
+  /**
+   * 检索函数
+   */
+  filterOption?: FilterOption;
 }
 
 interface SelectState {
@@ -567,13 +597,15 @@ export class Select extends React.Component<SelectProps, SelectState> {
       simpleValue,
       checkAllBySearch,
       labelField,
-      valueField
+      valueField,
+      filterOption = defaultFilterOption
     } = this.props;
+
     const inputValue = this.state.inputValue;
     let {selection} = this.state;
     let filtedOptions: Array<Option> =
-      inputValue && checkAllBySearch
-        ? matchSorter(options, inputValue, {
+      inputValue && checkAllBySearch !== false
+        ? filterOption(options, inputValue, {
             keys: [labelField || 'label', valueField || 'value']
           })
         : options.concat();
@@ -746,9 +778,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
       maxTagCount,
       overflowTagPopover,
       showInvalidMatch,
-      translate: __,
-      container,
-      popOverContainer
+      renderValueLabel,
+      popOverContainer,
+      translate: __
     } = this.props;
     const selection = this.state.selection;
 
@@ -788,6 +820,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
             <TooltipWrapper
               container={container || popOverContainer}
               key={selection.length}
+              container={popOverContainer}
               tooltip={{
                 ...tooltipProps,
                 children: () => (
@@ -807,7 +840,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
                             })}
                           >
                             <span className={cx('Select-valueLabel')}>
-                              {item[labelField || 'label']}
+                              {renderValueLabel
+                                ? renderValueLabel(item)
+                                : item[labelField || 'label']}
                             </span>
                             <span
                               className={cx('Select-valueIcon', {
@@ -834,7 +869,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
                 } /** 避免点击查看浮窗时呼出下拉菜单 */
               >
                 <span className={cx('Select-valueLabel')}>
-                  {item[labelField || 'label']}
+                  {renderValueLabel
+                    ? renderValueLabel(item)
+                    : item[labelField || 'label']}
                 </span>
               </div>
             </TooltipWrapper>
@@ -843,7 +880,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
 
         return (
           <TooltipWrapper
-            container={container || popOverContainer}
+            container={popOverContainer}
             placement={'top'}
             tooltip={item[labelField || 'label']}
             trigger={'hover'}
@@ -856,7 +893,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
               })}
             >
               <span className={cx('Select-valueLabel')}>
-                {item[labelField || 'label']}
+                {renderValueLabel
+                  ? renderValueLabel(item)
+                  : item[labelField || 'label']}
               </span>
               <span
                 className={cx('Select-valueIcon', {
@@ -882,7 +921,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
             })}
             key={index}
           >
-            {item[labelField || 'label']}
+            {renderValueLabel
+              ? renderValueLabel(item)
+              : item[labelField || 'label']}
           </div>
         );
       }
@@ -893,7 +934,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
         }`
       ) : (
         <TooltipWrapper
-          container={container || popOverContainer}
+          container={popOverContainer}
           placement={'top'}
           tooltip={item[labelField || 'label']}
           trigger={'hover'}
@@ -906,7 +947,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
             })}
           >
             <span className={cx('Select-valueLabel')}>
-              {item[labelField || 'label']}
+              {renderValueLabel
+                ? renderValueLabel(item)
+                : item[labelField || 'label']}
             </span>
             <span
               className={cx('Select-valueIcon', {
@@ -960,7 +1003,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
       renderMenu,
       mobileClassName,
       virtualThreshold = 100,
-      useMobileUI = false
+      mobileUI,
+      filterOption = defaultFilterOption,
+      overlay
     } = this.props;
     const {selection} = this.state;
 
@@ -968,7 +1013,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
     let checkedPartial = false;
     let filtedOptions: Array<Option> = (
       inputValue && isOpen && !loadOptions
-        ? matchSorter(options, inputValue, {
+        ? filterOption(options, inputValue, {
             keys: [labelField || 'label', valueField || 'value']
           })
         : options.concat()
@@ -977,9 +1022,9 @@ export class Select extends React.Component<SelectProps, SelectState> {
       filtedOptions.length && filtedOptions.length > virtualThreshold;
     const selectionValues = selection.map(select => select[valueField]);
     if (multiple && checkAll) {
-      const optionsValues = (checkAllBySearch ? filtedOptions : options).map(
-        option => option[valueField]
-      );
+      const optionsValues = (
+        checkAllBySearch !== false ? filtedOptions : options
+      ).map(option => option[valueField]);
 
       checkedAll = optionsValues.every(
         option => selectionValues.indexOf(option) > -1
@@ -1021,25 +1066,6 @@ export class Select extends React.Component<SelectProps, SelectState> {
             'is-active': checked
           })}
         >
-          {removable ? (
-            <a data-tooltip={__('Select.clear')} data-position="left">
-              <Icon
-                icon="close"
-                className="icon"
-                onClick={(e: any) => this.handleDeleteClick(e, item)}
-              />
-            </a>
-          ) : null}
-          {editable ? (
-            <a data-tooltip="编辑" data-position="left">
-              <Icon
-                icon="pencil"
-                className="icon"
-                onClick={(e: any) => this.handleEditClick(e, item)}
-              />
-            </a>
-          ) : null}
-
           {renderMenu ? (
             multiple ? (
               <Checkbox
@@ -1113,15 +1139,28 @@ export class Select extends React.Component<SelectProps, SelectState> {
               {item.tip}
             </span>
           )}
+          {editable ? (
+            <a data-tooltip={__('Select.edit')} data-position="left">
+              <Icon
+                icon="pencil"
+                className="icon"
+                onClick={(e: any) => this.handleEditClick(e, item)}
+              />
+            </a>
+          ) : null}
+          {removable ? (
+            <a data-tooltip={__('Select.clear')} data-position="left">
+              <Icon
+                icon="close"
+                className="icon"
+                onClick={(e: any) => this.handleDeleteClick(e, item)}
+              />
+            </a>
+          ) : null}
         </div>
       );
     };
 
-    const mobileUI = isMobile() && useMobileUI;
-    const column = {
-      labelField: 'label',
-      options: filtedOptions
-    };
     const menu = (
       <div
         ref={this.menu}
@@ -1156,7 +1195,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
         ) : null}
         {multiple && valuesNoWrap ? (
           <div className={cx('Select-option')}>
-            已选择({selectionValues.length})
+            {__('Select.selected')}({selectionValues.length})
           </div>
         ) : null}
         {multiple && checkAll && filtedOptions.length ? (
@@ -1202,27 +1241,44 @@ export class Select extends React.Component<SelectProps, SelectState> {
       </div>
     );
     return mobileUI ? (
-      <PopUp
-        className={cx(`Select-popup`)}
-        container={popOverContainer}
-        isShow={this.state.isOpen}
-        onHide={this.close}
-      >
-        {menu}
-      </PopUp>
+      <SelectMobile
+        {...this.props}
+        highlightedIndex={highlightedIndex}
+        isOpen={isOpen}
+        getItemProps={getItemProps}
+        getInputProps={getInputProps}
+        selectedItem={selectedItem}
+        onChange={selection => {
+          this.setState({
+            isOpen: false
+          });
+          this.props.onChange(selection);
+        }}
+        onClose={this.close}
+      />
     ) : (
       <Overlay
         container={popOverContainer || this.getTarget}
         containerSelector={popOverContainerSelector}
         target={this.getTarget}
-        placement={overlayPlacement}
+        placement={
+          overlayPlacement === 'auto'
+            ? BasePopover.alignToPlacement(overlay)
+            : overlayPlacement
+        }
         show
       >
         <PopOver
           overlay
           className={cx('Select-popover')}
           style={{
-            width: this.target ? this.target.offsetWidth : 'auto'
+            width:
+              (overlay &&
+                BasePopover.calcOverlayWidth(
+                  overlay,
+                  this.target?.offsetWidth
+                )) ||
+              (this.target ? this.target.offsetWidth : 'auto')
           }}
           onHide={this.close}
         >
@@ -1248,14 +1304,15 @@ export class Select extends React.Component<SelectProps, SelectState> {
       disabled,
       checkAll,
       borderMode,
-      useMobileUI,
-      hasError
+      mobileUI,
+      hasError,
+      loadingConfig
     } = this.props;
 
     const selection = this.state.selection;
     const inputValue = this.state.inputValue;
     const resetValue = this.props.resetValue;
-    const mobileUI = useMobileUI && isMobile();
+
     return (
       <Downshift
         selectedItem={selection}
@@ -1308,7 +1365,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
                 ? value.length
                 : value != null && value !== resetValue) ? (
                 <a onClick={this.clearValue} className={cx('Select-clear')}>
-                  <Icon icon="close-small" className="icon" />
+                  <Icon icon="input-clear" className="icon" />
                 </a>
               ) : null}
               {loading ? (
@@ -1317,6 +1374,7 @@ export class Select extends React.Component<SelectProps, SelectState> {
                   icon="reload"
                   size="sm"
                   spinnerClassName={cx('Select-spinner')}
+                  loadingConfig={loadingConfig}
                 />
               ) : null}
 

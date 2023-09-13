@@ -3,7 +3,12 @@ import {
   OptionsControl,
   OptionsControlProps,
   highlight,
-  FormOptionsControl
+  FormOptionsControl,
+  resolveEventData,
+  CustomStyle,
+  getValueByPath,
+  PopOver,
+  Overlay
 } from 'amis-core';
 import {ActionObject} from 'amis-core';
 import Downshift, {StateChangeOptions} from 'downshift';
@@ -11,15 +16,14 @@ import {matchSorter} from 'match-sorter';
 import debouce from 'lodash/debounce';
 import {filter} from 'amis-core';
 import find from 'lodash/find';
-import {Icon} from 'amis-ui';
+import {Icon, SpinnerExtraProps} from 'amis-ui';
 import {Input} from 'amis-ui';
 import {autobind, createObject, setVariable, ucFirst} from 'amis-core';
 import {isEffectiveApi} from 'amis-core';
 import {Spinner} from 'amis-ui';
 import {ActionSchema} from '../Action';
 import {FormOptionsSchema, SchemaApi} from '../../Schema';
-import {generateIcon} from 'amis-core';
-import {rendererEventDispatcher, bindRendererEvent} from 'amis-core';
+import {supportStatic} from './StaticHoc';
 
 import type {Option} from 'amis-core';
 import type {ListenerAction} from 'amis-core';
@@ -28,7 +32,7 @@ import type {ListenerAction} from 'amis-core';
 
 /**
  * Text 文本输入框。
- * 文档：https://baidu.gitee.io/amis/docs/components/form/text
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/text
  */
 export interface TextControlSchema extends FormOptionsSchema {
   type:
@@ -64,7 +68,12 @@ export interface TextControlSchema extends FormOptionsSchema {
   borderMode?: 'full' | 'half' | 'none';
 
   /**
-   * 限制文字个数
+   * 限制文字最小输入个数
+   */
+  minLength?: number;
+
+  /**
+   * 限制文字最大输入个数
    */
   maxLength?: number;
 
@@ -98,6 +107,9 @@ export interface TextControlSchema extends FormOptionsSchema {
 
   /** 原生input标签的CSS类名 */
   nativeInputClassName?: string;
+
+  /** 在内容为空的时候清除值 */
+  clearValueOnEmpty?: boolean;
 }
 
 export type InputTextRendererEvent =
@@ -107,7 +119,7 @@ export type InputTextRendererEvent =
   | 'change'
   | 'enter';
 
-export interface TextProps extends OptionsControlProps {
+export interface TextProps extends OptionsControlProps, SpinnerExtraProps {
   placeholder?: string;
   addOn?: ActionObject & {
     position?: 'left' | 'right';
@@ -130,6 +142,8 @@ export interface TextProps extends OptionsControlProps {
   inputControlClassName?: string;
   /** 原生input标签的CSS类名 */
   nativeInputClassName?: string;
+
+  popOverContainer?: any;
 }
 
 export interface TextState {
@@ -271,8 +285,17 @@ export default class TextControl extends React.PureComponent<
     }
   }
 
-  clearValue() {
-    const {onChange, resetValue} = this.props;
+  async clearValue() {
+    const {onChange, resetValue, dispatchEvent} = this.props;
+
+    const rendererEvent = await dispatchEvent(
+      'clear',
+      resolveEventData(this.props, {value: resetValue})
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
 
     onChange(resetValue);
     this.setState(
@@ -295,8 +318,18 @@ export default class TextControl extends React.PureComponent<
     onChange(this.normalizeValue(newValue));
   }
 
-  @bindRendererEvent<TextProps, InputTextRendererEvent>('click')
-  handleClick() {
+  async handleClick() {
+    const {dispatchEvent, value} = this.props;
+    const rendererEvent = await dispatchEvent(
+      'click',
+      resolveEventData(this.props, {
+        value
+      })
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
     // 已经 focus 的就不重复执行，否则总重新定位光标
     this.state.isFocused || this.focus();
     this.setState({
@@ -304,19 +337,29 @@ export default class TextControl extends React.PureComponent<
     });
   }
 
-  @bindRendererEvent<TextProps, InputTextRendererEvent>('focus')
-  handleFocus(e: any) {
+  async handleFocus(e: any) {
+    const {dispatchEvent, onFocus, value} = this.props;
     this.setState({
       isOpen: true,
       isFocused: true
     });
 
-    this.props.onFocus && this.props.onFocus(e);
+    const rendererEvent = await dispatchEvent(
+      'focus',
+      resolveEventData(this.props, {
+        value
+      })
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
+    onFocus?.(e);
   }
 
-  @bindRendererEvent<TextProps, InputTextRendererEvent>('blur')
-  handleBlur(e: any) {
-    const {onBlur, trimContents, value, onChange} = this.props;
+  async handleBlur(e: any) {
+    const {onBlur, trimContents, value, onChange, dispatchEvent} = this.props;
 
     this.setState(
       {
@@ -329,18 +372,36 @@ export default class TextControl extends React.PureComponent<
       }
     );
 
+    const rendererEvent = await dispatchEvent(
+      'blur',
+      resolveEventData(this.props, {
+        value
+      })
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
     onBlur && onBlur(e);
+  }
+
+  @autobind
+  close() {
+    this.setState({
+      isFocused: false
+    });
   }
 
   async handleInputChange(evt: React.ChangeEvent<HTMLInputElement>) {
     let value = this.transformValue(evt.currentTarget.value);
-    const {creatable, multiple, onChange} = this.props;
-    const dispatcher = await rendererEventDispatcher<
-      TextProps,
-      InputTextRendererEvent
-    >(this.props, 'change', {value});
+    const {creatable, multiple, onChange, dispatchEvent} = this.props;
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {value})
+    );
 
-    if (dispatcher?.prevented) {
+    if (rendererEvent?.prevented) {
       return;
     }
 
@@ -359,7 +420,9 @@ export default class TextControl extends React.PureComponent<
   }
 
   async handleKeyDown(evt: React.KeyboardEvent<HTMLInputElement>) {
-    const {selectedOptions, onChange, multiple, creatable} = this.props;
+    const {selectedOptions, onChange, multiple, creatable, dispatchEvent} =
+      this.props;
+    const valueField = this.props?.valueField || 'value';
 
     if (selectedOptions.length && !this.state.inputValue && evt.keyCode === 8) {
       evt.preventDefault();
@@ -383,26 +446,26 @@ export default class TextControl extends React.PureComponent<
       evt.preventDefault();
       let value: string | Array<string | any> = this.state.inputValue;
 
-      if (
-        multiple &&
-        value &&
-        !find(selectedOptions, item => item.value == value)
-      ) {
-        const newValue = selectedOptions.concat();
-        newValue.push({
-          label: value,
-          value: value
-        });
+      if (multiple && value) {
+        if (!find(selectedOptions, item => item[valueField] == value)) {
+          const newValue = selectedOptions.concat();
+          newValue.push({
+            label: value,
+            value: value
+          });
 
-        value = this.normalizeValue(newValue).concat();
+          value = this.normalizeValue(newValue).concat();
+        } else {
+          value = this.normalizeValue(selectedOptions).concat();
+        }
       }
 
-      const dispatcher = await rendererEventDispatcher<
-        TextProps,
-        InputTextRendererEvent
-      >(this.props, 'enter', {value});
+      const rendererEvent = await dispatchEvent(
+        'enter',
+        resolveEventData(this.props, {value})
+      );
 
-      if (dispatcher?.prevented) {
+      if (rendererEvent?.prevented) {
         return;
       }
 
@@ -410,7 +473,7 @@ export default class TextControl extends React.PureComponent<
 
       this.setState(
         {
-          inputValue: '',
+          inputValue: multiple ? '' : (value as string),
           isOpen: false
         },
         this.loadAutoComplete
@@ -500,18 +563,29 @@ export default class TextControl extends React.PureComponent<
 
   @autobind
   async handleNormalInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const {onChange} = this.props;
-    let value = e.currentTarget.value;
-    const dispatcher = await rendererEventDispatcher<
-      TextProps,
-      InputTextRendererEvent
-    >(this.props, 'change', {value: this.transformValue(value)});
+    const {onChange, dispatchEvent, trimContents, clearValueOnEmpty} =
+      this.props;
+    let value: string | undefined = this.transformValue(e.currentTarget.value);
+    if (typeof value === 'string') {
+      if (trimContents) {
+        value = value.trim();
+      }
 
-    if (dispatcher?.prevented) {
+      if (clearValueOnEmpty && value === '') {
+        value = undefined;
+      }
+    }
+
+    const rendererEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {value})
+    );
+
+    if (rendererEvent?.prevented) {
       return;
     }
 
-    onChange(this.transformValue(value));
+    onChange(value);
   }
 
   normalizeValue(value: Option[] | Option | undefined | null) {
@@ -581,12 +655,20 @@ export default class TextControl extends React.PureComponent<
       ? ''
       : typeof value === 'string'
       ? value
+      : value instanceof Date
+      ? value.toISOString()
       : JSON.stringify(value);
+  }
+
+  @autobind
+  getTarget() {
+    return this.input?.parentElement;
   }
 
   renderSugestMode() {
     const {
       className,
+      style,
       inputControlClassName,
       nativeInputClassName,
       inputOnly,
@@ -607,8 +689,12 @@ export default class TextControl extends React.PureComponent<
       creatable,
       borderMode,
       showCounter,
+      data,
       maxLength,
-      translate: __
+      minLength,
+      translate: __,
+      loadingConfig,
+      popOverContainer
     } = this.props;
     let type = this.props.type?.replace(/^(?:native|input)\-/, '');
 
@@ -637,7 +723,6 @@ export default class TextControl extends React.PureComponent<
           const indices = isOpen
             ? mapItemIndex(filtedOptions, selectedItem)
             : {};
-
           filtedOptions = filtedOptions.filter(
             (option: any) => !~selectedItem.indexOf(option.value)
           );
@@ -648,7 +733,8 @@ export default class TextControl extends React.PureComponent<
             multiple &&
             !filtedOptions.some(
               (option: any) => option.value === this.state.inputValue
-            )
+            ) &&
+            !~selectedItem.indexOf(this.state.inputValue)
           ) {
             filtedOptions.push({
               [labelField || 'label']: this.state.inputValue,
@@ -656,6 +742,8 @@ export default class TextControl extends React.PureComponent<
               isNew: true
             });
           }
+
+          const filteredPlaceholder = filter(placeholder, data);
 
           return (
             <div
@@ -673,12 +761,12 @@ export default class TextControl extends React.PureComponent<
               onClick={this.handleClick}
             >
               <>
-                {placeholder &&
+                {filteredPlaceholder &&
                 !selectedOptions.length &&
                 !this.state.inputValue &&
                 !this.state.isFocused ? (
                   <div className={cx('TextControl-placeholder')}>
-                    {placeholder}
+                    {filteredPlaceholder}
                   </div>
                 ) : null}
 
@@ -711,7 +799,9 @@ export default class TextControl extends React.PureComponent<
                     onFocus: this.handleFocus,
                     onBlur: this.handleBlur,
                     onChange: this.handleInputChange,
-                    onKeyDown: this.handleKeyDown
+                    onKeyDown: this.handleKeyDown,
+                    maxLength,
+                    minLength
                   })}
                   autoComplete="off"
                   size={10}
@@ -720,11 +810,13 @@ export default class TextControl extends React.PureComponent<
               </>
 
               {clearable && !disabled && !readOnly && value ? (
-                <a
-                  onClick={this.clearValue}
-                  className={cx('TextControl-clear')}
-                >
-                  <Icon icon="input-clear" className="icon" />
+                <a onClick={this.clearValue}>
+                  <Icon
+                    icon="input-clear"
+                    className="icon"
+                    classNameProp={cx('TextControl-clear')}
+                    iconContent="InputBox-clear"
+                  />
                 </a>
               ) : null}
 
@@ -744,45 +836,60 @@ export default class TextControl extends React.PureComponent<
                   icon="reload"
                   size="sm"
                   spinnerClassName={cx('TextControl-spinner')}
+                  loadingConfig={loadingConfig}
                 />
               ) : null}
 
-              {isOpen && filtedOptions.length ? (
-                <div className={cx('TextControl-sugs')}>
-                  {filtedOptions.map((option: any) => {
-                    const label = option[labelField || 'label'];
-                    const value = option[valueField || 'value'];
+              <Overlay
+                container={popOverContainer || this.getTarget}
+                target={this.getTarget}
+                show={!!(isOpen && filtedOptions.length)}
+              >
+                <PopOver
+                  className={cx('TextControl-popover')}
+                  style={{
+                    width: this.input
+                      ? this.input.parentElement!.offsetWidth
+                      : 'auto'
+                  }}
+                >
+                  <div className={cx('TextControl-sugs')}>
+                    {filtedOptions.map((option: any) => {
+                      const label = option[labelField || 'label'];
+                      const value = option[valueField || 'value'];
 
-                    return (
-                      <div
-                        {...getItemProps({
-                          item: value,
-                          disabled: option.disabled,
-                          className: cx(`TextControl-sugItem`, {
-                            'is-highlight': highlightedIndex === indices[value],
-                            'is-disabled': option.disabled
-                          })
-                        })}
-                        key={value}
-                      >
-                        {option.isNew ? (
-                          <span>
-                            {__('Text.add', {label: label})}
-                            <Icon icon="enter" className="icon" />
-                          </span>
-                        ) : (
-                          <span>
-                            {option.disabled
-                              ? label
-                              : highlight(label, inputValue as string)}
-                            {option.tip}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
+                      return (
+                        <div
+                          {...getItemProps({
+                            item: value,
+                            disabled: option.disabled,
+                            className: cx(`TextControl-sugItem`, {
+                              'is-highlight':
+                                highlightedIndex === indices[value],
+                              'is-disabled': option.disabled || option.readOnly
+                            })
+                          })}
+                          key={value}
+                        >
+                          {option.isNew ? (
+                            <span>
+                              {__('Text.add', {label: label})}
+                              <Icon icon="enter" className="icon" />
+                            </span>
+                          ) : (
+                            <span>
+                              {option.disabled
+                                ? label
+                                : highlight(label, inputValue as string)}
+                              {option.tip}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </PopOver>
+              </Overlay>
             </div>
           );
         }}
@@ -799,6 +906,7 @@ export default class TextControl extends React.PureComponent<
       classPrefix: ns,
       classnames: cx,
       className,
+      style,
       inputControlClassName,
       nativeInputClassName,
       inputOnly,
@@ -818,7 +926,8 @@ export default class TextControl extends React.PureComponent<
       suffix,
       data,
       showCounter,
-      maxLength
+      maxLength,
+      minLength
     } = this.props;
 
     const type = this.props.type?.replace(/^(?:native|input)\-/, '');
@@ -841,7 +950,7 @@ export default class TextControl extends React.PureComponent<
         ) : null}
         <Input
           name={name}
-          placeholder={placeholder}
+          placeholder={filter(placeholder, data)}
           ref={this.inputRef}
           disabled={disabled}
           readOnly={readOnly}
@@ -850,6 +959,8 @@ export default class TextControl extends React.PureComponent<
           onBlur={this.handleBlur}
           max={max}
           min={min}
+          maxLength={maxLength}
+          minLength={minLength}
           // autoComplete="off"
           size={10}
           step={step}
@@ -860,19 +971,33 @@ export default class TextControl extends React.PureComponent<
           })}
         />
         {clearable && !disabled && !readOnly && value ? (
-          <a onClick={this.clearValue} className={`${ns}TextControl-clear`}>
-            <Icon icon="input-clear" className="icon" />
+          <a onClick={this.clearValue} className={cx('TextControl-clear')}>
+            <Icon
+              icon="input-clear"
+              className="icon"
+              iconContent="InputText-clear"
+            />
           </a>
         ) : null}
         {type === 'password' && revealPassword && !disabled ? (
           <a
             onClick={this.toggleRevealPassword}
-            className={`${ns}TextControl-revealPassword`}
+            className={cx('TextControl-revealPassword')}
           >
             {this.state.revealPassword ? (
-              <Icon icon="view" className="icon" />
+              <Icon
+                icon="view"
+                className={cx('TextControl-icon-view')}
+                classNameProp={cx('TextControl-icon-view')}
+                iconContent="InputText-view"
+              />
             ) : (
-              <Icon icon="invisible" className="icon" />
+              <Icon
+                icon="invisible"
+                className={cx('TextControl-icon-invisible')}
+                classNameProp={cx('TextControl-icon-invisible')}
+                iconContent="InputText-invisible"
+              />
             )}
           </a>
         ) : null}
@@ -892,19 +1017,20 @@ export default class TextControl extends React.PureComponent<
     );
   }
 
-  render(): JSX.Element {
+  renderBody(body: JSX.Element) {
     const {
       classnames: cx,
       className,
+      style,
       classPrefix: ns,
-      options,
-      source,
-      autoComplete,
       addOn: addOnRaw,
       render,
       data,
       disabled,
-      inputOnly
+      readOnly,
+      inputOnly,
+      static: isStatic,
+      addOnClassName
     } = this.props;
 
     const addOn: any =
@@ -915,45 +1041,149 @@ export default class TextControl extends React.PureComponent<
           }
         : addOnRaw;
 
+    const iconElement = <Icon cx={cx} icon={addOn?.icon} className="Icon" />;
+
+    let addOnDom =
+      addOn && !isStatic ? (
+        addOn.actionType ||
+        ~['button', 'submit', 'reset', 'action'].indexOf(addOn.type) ? (
+          <div className={cx(`${ns}TextControl-button`, addOnClassName)}>
+            {render('addOn', addOn, {
+              disabled
+            })}
+          </div>
+        ) : (
+          <div className={cx(`${ns}TextControl-addOn`, addOnClassName)}>
+            {iconElement}
+            {addOn.label ? filter(addOn.label, data) : null}
+          </div>
+        )
+      ) : null;
+
+    if (inputOnly) {
+      return body;
+    }
+
+    const classNames = !isStatic
+      ? cx(className, `${ns}TextControl`, {
+          [`${ns}TextControl--withAddOn`]: !!addOnDom,
+          'is-focused': this.state.isFocused,
+          'is-disabled': disabled || readOnly
+        })
+      : cx(`${ns}TextControl`, {
+          [`${ns}TextControl--withAddOn`]: !!addOnDom
+        });
+
+    return (
+      <div className={classNames}>
+        {addOn && addOn.position === 'left' ? addOnDom : null}
+        {body}
+        {addOn && addOn.position !== 'left' ? addOnDom : null}
+      </div>
+    );
+  }
+
+  /**
+   * 处理input的自定义样式
+   */
+  @autobind
+  formatInputThemeCss() {
+    const {themeCss, css} = this.props;
+    if (!themeCss && !css) {
+      return;
+    }
+    const inputFontThemeCss: any = {inputControlClassName: {}};
+    const inputControlClassNameObject =
+      (themeCss || css)?.inputControlClassName || {};
+    for (let key in inputControlClassNameObject) {
+      if (~key.indexOf('font')) {
+        inputFontThemeCss.inputControlClassName[key] =
+          inputControlClassNameObject[key];
+      }
+    }
+    return inputFontThemeCss;
+  }
+
+  @supportStatic()
+  render(): JSX.Element {
+    const {
+      options,
+      source,
+      autoComplete,
+      themeCss,
+      css,
+      inputControlClassName,
+      id,
+      addOnClassName,
+      env,
+      classPrefix: ns
+    } = this.props;
     let input =
-      autoComplete !== false && (source || options.length || autoComplete)
+      autoComplete !== false && (source || options?.length || autoComplete)
         ? this.renderSugestMode()
         : this.renderNormal();
 
-    const iconElement = generateIcon(cx, addOn?.icon, 'Icon');
-
-    let addOnDom = addOn ? (
-      addOn.actionType ||
-      ~['button', 'submit', 'reset', 'action'].indexOf(addOn.type) ? (
-        <div className={cx(`${ns}TextControl-button`, addOn.className)}>
-          {render('addOn', addOn, {
-            disabled
-          })}
-        </div>
-      ) : (
-        <div className={cx(`${ns}TextControl-addOn`, addOn.className)}>
-          {iconElement}
-          {addOn.label ? filter(addOn.label, data) : null}
-        </div>
-      )
-    ) : null;
-
-    if (inputOnly) {
-      return input;
-    }
-
     return (
-      <div
-        className={cx(className, `${ns}TextControl`, {
-          [`${ns}TextControl--withAddOn`]: !!addOnDom,
-          'is-focused': this.state.isFocused,
-          'is-disabled': disabled
-        })}
-      >
-        {addOn && addOn.position === 'left' ? addOnDom : null}
-        {input}
-        {addOn && addOn.position !== 'left' ? addOnDom : null}
-      </div>
+      <>
+        {this.renderBody(input)}
+        <CustomStyle
+          config={{
+            themeCss: themeCss || css,
+            classNames: [
+              {
+                key: 'inputControlClassName',
+                value: inputControlClassName,
+                weights: {
+                  active: {
+                    pre: `${ns}TextControl.is-focused > .${inputControlClassName}, `
+                  }
+                }
+              }
+            ],
+            id: id
+          }}
+          env={env}
+        />
+        <CustomStyle
+          config={{
+            themeCss: this.formatInputThemeCss(),
+            classNames: [
+              {
+                key: 'inputControlClassName',
+                value: inputControlClassName,
+                weights: {
+                  default: {
+                    inner: 'input'
+                  },
+                  hover: {
+                    inner: 'input'
+                  },
+                  active: {
+                    pre: `${ns}TextControl.is-focused > .${inputControlClassName}, `,
+                    inner: 'input'
+                  }
+                }
+              }
+            ],
+            id: id && id + '-inner'
+          }}
+          env={env}
+        />
+
+        <CustomStyle
+          config={{
+            themeCss: themeCss || css,
+            classNames: [
+              {
+                key: 'addOnClassName',
+                value: addOnClassName
+              }
+            ],
+            id: id && id + '-addOn'
+          }}
+          env={env}
+        />
+      </>
     );
   }
 }

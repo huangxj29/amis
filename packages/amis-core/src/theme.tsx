@@ -4,19 +4,13 @@ import React from 'react';
 import hoistNonReactStatic from 'hoist-non-react-statics';
 
 export type ClassValue =
+  | ClassValue[]
+  | Record<string, any>
   | string
   | number
-  | ClassDictionary
-  | ClassArray
-  | undefined
+  | boolean
   | null
-  | boolean;
-
-interface ClassDictionary {
-  [id: string]: any;
-}
-
-interface ClassArray extends Array<ClassValue> {}
+  | undefined;
 
 export type ClassNamesFn = (...classes: ClassValue[]) => string;
 
@@ -29,12 +23,10 @@ interface ThemeConfig {
     [propName: string]: any;
   };
 
-  [propsName: string]: any;
+  [propName: string]: any;
 }
 
-const themes: {
-  [propName: string]: ThemeConfig;
-} = {
+const themes: Record<string, ThemeConfig> = {
   default: {},
   antd: {
     classPrefix: 'antd-'
@@ -48,16 +40,15 @@ export function theme(name: string, config: Partial<ThemeConfig>) {
   };
 }
 
-const fns: {
-  [propName: string]: (...classes: ClassValue[]) => string;
-} = {};
+const fns: Record<string, (...classes: ClassValue[]) => string> = {};
+
 export function makeClassnames(ns?: string) {
   if (ns && fns[ns]) {
     return fns[ns];
   }
 
   const fn = (...classes: ClassValue[]) => {
-    const str = cx(...(classes as any));
+    const str = cx(...classes);
     return str && ns
       ? str
           .replace(/(^|\s)([A-Z])/g, '$1' + ns + '$2')
@@ -69,11 +60,11 @@ export function makeClassnames(ns?: string) {
   return fn;
 }
 
-export type ThemeInstance = ThemeConfig & {
+export interface ThemeInstance extends ThemeConfig {
   getRendererConfig: (name?: string) => any;
   getComponentConfig: (name?: string) => any;
   classnames: ClassNamesFn;
-};
+}
 
 export function hasTheme(theme: string): boolean {
   return !!themes[theme];
@@ -94,6 +85,10 @@ export function getClassPrefix() {
 }
 
 export function getTheme(theme: string): ThemeInstance {
+  if (typeof theme !== 'string') {
+    theme = 'antd';
+  }
+
   const config = themes[theme || 'antd'];
 
   if (!config.getRendererConfig) {
@@ -117,18 +112,17 @@ export function getTheme(theme: string): ThemeInstance {
 }
 
 export interface ThemeProps {
-  className?: string;
-  classPrefix: string;
   classnames: ClassNamesFn;
+  classPrefix: string;
+  className?: string;
   theme?: string;
+  mobileUI?: boolean;
+  style?: {
+    [propName: string]: any;
+  };
 }
 
-export interface ThemeOutterProps {
-  theme?: string;
-  className?: string;
-  classPrefix?: string;
-  classnames?: ClassNamesFn;
-}
+export interface ThemeOuterProps extends Partial<ThemeProps> {}
 
 export let defaultTheme: string = 'antd';
 export const ThemeContext = React.createContext('');
@@ -142,7 +136,7 @@ export function themeable<
     T,
     Omit<React.ComponentProps<T>, keyof ThemeProps>
   > &
-    ThemeOutterProps;
+    ThemeOuterProps;
 
   const result = hoistNonReactStatic(
     class extends React.Component<OuterProps> {
@@ -174,7 +168,8 @@ export function themeable<
       }
 
       render() {
-        const theme: string = this.props.theme || this.context || defaultTheme;
+        const theme: string =
+          this.props.theme || (this.context as string) || defaultTheme;
         const config = hasTheme(theme)
           ? getTheme(theme)
           : getTheme(defaultTheme);
@@ -191,18 +186,22 @@ export function themeable<
           ? {ref: this.childRef}
           : {forwardedRef: this.childRef};
 
-        return (
-          <ThemeContext.Provider value={theme}>
-            <ComposedComponent
-              {...config.getComponentConfig(ComposedComponent.themeKey)}
-              {...(this.props as JSX.LibraryManagedAttributes<
-                T,
-                React.ComponentProps<T>
-              >)}
-              {...injectedProps}
-              {...refConfig}
-            />
-          </ThemeContext.Provider>
+        const body = (
+          <ComposedComponent
+            {...config.getComponentConfig(ComposedComponent.themeKey)}
+            {...(this.props as JSX.LibraryManagedAttributes<
+              T,
+              React.ComponentProps<T>
+            >)}
+            {...injectedProps}
+            {...refConfig}
+          />
+        );
+
+        return this.context ? (
+          body
+        ) : (
+          <ThemeContext.Provider value={theme}>{body}</ThemeContext.Provider>
         );
       }
     },

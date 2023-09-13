@@ -1,7 +1,5 @@
 import React from 'react';
 import {Renderer, RendererProps} from 'amis-core';
-import {Api, SchemaNode, Schema, ActionObject} from 'amis-core';
-import cx from 'classnames';
 import {TooltipWrapper} from 'amis-ui';
 import {filter} from 'amis-core';
 import {ClassNamesFn, themeable} from 'amis-core';
@@ -130,19 +128,9 @@ class Remark extends React.Component<RemarkProps> {
     return (
       <>
         {finalLabel ? <span>{finalLabel}</span> : null}
-        {finalIcon ? (
-          hasIcon(finalIcon) ? (
-            <span className={cx('Remark-icon', shapeClass)}>
-              <Icon icon={finalIcon} />
-            </span>
-          ) : (
-            <i className={cx('Remark-icon', finalIcon)} />
-          )
-        ) : finalIcon === false && finalLabel ? null : (
-          <span className={cx('Remark-icon icon', shapeClass)}>
-            <Icon icon="question-mark" />
-          </span>
-        )}
+        <span className={cx('Remark-icon', shapeClass)}>
+          <Icon cx={cx} icon={finalIcon || 'question-mark'} />
+        </span>
       </>
     );
   }
@@ -150,6 +138,7 @@ class Remark extends React.Component<RemarkProps> {
   render() {
     const {
       className,
+      style,
       icon,
       label,
       shape,
@@ -158,13 +147,14 @@ class Remark extends React.Component<RemarkProps> {
       rootClose,
       trigger,
       container,
+      popOverContainer,
       classPrefix: ns,
       classnames: cx,
       content,
       data,
       env,
       tooltipClassName,
-      useMobileUI
+      mobileUI
     } = this.props;
 
     const finalIcon = tooltip?.icon ?? icon;
@@ -173,13 +163,14 @@ class Remark extends React.Component<RemarkProps> {
     const parsedTip = filterContents(tooltip || content, data);
 
     // 移动端使用弹框提示
-    if (isMobile() && useMobileUI) {
+    if (mobileUI) {
       return (
         <div
           className={cx(
             `Remark`,
             (tooltip && tooltip.className) || className || `Remark--warning`
           )}
+          style={style}
           onClick={this.showModalTip(parsedTip)}
         >
           {this.renderLabel(finalIcon, finalLabel, cx, finalShape)}
@@ -198,7 +189,7 @@ class Remark extends React.Component<RemarkProps> {
         placement={(tooltip && tooltip.placement) || placement}
         rootClose={(tooltip && tooltip.rootClose) || rootClose}
         trigger={(tooltip && tooltip.trigger) || trigger}
-        container={container || env.getModalContainer}
+        container={container || popOverContainer || env.getModalContainer}
         delay={tooltip && tooltip.delay}
       >
         <div
@@ -206,6 +197,7 @@ class Remark extends React.Component<RemarkProps> {
             `Remark`,
             (tooltip && tooltip.className) || className || `Remark--warning`
           )}
+          style={style}
         >
           {this.renderLabel(finalIcon, finalLabel, cx, finalShape)}
         </div>

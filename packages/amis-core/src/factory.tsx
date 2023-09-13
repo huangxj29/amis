@@ -3,7 +3,14 @@ import {RendererStore, IRendererStore, IIRendererStore} from './store/index';
 import {getEnv, destroy} from 'mobx-state-tree';
 import {wrapFetcher} from './utils/api';
 import {normalizeLink} from './utils/normalizeLink';
-import {findIndex, promisify, qsparse, string2regExp} from './utils/helper';
+import {
+  findIndex,
+  promisify,
+  qsparse,
+  string2regExp,
+  parseQuery,
+  isMobile
+} from './utils/helper';
 import {
   fetcherResult,
   SchemaNode,
@@ -17,9 +24,10 @@ import {ThemeProps} from './theme';
 import find from 'lodash/find';
 import {LocaleProps} from './locale';
 import {HocStoreFactory} from './WithStore';
-import {RendererEnv} from './env';
-import {OnEventProps} from './utils/renderer-event';
+import type {RendererEnv} from './env';
+import {OnEventProps, RendererEvent} from './utils/renderer-event';
 import {Placeholder} from './renderers/Placeholder';
+import {StatusScopedProps} from './StatusScoped';
 
 export interface TestFunc {
   (
@@ -51,7 +59,11 @@ export interface RendererBasicConfig {
   // [propName:string]:any;
 }
 
-export interface RendererProps extends ThemeProps, LocaleProps, OnEventProps {
+export interface RendererProps
+  extends ThemeProps,
+    LocaleProps,
+    OnEventProps,
+    StatusScopedProps {
   render: (
     region: string,
     node: SchemaNode,
@@ -67,6 +79,11 @@ export interface RendererProps extends ThemeProps, LocaleProps, OnEventProps {
   };
   defaultData?: object;
   className?: any;
+  style?: {
+    [propName: string]: any;
+  };
+  onBroadcast?: (type: string, rawEvent: RendererEvent<any>, ctx: any) => any;
+  mobileUI?: boolean;
   [propName: string]: any;
 }
 
@@ -83,24 +100,24 @@ export interface RenderSchemaFilter {
   (schema: Schema, renderer: RendererConfig, props?: any): Schema;
 }
 
-export interface wsObject {
+export interface WsObject {
   url: string;
   responseKey?: string;
   body?: any;
+}
+
+export interface FetcherConfig {
+  url: string;
+  method?: 'get' | 'post' | 'put' | 'patch' | 'delete' | 'jsonp' | 'js';
+  data?: any;
+  config?: any;
 }
 
 export interface RenderOptions
   extends Partial<Omit<RendererEnv, 'fetcher' | 'theme'>> {
   session?: string;
   theme?: string;
-  fetcher?: (config: fetcherConfig) => Promise<fetcherResult>;
-}
-
-export interface fetcherConfig {
-  url: string;
-  method?: 'get' | 'post' | 'put' | 'patch' | 'delete' | 'jsonp' | 'js';
-  data?: any;
-  config?: any;
+  fetcher?: (config: FetcherConfig) => Promise<fetcherResult>;
 }
 
 const renderers: Array<RendererConfig> = [];
@@ -171,7 +188,7 @@ export function registerRenderer(config: RendererConfig): RendererConfig {
   }
 
   if (config.isolateScope) {
-    config.component = Scoped(config.component);
+    config.component = Scoped(config.component, config.type);
   }
 
   const idx = findIndex(
@@ -185,6 +202,8 @@ export function registerRenderer(config: RendererConfig): RendererConfig {
 
 export function unRegisterRenderer(config: RendererConfig | string) {
   const name = (typeof config === 'string' ? config : config.name)!;
+  const idx = renderers.findIndex(item => item.name === name);
+  ~idx && renderers.splice(idx, 1);
   delete renderersMap[name];
 
   // 清空渲染器定位缓存
@@ -219,7 +238,7 @@ export const defaultOptions: RenderOptions = {
   },
   // 使用 WebSocket 来实时获取数据
   wsFetcher(
-    ws: wsObject,
+    ws: WsObject,
     onMessage: (data: any) => void,
     onError: (error: any) => void
   ) {
@@ -258,13 +277,13 @@ export const defaultOptions: RenderOptions = {
   },
   isCancel() {
     console.error(
-      'Please implement isCancel. see https://baidu.gitee.io/amis/docs/start/getting-started#%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97'
+      'Please implement isCancel. see https://aisuda.bce.baidu.com/amis/zh-CN/start/getting-started#%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97'
     );
     return false;
   },
   updateLocation() {
     console.error(
-      'Please implement updateLocation. see https://baidu.gitee.io/amis/docs/start/getting-started#%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97'
+      'Please implement updateLocation. see https://aisuda.bce.baidu.com/amis/zh-CN/start/getting-started#%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97'
     );
   },
 
@@ -302,7 +321,7 @@ export const defaultOptions: RenderOptions = {
         return false;
       }
       const query = qsparse(search.substring(1));
-      const currentQuery = qsparse(location.search.substring(1));
+      const currentQuery = parseQuery(location);
       return Object.keys(query).every(key => query[key] === currentQuery[key]);
     } else if (pathname === location.pathname) {
       return true;
@@ -326,7 +345,8 @@ export const defaultOptions: RenderOptions = {
   /**
    * 过滤 html 标签，可用来添加 xss 保护逻辑
    */
-  filterHtml: (input: string) => input
+  filterHtml: (input: string) => input,
+  isMobile: isMobile
 };
 
 export const stores: {
@@ -400,7 +420,7 @@ export function resolveRenderer(
     return cache[type];
   } else if (cache[path]) {
     return cache[path];
-  } else if (path && path.length > 1024) {
+  } else if (path && path.length > 3072) {
     throw new Error('Path太长是不是死循环了？');
   }
 

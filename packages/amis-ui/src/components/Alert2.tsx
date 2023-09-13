@@ -5,13 +5,13 @@
 
 import React from 'react';
 import {ClassNamesFn, themeable} from 'amis-core';
-import {generateIcon} from 'amis-core';
 import {Icon, getIcon} from './icons';
 
 export interface AlertProps {
   level: 'danger' | 'info' | 'success' | 'warning';
   title?: string;
   className?: string;
+  style?: any;
   showCloseButton: boolean;
   showIcon?: boolean;
   icon?: string | React.ReactNode;
@@ -20,6 +20,7 @@ export interface AlertProps {
   onClose?: () => void;
   classnames: ClassNamesFn;
   classPrefix: string;
+  children?: React.ReactNode | Array<React.ReactNode>;
 }
 
 export interface AlertState {
@@ -64,6 +65,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     const {
       classnames: cx,
       className,
+      style,
       level,
       children,
       showCloseButton,
@@ -75,20 +77,8 @@ export class Alert extends React.Component<AlertProps, AlertState> {
     } = this.props;
 
     // 优先使用内置svg，其次使用icon库
-    const iconNode = icon ? (
-      typeof icon === 'string' ? (
-        getIcon(icon) ? (
-          <Icon icon={icon} className={cx(`icon`)} />
-        ) : (
-          generateIcon(cx, icon, 'icon')
-        )
-      ) : React.isValidElement(icon) ? (
-        React.cloneElement(icon as React.ReactElement, {
-          className: cx(`Alert-icon`, icon.props?.className)
-        })
-      ) : null
-    ) : showIcon ? (
-      <Icon icon={`alert-${level}`} className={cx(`icon`)} />
+    const iconNode = showIcon ? (
+      <Icon cx={cx} icon={icon || `alert-${level}`} className="icon" />
     ) : null;
 
     return this.state.show ? (
@@ -99,6 +89,7 @@ export class Alert extends React.Component<AlertProps, AlertState> {
           title ? 'Alert-has-title' : '',
           className
         )}
+        style={style}
       >
         {showIcon && iconNode ? (
           <div className={cx('Alert-icon', iconClassName)}>{iconNode}</div>

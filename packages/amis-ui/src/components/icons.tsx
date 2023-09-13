@@ -3,8 +3,8 @@
  * @description
  * @author fex
  */
-import React from 'react';
-
+import React, {useState, useEffect, useRef} from 'react';
+import cxClass from 'classnames';
 import CloseIcon from '../icons/close.svg';
 import CloseSmallIcon from '../icons/close-small.svg';
 import StatusCloseIcon from '../icons/status-close.svg';
@@ -27,10 +27,6 @@ import RetryIcon from '../icons/retry.svg';
 import UploadIcon from '../icons/upload.svg';
 import DownloadIcon from '../icons/download.svg';
 import FileIcon from '../icons/file.svg';
-import StatusSuccessIcon from '../icons/status-success.svg';
-import StatusFailIcon from '../icons/status-fail.svg';
-import StatusInfoIcon from '../icons/status-info.svg';
-import StatusWarningIcon from '../icons/status-warning.svg';
 import SuccessIcon from '../icons/success.svg';
 import FailIcon from '../icons/fail.svg';
 import SearchIcon from '../icons/search.svg';
@@ -45,7 +41,6 @@ import ColmunsIcon from '../icons/columns.svg';
 import CalendarIcon from '../icons/calendar.svg';
 import ClockIcon from '../icons/clock.svg';
 import TreeDownIcon from '../icons/tree-down.svg';
-import CheckCircle from '../icons/check-circle.svg';
 import CloudUploadIcon from '../icons/cloud-upload.svg';
 import ImageIcon from '../icons/image.svg';
 import RefreshIcon from '../icons/refresh.svg';
@@ -106,6 +101,9 @@ import NewEdit from '../icons/new-edit.svg';
 import RotateLeft from '../icons/rotate-left.svg';
 import RotateRight from '../icons/rotate-right.svg';
 import ScaleOrigin from '../icons/scale-origin.svg';
+import If from '../icons/if.svg';
+
+import isObject from 'lodash/isObject';
 
 // 兼容原来的用法，后续不直接试用。
 
@@ -120,8 +118,12 @@ export const pauseIcon = <PauseIcon />;
 export const leftArrowIcon = <LeftArrowIcon />;
 export const rightArrowIcon = <RightArrowIcon />;
 const iconFactory: {
-  [propName: string]: React.ReactType<{}>;
+  [propName: string]: React.ElementType<{}>;
 } = {};
+
+export function getIconNames() {
+  return Object.keys(iconFactory);
+}
 
 export function getIcon(key: string) {
   return iconFactory[key];
@@ -131,7 +133,7 @@ export function hasIcon(iconName: string) {
   return !!getIcon(iconName);
 }
 
-export function registerIcon(key: string, component: React.ReactType<{}>) {
+export function registerIcon(key: string, component: React.ElementType<{}>) {
   iconFactory[key] = component;
 }
 
@@ -150,7 +152,6 @@ registerIcon('right-arrow', RightArrowIcon);
 registerIcon('prev', LeftArrowIcon);
 registerIcon('next', RightArrowIcon);
 registerIcon('check', CheckIcon);
-registerIcon('check-circle', CheckCircle);
 registerIcon('plus', PlusIcon);
 registerIcon('add', PlusIcon);
 registerIcon('minus', MinusIcon);
@@ -161,10 +162,6 @@ registerIcon('retry', RetryIcon);
 registerIcon('upload', UploadIcon);
 registerIcon('download', DownloadIcon);
 registerIcon('file', FileIcon);
-registerIcon('status-success', StatusSuccessIcon);
-registerIcon('status-fail', StatusFailIcon);
-registerIcon('status-info', StatusInfoIcon);
-registerIcon('status-warning', StatusWarningIcon);
 registerIcon('success', SuccessIcon);
 registerIcon('fail', FailIcon);
 registerIcon('warning', WarningIcon);
@@ -210,6 +207,7 @@ registerIcon('alert-success', AlertSuccess);
 registerIcon('alert-info', AlertInfo);
 registerIcon('alert-warning', AlertWarning);
 registerIcon('alert-danger', AlertDanger);
+registerIcon('alert-fail', AlertDanger);
 registerIcon('tree-down', TreeDownIcon);
 registerIcon('function', FunctionIcon);
 registerIcon('input-clear', InputClearIcon);
@@ -239,25 +237,171 @@ registerIcon('new-edit', NewEdit);
 registerIcon('rotate-left', RotateLeft);
 registerIcon('rotate-right', RotateRight);
 registerIcon('scale-origin', ScaleOrigin);
+registerIcon('if', If);
+
+export interface IconCheckedSchema {
+  id: string;
+  name?: string;
+  svg?: string;
+}
+
+export interface IconCheckedSchemaNew {
+  type: 'icon';
+  icon: IconCheckedSchema;
+}
 
 export function Icon({
   icon,
   className,
-  ...rest
+  classPrefix = '',
+  classNameProp,
+  iconContent,
+  vendor,
+  cx: iconCx,
+  onClick = () => {},
+  style
 }: {
   icon: string;
+  iconContent?: string;
 } & React.ComponentProps<any>) {
-  // jest 运行环境下，把指定的 icon 也输出到 snapshot 中。
-  if (typeof jest !== 'undefined') {
-    rest.icon = icon;
+  let cx = iconCx || cxClass;
+
+  if (typeof jest !== 'undefined' && icon) {
+    iconContent = '';
   }
 
+  if (!icon) {
+    return null;
+  }
+
+  // 直接的icon dom
+  if (React.isValidElement(icon)) {
+    return React.cloneElement(icon, {
+      ...((icon.props as any) || {}),
+      className: cxClass(
+        cx(className, classNameProp),
+        (icon.props as any).className
+      ),
+      style,
+      onClick
+    });
+  }
+
+  // 从css变量中获取icon
+  function refFn(dom: any) {
+    if (dom) {
+      const domStyle = getComputedStyle(dom);
+      const svgStr = domStyle.getPropertyValue('content');
+      const svg = /(<svg.*<\/svg>)/.exec(svgStr);
+
+      if (svg) {
+        const svgHTML = svg[0].replace(/\\"/g, '"');
+        if (dom.svgHTMLClone !== svgHTML) {
+          dom.innerHTML = svgHTML;
+          // 存储svg，不直接用innerHTML是防止<circle />渲染后变成<circle></circle>的情况
+          dom.svgHTMLClone = svgHTML;
+          dom.style.display = '';
+        }
+      }
+    }
+  }
+  if (iconContent) {
+    return (
+      <div
+        onClick={onClick}
+        className={cx(iconContent, className, classNameProp)}
+        ref={refFn}
+        style={style}
+      ></div>
+    );
+  }
+
+  // 获取注册的icon
   const Component = getIcon(icon);
-  return Component ? (
-    <Component {...rest} className={`${className || ''} icon-${icon}`} />
-  ) : (
-    <span className="text-danger">没有 icon {icon}</span>
-  );
+  if (Component) {
+    return (
+      <Component
+        onClick={onClick}
+        className={cx(className, `icon-${icon}`, classNameProp)}
+        // @ts-ignore
+        icon={icon}
+        style={style}
+      />
+    );
+  }
+
+  // 符合schema的icon
+  if (
+    isObject(icon) &&
+    (icon as IconCheckedSchemaNew).type === 'icon' &&
+    (icon as IconCheckedSchemaNew).icon
+  ) {
+    icon = (icon as IconCheckedSchemaNew).icon;
+  }
+
+  // icon是引用svg的情况
+  if (
+    isObject(icon) &&
+    typeof (icon as IconCheckedSchema).id === 'string' &&
+    (icon as IconCheckedSchema).id.startsWith('svg-')
+  ) {
+    return (
+      <svg
+        onClick={onClick}
+        className={cx('icon', 'icon-object', className, classNameProp)}
+        style={style}
+      >
+        <use
+          xlinkHref={`#${(icon as IconCheckedSchema).id.replace(/^svg-/, '')}`}
+        ></use>
+      </svg>
+    );
+  }
+
+  // 直接传入svg字符串
+  if (typeof icon === 'string' && icon.startsWith('<svg')) {
+    return <i dangerouslySetInnerHTML={{__html: icon}} />;
+  }
+
+  // icon是链接
+  const isURLIcon = typeof icon === 'string' && icon?.indexOf('.') !== -1;
+  if (isURLIcon) {
+    return (
+      <img
+        onClick={onClick}
+        className={cx(`${classPrefix}Icon`, className, classNameProp)}
+        src={icon}
+        style={style}
+      />
+    );
+  }
+
+  // icon是普通字符串
+  const isIconfont = typeof icon === 'string';
+
+  let iconPrefix = '';
+  if (vendor === 'iconfont') {
+    iconPrefix = `iconfont icon-${icon}`;
+  } else if (vendor === 'fa') {
+    //默认是fontawesome v4，兼容之前配置
+    iconPrefix = `${vendor} ${vendor}-${icon}`;
+  } else {
+    // 如果vendor为空，则不设置前缀,这样可以支持fontawesome v5、fontawesome v6或者其他框架
+    iconPrefix = icon;
+  }
+
+  if (isIconfont) {
+    return (
+      <i
+        onClick={onClick}
+        className={cx(icon, className, classNameProp, iconPrefix)}
+        style={style}
+      />
+    );
+  }
+
+  // 没有合适的图标
+  return <span className="text-danger">没有 icon {icon}</span>;
 }
 
 export {
@@ -283,5 +427,6 @@ export {
   Role,
   Department,
   Post,
-  RightDoubleArrowIcon
+  RightDoubleArrowIcon,
+  DownArrowBoldIcon
 };

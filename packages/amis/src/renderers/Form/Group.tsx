@@ -8,7 +8,7 @@ import {
   SchemaClassName,
   SchemaObject
 } from '../../Schema';
-import Form, {FormHorizontal} from 'amis-core';
+import {FormHorizontal} from 'amis-core';
 
 export type GroupSubControl = SchemaObject & {
   /**
@@ -20,11 +20,16 @@ export type GroupSubControl = SchemaObject & {
    * 宽度占用比率。在某些容器里面有用比如 group
    */
   columnRatio?: number | 'auto';
+
+  /**
+   * 列名称
+   */
+  name?: string;
 };
 
 /**
  * Group 表单集合渲染器，能让多个表单在一行显示
- * 文档：https://baidu.gitee.io/amis/docs/components/form/group
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/group
  */
 export interface GroupControlSchema extends FormBaseControlSchema {
   type: 'group';
@@ -95,7 +100,7 @@ export class ControlGroupRenderer extends React.Component<InputGroupProps> {
   }
 
   renderVertical(props = this.props) {
-    let {body, className, classnames: cx, mode, formMode, data} = props;
+    let {body, className, style, classnames: cx, mode, formMode, data} = props;
     formMode = mode || formMode;
 
     if (!Array.isArray(body)) {
@@ -115,7 +120,7 @@ export class ControlGroupRenderer extends React.Component<InputGroupProps> {
           }
 
           return this.renderControl(control, index, {
-            key: index
+            key: `${control.name ?? ''}-${index}`
           });
         })}
       </div>
@@ -126,6 +131,7 @@ export class ControlGroupRenderer extends React.Component<InputGroupProps> {
     let {
       body,
       className,
+      style,
       classPrefix: ns,
       classnames: cx,
       mode,
@@ -173,12 +179,13 @@ export class ControlGroupRenderer extends React.Component<InputGroupProps> {
           const controlMode = (control as FormBaseControl)?.mode || formMode;
 
           if (
-            controlMode === 'inline'
+            controlMode === 'inline' ||
             // hidden 直接渲染，否则会有个空 Form-groupColumn 层
-            || control?.type && ['formula', 'hidden'].includes((control as any).type)
+            (control?.type &&
+              ['formula', 'hidden'].includes((control as any).type))
           ) {
             return this.renderControl(control, index, {
-              key: index,
+              key: `${control.name ?? ''}-${index}`,
               className: cx(control.className, control.columnClassName)
             });
           }
@@ -197,6 +204,7 @@ export class ControlGroupRenderer extends React.Component<InputGroupProps> {
               )}
             >
               {this.renderControl(control, index, {
+                key: `${control.name ?? ''}-${index}`,
                 formHorizontal: horizontalDeeper,
                 formMode: controlMode
               })}

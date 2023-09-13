@@ -1,8 +1,8 @@
-import React, {Fragment} from 'react';
+import React from 'react';
 import {findDOMNode} from 'react-dom';
-import {Renderer, RendererProps} from 'amis-core';
+import {Renderer, RendererProps, buildStyle} from 'amis-core';
 import {SchemaNode, Schema, ActionObject} from 'amis-core';
-import {Button, Spinner} from 'amis-ui';
+import {Button, Spinner, SpinnerExtraProps} from 'amis-ui';
 import {ListStore, IListStore} from 'amis-core';
 import {Action} from '../types';
 import {
@@ -10,7 +10,6 @@ import {
   getScrollParent,
   difference,
   ucFirst,
-  noop,
   autobind,
   createObject
 } from 'amis-core';
@@ -28,13 +27,13 @@ import {
 } from '../Schema';
 import {CardProps, CardSchema} from './Card';
 import {Card2Props, Card2Schema} from './Card2';
-import type {IItem} from 'amis-core/lib/store/list';
+import type {IItem} from 'amis-core';
 
 /**
  * Cards 卡片集合渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/card
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/card
  */
-export interface CardsSchema extends BaseSchema {
+export interface CardsSchema extends BaseSchema, SpinnerExtraProps {
   /**
    * 指定为 cards 类型
    */
@@ -138,9 +137,9 @@ export interface Column {
   type: string;
   [propName: string]: any;
 }
-
-export type CardsRendererEvent = 'change';
-export type CardsRendererAction = 'check-all';
+// 如果这里的事件调整，对应CRUD里的事件配置也需要同步修改
+export type CardsRendererEvent = 'selected';
+export type CardsRendererAction = 'toggleSelectAll' | 'selectAll' | 'clearAll';
 
 export interface GridProps
   extends RendererProps,
@@ -169,7 +168,7 @@ export interface GridProps
     }
   ) => void;
   onSaveOrder?: (moved: Array<object>, items: Array<object>) => void;
-  onQuery: (values: object) => void;
+  onQuery: (values: object) => any;
 }
 
 export default class Cards extends React.Component<GridProps, object> {
@@ -183,7 +182,6 @@ export default class Cards extends React.Component<GridProps, object> {
     'selectable',
     'headerClassName',
     'footerClassName',
-    'fixAlignment',
     'hideQuickSaveBtn',
     'hideCheckToggler',
     'itemCheckableOn',
@@ -200,7 +198,6 @@ export default class Cards extends React.Component<GridProps, object> {
     headerClassName: '',
     footerClassName: '',
     itemClassName: 'Grid-col--sm6 Grid-col--md4 Grid-col--lg3',
-    // fixAlignment: false,
     hideCheckToggler: false,
     masonryLayout: false,
     affixHeader: true,
@@ -210,9 +207,8 @@ export default class Cards extends React.Component<GridProps, object> {
 
   dragTip?: HTMLElement;
   sortable?: Sortable;
-  parentNode?: any;
+
   body?: any;
-  // fixAlignmentLazy: Function;
   unSensor: Function;
   renderedToolbars: Array<string>;
 
@@ -228,13 +224,7 @@ export default class Cards extends React.Component<GridProps, object> {
     this.reset = this.reset.bind(this);
     this.dragTipRef = this.dragTipRef.bind(this);
     this.bodyRef = this.bodyRef.bind(this);
-    this.affixDetect = this.affixDetect.bind(this);
-    this.itemsRef = this.itemsRef.bind(this);
     this.renderToolbar = this.renderToolbar.bind(this);
-    // this.fixAlignmentLazy = debounce(this.fixAlignment.bind(this), 250, {
-    //     trailing: true,
-    //     leading: false
-    // })
 
     const {
       store,
@@ -294,20 +284,6 @@ export default class Cards extends React.Component<GridProps, object> {
     return updateItems;
   }
 
-  componentDidMount() {
-    let parent: HTMLElement | Window | null = getScrollParent(
-      findDOMNode(this) as HTMLElement
-    );
-    if (!parent || parent === document.body) {
-      parent = window;
-    }
-
-    this.parentNode = parent;
-    this.affixDetect();
-    parent.addEventListener('scroll', this.affixDetect);
-    window.addEventListener('resize', this.affixDetect);
-  }
-
   componentDidUpdate(prevProps: GridProps) {
     const props = this.props;
     const store = props.store;
@@ -353,62 +329,8 @@ export default class Cards extends React.Component<GridProps, object> {
     }
   }
 
-  componentWillUnmount() {
-    const parent = this.parentNode;
-    parent && parent.removeEventListener('scroll', this.affixDetect);
-    window.removeEventListener('resize', this.affixDetect);
-  }
-
-  // fixAlignment() {
-  //     if (!this.props.fixAlignment || this.props.masonryLayout) {
-  //         return;
-  //     }
-
-  //     const dom = this.body as HTMLElement;
-  //     const ns = this.props.classPrefix;
-  //     const cards = [].slice.apply(dom.querySelectorAll(`.${ns}Cards-body > div`));
-
-  //     if (!cards.length) {
-  //         return;
-  //     }
-
-  //     let maxHeight = cards.reduce((maxHeight:number, item:HTMLElement) => Math.max(item.offsetHeight, maxHeight), 0);
-  //     cards.forEach((item: HTMLElement) => item.style.cssText += `min-height: ${maxHeight}px;`);
-  // }
-
   bodyRef(ref: HTMLDivElement) {
     this.body = ref;
-  }
-
-  itemsRef(ref: HTMLDivElement) {
-    if (ref) {
-      // this.unSensor = resizeSensor(ref.parentNode as HTMLElement, this.fixAlignmentLazy);
-    } else {
-      this.unSensor && this.unSensor();
-
-      // @ts-ignore;
-      delete this.unSensor;
-    }
-  }
-
-  affixDetect() {
-    if (!this.props.affixHeader || !this.body) {
-      return;
-    }
-
-    const ns = this.props.classPrefix;
-    const dom = findDOMNode(this) as HTMLElement;
-    const clip = (this.body as HTMLElement).getBoundingClientRect();
-    const offsetY =
-      this.props.affixOffsetTop ?? this.props.env.affixOffsetTop ?? 0;
-    const affixed =
-      clip.top - 10 < offsetY && clip.top + clip.height - 40 > offsetY;
-    const afixedDom = dom.querySelector(`.${ns}Cards-fixedTop`) as HTMLElement;
-
-    this.body.offsetWidth &&
-      (afixedDom.style.cssText = `top: ${offsetY}px;width: ${this.body.offsetWidth}px;`);
-    affixed ? afixedDom.classList.add('in') : afixedDom.classList.remove('in');
-    // store.markHeaderAffix(clip.top < offsetY && (clip.top + clip.height - 40) > offsetY);
   }
 
   @autobind
@@ -861,6 +783,7 @@ export default class Cards extends React.Component<GridProps, object> {
       store,
       multiple,
       selectable,
+      popOverContainer,
       env,
       translate: __,
       dragIcon
@@ -875,9 +798,7 @@ export default class Cards extends React.Component<GridProps, object> {
         iconOnly
         key="dragging-toggle"
         tooltip={__('Card.toggleDrag')}
-        tooltipContainer={
-          env && env.getModalContainer ? env.getModalContainer : undefined
-        }
+        tooltipContainer={popOverContainer || env?.getModalContainer}
         size="sm"
         active={store.dragging}
         onClick={(e: React.MouseEvent<any>) => {
@@ -911,7 +832,13 @@ export default class Cards extends React.Component<GridProps, object> {
   }
 
   // editor中重写，请勿更改前两个参数
-  renderCard(index: number, card: any, item: IItem, itemClassName: string) {
+  renderCard(
+    index: number,
+    card: any,
+    item: IItem,
+    itemClassName: string,
+    style: any
+  ) {
     const {
       render,
       classnames: cx,
@@ -955,7 +882,7 @@ export default class Cards extends React.Component<GridProps, object> {
     }
 
     return (
-      <div key={item.index} className={cx(itemClassName)}>
+      <div key={item.index} className={cx(itemClassName)} style={style}>
         {render(
           `card/${index}`,
           {
@@ -974,18 +901,23 @@ export default class Cards extends React.Component<GridProps, object> {
   render() {
     const {
       className,
+      style,
       store,
       columnsCount,
       itemClassName,
       placeholder,
       card,
+      data,
       render,
       affixHeader,
       masonryLayout,
       itemsClassName,
       classnames: cx,
       translate: __,
-      loading = false
+      loading = false,
+      loadingConfig,
+      affixOffsetTop,
+      env
     } = this.props;
 
     this.renderedToolbars = []; // 用来记录哪些 toolbar 已经渲染了，已经渲染了就不重复渲染了。
@@ -1013,28 +945,55 @@ export default class Cards extends React.Component<GridProps, object> {
           .join(' ');
     }
 
+    // 自定义行列间距
+    let wrapStyles: React.CSSProperties = {};
+    let itemStyles: React.CSSProperties = {};
+    if (style?.gutterX >= 0) {
+      wrapStyles.marginLeft = wrapStyles.marginRight =
+        -(style?.gutterX / 2) + 'px';
+      itemStyles.paddingLeft = itemStyles.paddingRight =
+        style?.gutterX / 2 + 'px';
+    }
+
+    if (style?.gutterY >= 0) {
+      itemStyles.marginBottom = style?.gutterY + 'px';
+    }
+    // 修正grid多列计算错误
+    if (columnsCount && !masonryLayout) {
+      itemStyles.flex = `0 0 ${100 / columnsCount}%`;
+      itemStyles.maxWidth = `${100 / columnsCount}%`;
+    }
+
     return (
       <div
         ref={this.bodyRef}
         className={cx('Cards', className, {
           'Cards--unsaved': !!store.modified || !!store.moved
         })}
+        style={buildStyle(style, data)}
       >
         {affixHeader ? (
-          <div className={cx('Cards-fixedTop')}>
+          <div
+            className={cx('Cards-fixedTop')}
+            style={{top: affixOffsetTop ?? env?.affixOffsetTop ?? 0}}
+          >
             {header}
             {heading}
           </div>
-        ) : null}
-        {header}
-        {heading}
+        ) : (
+          <>
+            {header}
+            {heading}
+          </>
+        )}
+
         {store.items.length ? (
           <div
-            ref={this.itemsRef}
             className={cx('Cards-body Grid', itemsClassName, masonryClassName)}
+            style={wrapStyles}
           >
             {store.items.map((item, index) =>
-              this.renderCard(index, card, item, itemFinalClassName)
+              this.renderCard(index, card, item, itemFinalClassName, itemStyles)
             )}
           </div>
         ) : (
@@ -1044,7 +1003,7 @@ export default class Cards extends React.Component<GridProps, object> {
         )}
 
         {footer}
-        <Spinner overlay show={loading} />
+        <Spinner loadingConfig={loadingConfig} overlay show={loading} />
       </div>
     );
   }

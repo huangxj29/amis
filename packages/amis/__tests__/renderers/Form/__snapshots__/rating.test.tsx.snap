@@ -58,7 +58,6 @@ exports[`Renderer:rating with allowClear 1`] = `
               <ul>
                 <li
                   class="cxd-Rating-star"
-                  style=""
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -67,7 +66,6 @@ exports[`Renderer:rating with allowClear 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star"
-                  style=""
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -164,7 +162,7 @@ exports[`Renderer:rating with allowClear 1`] = `
         class="cxd-Panel-btnToolbar cxd-Panel-footer"
       >
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="submit"
         >
           <span>
@@ -274,13 +272,11 @@ exports[`Renderer:rating with char & charClassName 1`] = `
               <ul>
                 <li
                   class="cxd-Rating-star test-rating-char is-active"
-                  style="color: rgb(171, 173, 177);"
                 >
                   X
                 </li>
                 <li
                   class="cxd-Rating-star test-rating-char is-active"
-                  style="color: rgb(171, 173, 177);"
                 >
                   X
                 </li>
@@ -312,7 +308,7 @@ exports[`Renderer:rating with char & charClassName 1`] = `
         class="cxd-Panel-btnToolbar cxd-Panel-footer"
       >
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="submit"
         >
           <span>
@@ -544,7 +540,7 @@ exports[`Renderer:rating with colors & inactiveColor 1`] = `
         class="cxd-Panel-btnToolbar cxd-Panel-footer"
       >
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="submit"
         >
           <span>
@@ -654,7 +650,6 @@ exports[`Renderer:rating with count & half 1`] = `
               <ul>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -663,7 +658,6 @@ exports[`Renderer:rating with count & half 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -672,7 +666,6 @@ exports[`Renderer:rating with count & half 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -684,7 +677,6 @@ exports[`Renderer:rating with count & half 1`] = `
                 >
                   <div
                     class="cxd-Rating-star-half"
-                    style="color: rgb(255, 169, 0);"
                   >
                     <icon-mock
                       classname="icon icon-star"
@@ -717,7 +709,7 @@ exports[`Renderer:rating with count & half 1`] = `
         class="cxd-Panel-btnToolbar cxd-Panel-footer"
       >
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="submit"
         >
           <span>
@@ -827,7 +819,6 @@ exports[`Renderer:rating with readOnly 1`] = `
               <ul>
                 <li
                   class="cxd-Rating-star is-active is-disabled"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -836,7 +827,6 @@ exports[`Renderer:rating with readOnly 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active is-disabled"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -845,7 +835,6 @@ exports[`Renderer:rating with readOnly 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active is-disabled"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -854,7 +843,6 @@ exports[`Renderer:rating with readOnly 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active is-disabled"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -863,7 +851,6 @@ exports[`Renderer:rating with readOnly 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active is-disabled"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -936,7 +923,7 @@ exports[`Renderer:rating with readOnly 1`] = `
         class="cxd-Panel-btnToolbar cxd-Panel-footer"
       >
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="submit"
         >
           <span>
@@ -1051,7 +1038,6 @@ exports[`Renderer:rating with texts & textPosition & textClassName 1`] = `
               <ul>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -1060,7 +1046,6 @@ exports[`Renderer:rating with texts & textPosition & textClassName 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -1069,7 +1054,6 @@ exports[`Renderer:rating with texts & textPosition & textClassName 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -1078,7 +1062,6 @@ exports[`Renderer:rating with texts & textPosition & textClassName 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -1087,7 +1070,6 @@ exports[`Renderer:rating with texts & textPosition & textClassName 1`] = `
                 </li>
                 <li
                   class="cxd-Rating-star is-active"
-                  style="color: rgb(255, 169, 0);"
                 >
                   <icon-mock
                     classname="icon icon-star"
@@ -1173,7 +1155,7 @@ exports[`Renderer:rating with texts & textPosition & textClassName 1`] = `
         class="cxd-Panel-btnToolbar cxd-Panel-footer"
       >
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="submit"
         >
           <span>

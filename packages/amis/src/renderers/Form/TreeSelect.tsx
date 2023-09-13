@@ -1,13 +1,14 @@
 import React from 'react';
-import {Overlay} from 'amis-core';
+import {Overlay, resolveEventData} from 'amis-core';
 import {PopOver} from 'amis-core';
-import {PopUp} from 'amis-ui';
+import {PopUp, SpinnerExtraProps} from 'amis-ui';
 
 import {
   OptionsControl,
   OptionsControlProps,
   Option,
-  FormOptionsControl
+  FormOptionsControl,
+  toNumber
 } from 'amis-core';
 
 import {Tree as TreeSelector} from 'amis-ui';
@@ -23,10 +24,13 @@ import {findDOMNode} from 'react-dom';
 import {normalizeOptions} from 'amis-core';
 import {ActionObject} from 'amis-core';
 import {FormOptionsSchema} from '../../Schema';
+import {supportStatic} from './StaticHoc';
+import {TooltipWrapperSchema} from '../TooltipWrapper';
+import type {ItemRenderStates} from 'amis-ui/lib/components/Selection';
 
 /**
  * Tree 下拉选择框。
- * 文档：https://baidu.gitee.io/amis/docs/components/form/tree
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/form/tree
  */
 export interface TreeSelectControlSchema extends FormOptionsSchema {
   type: 'tree-select';
@@ -95,20 +99,43 @@ export interface TreeSelectControlSchema extends FormOptionsSchema {
    * 是否显示展开线
    */
   showOutline?: boolean;
+
+  /**
+   * 标签的最大展示数量，超出数量后以收纳浮层的方式展示，仅在多选模式开启后生效
+   */
+  maxTagCount?: number;
+
+  /**
+   * 收纳标签的Popover配置
+   */
+  overflowTagPopover?: TooltipWrapperSchema;
+
+  /**
+   * 自定义选项
+   */
+  menuTpl?: string;
+
+  /**
+   * 是否为选项添加默认的Icon，默认值为true
+   */
+  enableDefaultIcon?: boolean;
 }
 
-export interface TreeSelectProps extends OptionsControlProps {
+export interface TreeSelectProps
+  extends OptionsControlProps,
+    SpinnerExtraProps {
   placeholder?: any;
   autoComplete?: Api;
   hideNodePathLabel?: boolean;
   enableNodePath?: boolean;
   pathSeparator?: string;
-  useMobileUI?: boolean;
+  mobileUI?: boolean;
 }
 
 export interface TreeSelectState {
   isOpened: boolean;
   inputValue: string;
+  tempValue: string;
 }
 
 export default class TreeSelectControl extends React.Component<
@@ -116,6 +143,7 @@ export default class TreeSelectControl extends React.Component<
   TreeSelectState
 > {
   static defaultProps = {
+    hideRoot: true,
     placeholder: 'Select.placeholder',
     optionsPlaceholder: 'placeholder.noData',
     multiple: false,
@@ -148,17 +176,23 @@ export default class TreeSelectControl extends React.Component<
   targetRef = (ref: any) =>
     (this.target = ref ? (findDOMNode(ref) as HTMLElement) : null);
 
+  /** source数据源是否已加载 */
+  sourceLoaded: boolean = false;
+
   constructor(props: TreeSelectProps) {
     super(props);
 
     this.state = {
       inputValue: '',
+      tempValue: '',
       isOpened: false
     };
 
     this.open = this.open.bind(this);
     this.close = this.close.bind(this);
     this.handleChange = this.handleChange.bind(this);
+    this.handleTempChange = this.handleTempChange.bind(this);
+    this.handleConfirm = this.handleConfirm.bind(this);
     this.clearValue = this.clearValue.bind(this);
     this.handleFocus = this.handleFocus.bind(this);
     this.handleBlur = this.handleBlur.bind(this);
@@ -168,7 +202,6 @@ export default class TreeSelectControl extends React.Component<
       leading: false
     });
     this.handleInputKeyDown = this.handleInputKeyDown.bind(this);
-
     this.loadRemote = debouce(this.loadRemote.bind(this), 250, {
       trailing: true,
       leading: false
@@ -177,6 +210,10 @@ export default class TreeSelectControl extends React.Component<
 
   componentDidMount() {
     this.loadRemote('');
+  }
+
+  componentWillUnmount() {
+    this.sourceLoaded = false;
   }
 
   open(fn?: () => void) {
@@ -203,27 +240,21 @@ export default class TreeSelectControl extends React.Component<
   }
 
   handleFocus(e: any) {
-    const {dispatchEvent, value, data} = this.props;
-    dispatchEvent(
-      'focus',
-      createObject(data, {
-        value
-      })
-    );
+    const {dispatchEvent, value} = this.props;
+    dispatchEvent('focus', resolveEventData(this.props, {value}));
   }
 
   handleBlur(e: any) {
     const {dispatchEvent, value, data} = this.props;
-    dispatchEvent(
-      'blur',
-      createObject(data, {
-        value
-      })
-    );
+    dispatchEvent('blur', resolveEventData(this.props, {value}));
   }
 
   handleKeyPress(e: React.KeyboardEvent) {
-    if (e.key === ' ') {
+    /**
+     * 考虑到label/value中有空格的case
+     * 这里使用组合键关闭 win：shift + space，mac：shift + space
+     */
+    if (e.key === ' ' && e.shiftKey) {
       this.handleOutClick(e as any);
       e.preventDefault();
     }
@@ -290,6 +321,22 @@ export default class TreeSelectControl extends React.Component<
     );
   }
 
+  handleTempChange(value: any) {
+    this.setState({
+      tempValue: value
+    });
+  }
+
+  handleConfirm() {
+    this.close();
+    this.setState(
+      {
+        inputValue: ''
+      },
+      () => this.resultChangeEvent(this.state.tempValue)
+    );
+  }
+
   handleInputChange(value: string) {
     const {autoComplete, data} = this.props;
 
@@ -348,9 +395,15 @@ export default class TreeSelectControl extends React.Component<
   }
 
   async loadRemote(input: string) {
-    const {autoComplete, env, data, setOptions, setLoading} = this.props;
+    const {autoComplete, env, data, setOptions, setLoading, source} =
+      this.props;
 
-    if (!isEffectiveApi(autoComplete, data)) {
+    // 同时配置source和autoComplete时，首次渲染需要加载source数据
+    if (
+      !isEffectiveApi(autoComplete, data) ||
+      (!input && isEffectiveApi(source) && !this.sourceLoaded)
+    ) {
+      this.sourceLoaded = true;
       return;
     } else if (!env || !env.fetcher) {
       throw new Error('fetcher is required');
@@ -398,8 +451,7 @@ export default class TreeSelectControl extends React.Component<
           !find(combinedOptions, (item: Option) => item.value == option.value)
         ) {
           combinedOptions.push({
-            ...option,
-            visible: false
+            ...option
           });
         }
       });
@@ -454,9 +506,7 @@ export default class TreeSelectControl extends React.Component<
 
     const rendererEvent = await dispatchEvent(
       'change',
-      createObject(data, {
-        value
-      })
+      resolveEventData(this.props, {value})
     );
 
     if (rendererEvent?.prevented) {
@@ -465,6 +515,17 @@ export default class TreeSelectControl extends React.Component<
     onChange && onChange(value);
   }
 
+  /** 下拉框选项渲染 */
+  @autobind
+  renderOptionItem(option: Option, states: ItemRenderStates) {
+    const {menuTpl, render, data} = this.props;
+
+    return render(`option/${states.index}`, menuTpl, {
+      data: createObject(createObject(data, {...states}), option)
+    });
+  }
+
+  /** 输入框选项渲染 */
   @autobind
   renderItem(item: Option) {
     const {labelField, options, hideNodePathLabel} = this.props;
@@ -549,7 +610,13 @@ export default class TreeSelectControl extends React.Component<
       showOutline,
       autoCheckChildren,
       classnames: cx,
-      searchPromptText
+      searchPromptText,
+      hideRoot,
+      virtualThreshold,
+      itemHeight,
+      menuTpl,
+      enableDefaultIcon,
+      mobileUI
     } = this.props;
 
     let filtedOptions =
@@ -584,7 +651,7 @@ export default class TreeSelectControl extends React.Component<
           labelField={labelField}
           valueField={valueField}
           disabled={disabled}
-          onChange={this.handleChange}
+          onChange={mobileUI ? this.handleTempChange : this.handleChange}
           joinValues={joinValues}
           extractValue={extractValue}
           delimiter={delimiter}
@@ -603,7 +670,7 @@ export default class TreeSelectControl extends React.Component<
           showOutline={showOutline}
           cascade={cascade}
           foldedField="collapsed"
-          hideRoot
+          hideRoot={hideRoot}
           value={value || ''}
           nodePath={nodePath}
           enableNodePath={enableNodePath}
@@ -625,14 +692,23 @@ export default class TreeSelectControl extends React.Component<
           onDeferLoad={deferLoad}
           onExpandTree={expandTreeOptions}
           selfDisabledAffectChildren={selfDisabledAffectChildren}
+          virtualThreshold={virtualThreshold}
+          itemHeight={
+            toNumber(itemHeight) > 0 ? toNumber(itemHeight) : undefined
+          }
+          itemRender={menuTpl ? this.renderOptionItem : undefined}
+          enableDefaultIcon={enableDefaultIcon}
+          mobileUI={mobileUI}
         />
       </div>
     );
   }
 
+  @supportStatic()
   render() {
     const {
       className,
+      style,
       disabled,
       inline,
       loading,
@@ -646,16 +722,21 @@ export default class TreeSelectControl extends React.Component<
       selectedOptions,
       placeholder,
       popOverContainer,
-      useMobileUI,
+      mobileUI,
+      maxTagCount,
+      overflowTagPopover,
       translate: __,
-      env
+      env,
+      loadingConfig
     } = this.props;
 
     const {isOpened} = this.state;
-    const mobileUI = useMobileUI && isMobile();
     return (
       <div ref={this.container} className={cx(`TreeSelectControl`, className)}>
         <ResultBox
+          popOverContainer={popOverContainer || env.getModalContainer}
+          maxTagCount={maxTagCount}
+          overflowTagPopover={overflowTagPopover}
           disabled={disabled}
           ref={this.targetRef}
           placeholder={__(placeholder ?? 'placeholder.empty')}
@@ -687,8 +768,13 @@ export default class TreeSelectControl extends React.Component<
           onKeyDown={this.handleInputKeyDown}
           clearable={clearable}
           allowInput={false}
+          hasDropDownArrow
+          readOnly={mobileUI}
+          mobileUI={mobileUI}
         >
-          {loading ? <Spinner size="sm" /> : undefined}
+          {loading ? (
+            <Spinner loadingConfig={loadingConfig} size="sm" />
+          ) : undefined}
         </ResultBox>
         {!mobileUI && isOpened ? (
           <Overlay
@@ -711,12 +797,12 @@ export default class TreeSelectControl extends React.Component<
         ) : null}
         {mobileUI ? (
           <PopUp
-            container={
-              env && env.getModalContainer ? env.getModalContainer : undefined
-            }
+            container={env.getModalContainer}
             className={cx(`${ns}TreeSelect-popup`)}
             isShow={isOpened}
             onHide={this.close}
+            showConfirm
+            onConfirm={this.handleConfirm}
           >
             {this.renderOuter()}
           </PopUp>

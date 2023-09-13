@@ -1,5 +1,5 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import {autobind, createObject, Renderer, RendererProps} from 'amis-core';
 import {filter} from 'amis-core';
 import cx from 'classnames';
 import {BaseSchema, SchemaTpl} from '../Schema';
@@ -7,13 +7,13 @@ import {getPropValue} from 'amis-core';
 
 /**
  * Plain 纯文本渲染器
- * 文档：https://baidu.gitee.io/amis/docs/components/plain
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/plain
  */
 export interface PlainSchema extends BaseSchema {
   /**
    * 指定为模板渲染器。
    *
-   * 文档：https://baidu.gitee.io/amis/docs/concepts/template
+   * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/docs/concepts/template
    */
   type: 'plain' | 'text';
 
@@ -44,9 +44,43 @@ export class Plain extends React.Component<PlainProps, object> {
     placeholder: '-'
   };
 
+  @autobind
+  handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(
+      'click',
+      createObject(data, {
+        nativeEvent: e
+      })
+    );
+  }
+
+  @autobind
+  handleMouseEnter(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(
+      e,
+      createObject(data, {
+        nativeEvent: e
+      })
+    );
+  }
+
+  @autobind
+  handleMouseLeave(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(
+      e,
+      createObject(data, {
+        nativeEvent: e
+      })
+    );
+  }
+
   render() {
     const {
       className,
+      style,
       wrapperComponent,
       text,
       data,
@@ -60,7 +94,13 @@ export class Plain extends React.Component<PlainProps, object> {
     const Component = wrapperComponent || (inline ? 'span' : 'div');
 
     return (
-      <Component className={cx('PlainField', className)}>
+      <Component
+        className={cx('PlainField', className)}
+        style={style}
+        onClick={this.handleClick}
+        onMouseEnter={this.handleMouseEnter}
+        onMouseLeave={this.handleMouseLeave}
+      >
         {tpl || text ? (
           filter(tpl || (text as string), data)
         ) : typeof value === 'undefined' || value === '' || value === null ? (

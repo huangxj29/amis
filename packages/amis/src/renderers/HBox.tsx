@@ -69,7 +69,7 @@ export type HBoxColumn = HBoxColumnObject;
 
 /**
  * Hbox 水平布局渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/hbox
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/hbox
  */
 export interface HBoxSchema extends BaseSchema {
   /**
@@ -186,6 +186,7 @@ export default class HBox extends React.Component<HBoxProps, object> {
   render() {
     const {
       className,
+      style,
       classnames: cx,
       gap,
       valign: vAlign,
@@ -198,6 +199,7 @@ export default class HBox extends React.Component<HBoxProps, object> {
           [`Hbox--v${ucFirst(vAlign)}`]: vAlign,
           [`Hbox--h${ucFirst(hAlign)}`]: hAlign
         })}
+        style={style}
       >
         {this.renderColumns()}
       </div>

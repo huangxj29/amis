@@ -1,12 +1,12 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
-import moment from 'moment';
+import {Renderer, RendererProps, normalizeDate} from 'amis-core';
+import moment, {Moment} from 'moment';
 import {BaseSchema} from '../Schema';
 import {getPropValue} from 'amis-core';
 
 /**
  * Date 展示渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/date
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/date
  */
 export interface DateSchema extends BaseSchema {
   /**
@@ -24,6 +24,11 @@ export interface DateSchema extends BaseSchema {
    * 展示的时间格式，参考 moment 中的格式说明。
    */
   format?: string;
+
+  /**
+   * 展示的时间格式，参考 moment 中的格式说明。（新：同format）
+   */
+  displayFormat?: string;
 
   /**
    * 占位符
@@ -59,7 +64,12 @@ export class DateField extends React.Component<DateProps, DateState> {
 
   static defaultProps: Pick<
     DateProps,
-    'placeholder' | 'format' | 'valueFormat' | 'fromNow' | 'updateFrequency'
+    | 'placeholder'
+    | 'format'
+    | 'valueFormat'
+    | 'fromNow'
+    | 'updateFrequency'
+    | 'displayFormat'
   > = {
     placeholder: '-',
     format: 'YYYY-MM-DD',
@@ -93,10 +103,13 @@ export class DateField extends React.Component<DateProps, DateState> {
     const {
       valueFormat,
       format,
+      displayFormat,
       placeholder,
       fromNow,
       className,
+      style,
       classnames: cx,
+      locale,
       translate: __
     } = this.props;
     let viewValue: React.ReactNode = (
@@ -106,24 +119,18 @@ export class DateField extends React.Component<DateProps, DateState> {
     const value = getPropValue(this.props);
 
     // 主要是给 fromNow 用的
-    let date;
-    if (value) {
-      let ISODate = moment(value, moment.ISO_8601);
-      let NormalDate = moment(value, valueFormat);
-
-      viewValue = ISODate.isValid()
-        ? ISODate.format(format)
-        : NormalDate.isValid()
-        ? NormalDate.format(format)
-        : false;
+    let date: any = null;
+    if (value && (date = normalizeDate(value, valueFormat))) {
+      const normalizeDate: Moment = date;
+      viewValue = normalizeDate.format(displayFormat || format);
 
       if (viewValue) {
         date = viewValue as string;
       }
-    }
 
-    if (fromNow) {
-      viewValue = moment(viewValue as string).fromNow();
+      if (fromNow) {
+        viewValue = normalizeDate.locale(locale).fromNow();
+      }
     }
 
     viewValue = !viewValue ? (
@@ -135,7 +142,8 @@ export class DateField extends React.Component<DateProps, DateState> {
     return (
       <span
         className={cx('DateField', className)}
-        title={fromNow ? date : undefined}
+        style={style}
+        title={fromNow && date ? date : undefined}
       >
         {viewValue}
       </span>

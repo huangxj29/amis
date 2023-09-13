@@ -3,7 +3,7 @@ import {IFormStore, IFormItemStore} from '../store/form';
 import debouce from 'lodash/debounce';
 import isEqual from 'lodash/isEqual';
 
-import {RendererProps, Renderer} from '../factory';
+import {RendererProps, Renderer, getRendererByName} from '../factory';
 import {ComboStore, IComboStore, IUniqueGroup} from '../store/combo';
 import {
   anyChanged,
@@ -31,6 +31,8 @@ import {withRootStore} from '../WithRootStore';
 import {FormBaseControl, FormItemWrap} from './Item';
 import {Api} from '../types';
 import {TableStore} from '../store/table';
+import pick from 'lodash/pick';
+import {callStrFunction, changedEffect} from '../utils';
 
 export interface ControlOutterProps extends RendererProps {
   formStore?: IFormStore;
@@ -118,6 +120,9 @@ export function wrapControl<
               store,
               onChange,
               data,
+              inputGroupControl,
+              colIndex,
+              rowIndex,
               $schema: {
                 name,
                 id,
@@ -127,6 +132,7 @@ export function wrapControl<
                 validationErrors,
                 unique,
                 value,
+                extraName,
                 multiple,
                 delimiter,
                 valueField,
@@ -150,16 +156,14 @@ export function wrapControl<
             this.setPrinstineValue = this.setPrinstineValue.bind(this);
             this.controlRef = this.controlRef.bind(this);
             this.handleBlur = this.handleBlur.bind(this);
+            this.validate = this.validate.bind(this);
+            this.flushChange = this.flushChange.bind(this);
 
             if (!name) {
               // 一般情况下这些表单项都是需要 name 的，提示一下
               if (
                 typeof type === 'string' &&
-                (type.startsWith('input-') ||
-                  type.endsWith('select') ||
-                  type === 'switch' ||
-                  type === 'textarea' ||
-                  type === 'radios')
+                getRendererByName(type)?.isFormItem
               ) {
                 console.warn('name is required', this.props.$schema);
               }
@@ -173,20 +177,27 @@ export function wrapControl<
               path: this.props.$path,
               storeType: FormItemStore.name,
               parentId: store?.id,
-              name
+              name,
+              colIndex: colIndex !== undefined ? colIndex : undefined,
+              rowIndex: rowIndex !== undefined ? rowIndex : undefined
             }) as IFormItemStore;
             this.model = model;
             // @issue 打算干掉这个
             formItem?.addSubFormItem(model);
             model.config({
+              // 理论上需要将渲染器的 defaultProps 全部生效，此处保险起见先只处理 multiple
+              ...pick(
+                {...ComposedComponent.defaultProps, ...this.props.$schema},
+                ['multiple']
+              ),
               id,
               type,
               required,
               unique,
               value,
+              isValueSchemaExp: isExpression(value),
               rules: validations,
               messages: validationErrors,
-              multiple,
               delimiter,
               valueField,
               labelField,
@@ -199,7 +210,9 @@ export function wrapControl<
               minLength,
               maxLength,
               validateOnChange,
-              label
+              label,
+              inputGroupControl,
+              extraName
             });
 
             // issue 这个逻辑应该在 combo 里面自己实现。
@@ -213,26 +226,60 @@ export function wrapControl<
 
             if (propValue !== undefined && propValue !== null) {
               // 同步 value: 优先使用 props 中的 value
-              model.changeTmpValue(propValue);
+              model.changeTmpValue(propValue, 'controlled');
+              model.setIsControlled(true);
             } else {
-              // 备注: 此处的 value 是 schema 中的 value（和props.defaultValue相同）
-              const curTmpValue = isExpression(value)
-                ? FormulaExec['formula'](value, data) // 对组件默认值进行运算
-                : store?.getValueByName(model.name) ?? replaceExpression(value); // 优先使用公式表达式
-              // 同步 value
-              model.changeTmpValue(curTmpValue);
+              const isExp = isExpression(value);
 
-              if (
-                onChange &&
-                value !== undefined &&
-                curTmpValue !== undefined
-              ) {
-                // 组件默认值支持表达式需要: 避免初始化时上下文中丢失组件默认值
-                onChange(model.tmpValue, model.name, false, true);
+              if (isExp) {
+                model.changeTmpValue(
+                  FormulaExec['formula'](value, data), // 对组件默认值进行运算
+                  'formulaChanged'
+                );
+              } else {
+                let initialValue = model.extraName
+                  ? [
+                      store?.getValueByName(
+                        model.name,
+                        form?.canAccessSuperData
+                      ),
+                      store?.getValueByName(
+                        model.extraName,
+                        form?.canAccessSuperData
+                      )
+                    ]
+                  : store?.getValueByName(model.name, form?.canAccessSuperData);
+
+                if (
+                  model.extraName &&
+                  initialValue.every((item: any) => item === undefined)
+                ) {
+                  initialValue = undefined;
+                }
+
+                model.changeTmpValue(
+                  initialValue ?? replaceExpression(value),
+                  typeof initialValue !== 'undefined'
+                    ? 'initialValue'
+                    : 'defaultValue'
+                );
               }
             }
 
             if (
+              onChange &&
+              value !== undefined &&
+              model.tmpValue !== undefined
+            ) {
+              // 组件默认值支持表达式需要: 避免初始化时上下文中丢失组件默认值
+              if (model.extraName) {
+                const values = model.splitExtraValue(model.tmpValue);
+                onChange(values[0], model.name, false, true);
+                onChange(values[1], model.extraName, false, true);
+              } else {
+                onChange(model.tmpValue, model.name, false, true);
+              }
+            } else if (
               onChange &&
               typeof propValue === 'undefined' &&
               typeof store?.getValueByName(model.name, false) === 'undefined' &&
@@ -242,7 +289,13 @@ export function wrapControl<
               store?.storeType !== TableStore.name
             ) {
               // 如果没有初始值，通过 onChange 设置过去
-              onChange(model.tmpValue, model.name, false, true);
+              if (model.extraName) {
+                const values = model.splitExtraValue(model.tmpValue);
+                onChange(values[0], model.name, false, true);
+                onChange(values[1], model.extraName, false, true);
+              } else {
+                onChange(model.tmpValue, model.name, false, true);
+              }
             }
           }
 
@@ -281,12 +334,10 @@ export function wrapControl<
 
           componentDidUpdate(prevProps: OuterProps) {
             const props = this.props;
-            const form = props.formStore;
             const model = this.model;
 
-            if (
-              model &&
-              anyChanged(
+            model &&
+              changedEffect(
                 [
                   'id',
                   'validations',
@@ -307,34 +358,21 @@ export function wrapControl<
                   'validateApi',
                   'minLength',
                   'maxLength',
-                  'label'
+                  'label',
+                  'extraName'
                 ],
                 prevProps.$schema,
-                props.$schema
-              )
-            ) {
-              model.config({
-                required: props.$schema.required,
-                id: props.$schema.id,
-                unique: props.$schema.unique,
-                value: props.$schema.value,
-                rules: props.$schema.validations,
-                multiple: props.$schema.multiple,
-                delimiter: props.$schema.delimiter,
-                valueField: props.$schema.valueField,
-                labelField: props.$schema.labelField,
-                joinValues: props.$schema.joinValues,
-                extractValue: props.$schema.extractValue,
-                messages: props.$schema.validationErrors,
-                selectFirst: props.$schema.selectFirst,
-                autoFill: props.$schema.autoFill,
-                clearValueOnHidden: props.$schema.clearValueOnHidden,
-                validateApi: props.$schema.validateApi,
-                minLength: props.$schema.minLength,
-                maxLength: props.$schema.maxLength,
-                label: props.$schema.label
-              });
-            }
+                props.$schema,
+                changes => {
+                  model.config({
+                    ...changes,
+
+                    // todo 优化后面两个
+                    isValueSchemaExp: isExpression(props.$schema.value),
+                    inputGroupControl: props?.inputGroupControl
+                  } as any);
+                }
+              );
 
             // 此处需要同时考虑 defaultValue 和 value
             if (model && typeof props.value !== 'undefined') {
@@ -344,70 +382,84 @@ export function wrapControl<
                 !isEqual(props.value, model.tmpValue)
               ) {
                 // 外部直接传入的 value 无需执行运算器
-                model.changeTmpValue(props.value);
+                model.changeTmpValue(props.value, 'controlled');
               }
             } else if (
               model &&
               typeof props.defaultValue !== 'undefined' &&
-              isExpression(props.defaultValue)
+              isExpression(props.defaultValue) &&
+              (!isEqual(props.defaultValue, prevProps.defaultValue) ||
+                (props.data !== prevProps.data &&
+                  isNeedFormula(
+                    props.defaultValue,
+                    props.data,
+                    prevProps.data
+                  )))
             ) {
-              // 渲染器中的 defaultValue 优先（备注: SchemaRenderer中会将 value 改成 defaultValue）
+              const curResult = FormulaExec['formula'](
+                props.defaultValue,
+                props.data
+              );
+              const prevResult = FormulaExec['formula'](
+                prevProps.defaultValue,
+                prevProps.data
+              );
               if (
-                !isEqual(props.defaultValue, prevProps.defaultValue) ||
-                (!isEqual(props.data, prevProps.data) &&
-                  isNeedFormula(props.defaultValue, props.data, prevProps.data))
+                !isEqual(curResult, prevResult) &&
+                !isEqual(curResult, model.tmpValue)
               ) {
-                const curResult = FormulaExec['formula'](
-                  props.defaultValue,
-                  props.data
-                );
-                const prevResult = FormulaExec['formula'](
-                  prevProps.defaultValue,
-                  prevProps.data
-                );
-                if (
-                  !isEqual(curResult, prevResult) &&
-                  !isEqual(curResult, model.tmpValue)
-                ) {
-                  // 识别上下文变动、自身数值变动、公式运算结果变动
-                  model.changeTmpValue(curResult);
-                  if (props.onChange) {
-                    props.onChange(curResult, model.name, false);
-                  }
+                // 识别上下文变动、自身数值变动、公式运算结果变动
+                model.changeTmpValue(curResult, 'formulaChanged');
+
+                if (model.extraName) {
+                  const values = model.splitExtraValue(curResult);
+                  props.onChange?.(values[0], model.name, false);
+                  props.onChange?.(values[1], model.extraName, false);
+                } else {
+                  props.onChange?.(curResult, model.name, false);
                 }
               }
             } else if (model) {
-              const valueByName = getVariable(props.data, model.name);
-
-              if (isEqual(props.defaultValue, prevProps.defaultValue)) {
-                // value 非公式表达式时，name 值优先，若 defaultValue 主动变动时，则使用 defaultValue
-                if (
-                  // 然后才是查看关联的 name 属性值是否变化
-                  !isEqual(props.data, prevProps.data) &&
-                  (!model.emitedValue ||
-                    isEqual(model.emitedValue, model.tmpValue))
-                ) {
-                  model.changeEmitedValue(undefined);
-                  const prevValueByName = getVariable(props.data, model.name);
-                  if (
-                    (!isEqual(valueByName, prevValueByName) ||
-                      getVariable(props.data, model.name, false) !==
-                        getVariable(prevProps.data, model.name, false)) &&
-                    !isEqual(valueByName, model.tmpValue)
-                  ) {
-                    model.changeTmpValue(valueByName);
-                  }
-                }
-              } else if (
-                typeof props.defaultValue !== 'undefined' &&
-                !isEqual(props.defaultValue, prevProps.defaultValue) &&
-                !isEqual(props.defaultValue, model.tmpValue)
+              // value 非公式表达式时，name 值优先，若 defaultValue 主动变动时，则使用 defaultValue
+              if (
+                // 然后才是查看关联的 name 属性值是否变化
+                props.data !== prevProps.data &&
+                (!model.emitedValue ||
+                  isEqual(model.emitedValue, model.tmpValue))
               ) {
-                // 组件默认值非公式
-                const curValue = replaceExpression(props.defaultValue);
-                model.changeTmpValue(curValue);
-                if (props.onChange) {
-                  props.onChange(curValue, model.name, false);
+                model.changeEmitedValue(undefined);
+                const valueByName = model.extraName
+                  ? [
+                      getVariable(props.data, model.name, false),
+                      getVariable(props.data, model.extraName, false)
+                    ]
+                  : getVariable(props.data, model.name, false);
+
+                if (
+                  !isEqual(
+                    valueByName,
+                    model.extraName
+                      ? model.splitExtraValue(model.tmpValue)
+                      : model.tmpValue
+                  ) &&
+                  (!isEqual(
+                    model.extraName ? valueByName[0] : valueByName,
+                    getVariable(prevProps.data, model.name, false)
+                  ) ||
+                    // extraName
+                    (model.extraName &&
+                      !isEqual(
+                        valueByName[1],
+                        getVariable(prevProps.data, model.extraName, false)
+                      )))
+                ) {
+                  model.changeTmpValue(
+                    valueByName,
+                    props.formInited && !prevProps.formInited
+                      ? 'formInited'
+                      : 'dataChanged'
+                  );
+                  this.checkValidate();
                 }
               }
             }
@@ -498,39 +550,54 @@ export function wrapControl<
             }
           }
 
+          checkValidate() {
+            if (!this.model) return; // 如果 model 为 undefined 则直接返回
+            const validated = this.model.validated;
+            const {formSubmited, validateOnChange} = this.props;
+
+            if (
+              // 如果配置了 minLength 或者 maxLength 就切成及时验证
+              // this.model.rules.minLength ||
+              // this.model.rules.maxLength ||
+              validateOnChange === true ||
+              (validateOnChange !== false && (formSubmited || validated))
+            ) {
+              this.validate();
+            } else if (validateOnChange === false) {
+              this.model?.reset();
+            }
+          }
+
           async validate() {
+            if (!this.model) return;
             const {formStore: form, data, formItemDispatchEvent} = this.props;
             let result;
-            if (this.model) {
-              if (
-                this.model.unique &&
-                form?.parentStore &&
-                form.parentStore.storeType === ComboStore.name
-              ) {
-                const combo = form.parentStore as IComboStore;
-                const group = combo.uniques.get(
-                  this.model.name
-                ) as IUniqueGroup;
-                const validPromises = group.items.map(item =>
-                  item.validate(data)
-                );
-                result = await Promise.all(validPromises);
-              } else {
-                const validPromises = form
-                  ?.getItemsByName(this.model.name)
-                  .map(item => item.validate(data));
-                if (validPromises && validPromises.length) {
-                  result = await Promise.all(validPromises);
-                }
-              }
+
+            if (
+              this.model.unique &&
+              form?.parentStore &&
+              form.parentStore.storeType === ComboStore.name
+            ) {
+              const combo = form.parentStore as IComboStore;
+              const group = combo.uniques.get(this.model.name) as IUniqueGroup;
+              const validPromises = group.items.map(item =>
+                item.validate(data)
+              );
+              result = await Promise.all(validPromises);
+            } else {
+              result = [await this.model.validate(data)];
             }
-            if (result && result.length) {
-              if (result.indexOf(false) > -1) {
-                formItemDispatchEvent('formItemValidateError', data);
-              } else {
-                formItemDispatchEvent('formItemValidateSucc', data);
-              }
-            }
+
+            const valid = !result.some(item => item === false);
+            formItemDispatchEvent?.(
+              valid ? 'formItemValidateSucc' : 'formItemValidateError',
+              data
+            );
+            return valid;
+          }
+
+          flushChange() {
+            this.lazyEmitChange.flush();
           }
 
           handleChange(
@@ -568,10 +635,17 @@ export function wrapControl<
 
             if (pipeOut) {
               const oldValue = this.model.value;
-              value = pipeOut(value, oldValue, data);
+              value = callStrFunction.call(
+                this,
+                pipeOut,
+                ['value', 'oldValue', 'data'],
+                value,
+                oldValue,
+                data
+              );
             }
 
-            this.model.changeTmpValue(value);
+            this.model.changeTmpValue(value, 'input');
 
             if (changeImmediately || conrolChangeImmediately || !formInited) {
               this.emitChange(submitOnChange);
@@ -605,10 +679,18 @@ export function wrapControl<
             if (!this.model) {
               return;
             }
+            const model = this.model;
             const value = this.model.tmpValue;
-            const oldValue = getVariable(data, this.model.name, false);
+            const oldValue = model.extraName
+              ? [
+                  getVariable(data, model.name, false),
+                  getVariable(data, model.extraName, false)
+                ]
+              : getVariable(data, model.name, false);
 
-            if (oldValue === value) {
+            if (
+              model.extraName ? isEqual(oldValue, value) : oldValue === value
+            ) {
               return;
             }
 
@@ -634,20 +716,20 @@ export function wrapControl<
             ) {
               return;
             }
-            const validated = this.model.validated;
-            onChange?.(value, name!, submitOnChange === true);
 
-            if (
-              // 如果配置了 minLength 或者 maxLength 就切成及时验证
-              // this.model.rules.minLength ||
-              // this.model.rules.maxLength ||
-              validateOnChange === true ||
-              (validateOnChange !== false && (formSubmited || validated))
-            ) {
-              this.validate();
-            } else if (validateOnChange === false) {
-              this.model?.reset();
+            // onFormItemChange 可能会触发组件销毁，再次读取 this.model 为 undefined
+            if (!this.model) {
+              return;
             }
+
+            if (model.extraName) {
+              const values = model.splitExtraValue(value);
+              onChange?.(values[0], name!);
+              onChange?.(values[1], model.extraName, submitOnChange === true);
+            } else {
+              onChange?.(value, name!, submitOnChange === true);
+            }
+            this.checkValidate();
           }
 
           handleBlur(e: any) {
@@ -668,6 +750,7 @@ export function wrapControl<
               return;
             }
 
+            const model = this.model;
             const {
               formStore: form,
               name,
@@ -678,10 +761,23 @@ export function wrapControl<
             } = this.props;
 
             if (pipeOut) {
-              value = pipeOut(value, oldValue, data);
+              value = callStrFunction.call(
+                this,
+                pipeOut,
+                ['value', 'oldValue', 'data'],
+                value,
+                oldValue,
+                data
+              );
             }
 
-            onChange?.(value, name!, false, true);
+            if (model.extraName) {
+              const values = model.splitExtraValue(value);
+              onChange?.(values[0], name!, false, true);
+              onChange?.(values[1], model.extraName!, false, true);
+            } else {
+              onChange?.(value, name!, false, true);
+            }
           }
 
           getValue() {
@@ -689,7 +785,13 @@ export function wrapControl<
             let value: any = this.model ? this.model.tmpValue : control.value;
 
             if (control.pipeIn) {
-              value = control.pipeIn(value, data);
+              value = callStrFunction.call(
+                this,
+                control.pipeIn,
+                ['value', 'data'],
+                value,
+                data
+              );
             }
 
             return value;
@@ -720,7 +822,8 @@ export function wrapControl<
               $schema: control,
               store,
               data,
-              invisible
+              invisible,
+              defaultStatic
             } = this.props;
 
             if (invisible) {
@@ -733,11 +836,13 @@ export function wrapControl<
             const injectedProps: any = {
               defaultSize: controlWidth,
               disabled: disabled || control.disabled,
+              static: control.static ?? defaultStatic,
               formItem: this.model,
               formMode: control.mode || formMode,
               ref: this.controlRef,
               data: data || store?.data,
               value,
+              changeMotivation: model?.changeMotivation,
               defaultValue: control.value,
               formItemValue: value, // 为了兼容老版本的自定义组件
               onChange: this.handleChange,
@@ -745,7 +850,11 @@ export function wrapControl<
               setValue: this.setValue,
               getValue: this.getValue,
               prinstine: model ? model.prinstine : undefined,
-              setPrinstineValue: this.setPrinstineValue
+              setPrinstineValue: this.setPrinstineValue,
+              onValidate: this.validate,
+              onFlushChange: this.flushChange,
+              // !没了这个， tree 里的 options 渲染会出问题
+              _filteredOptions: this.model?.filteredOptions
             };
 
             return (

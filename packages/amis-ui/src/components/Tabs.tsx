@@ -7,9 +7,9 @@
 import React from 'react';
 import {ClassName, localeable, LocaleProps, Schema} from 'amis-core';
 import Transition, {ENTERED, ENTERING} from 'react-transition-group/Transition';
-import {themeable, ThemeProps} from 'amis-core';
+import {themeable, ThemeProps, noop} from 'amis-core';
 import {uncontrollable} from 'amis-core';
-import {generateIcon} from 'amis-core';
+import {isObjectShallowModified} from 'amis-core';
 import {autobind, guid} from 'amis-core';
 import {Icon} from './icons';
 import debounce from 'lodash/debounce';
@@ -45,6 +45,9 @@ export interface TabProps extends ThemeProps {
   iconPosition?: 'left' | 'right';
   disabled?: boolean | string;
   eventKey: string | number;
+  prevKey?: string | number;
+  nextKey?: string | number;
+  tip?: string;
   tab?: Schema;
   className?: string;
   activeKey?: string | number;
@@ -52,11 +55,51 @@ export interface TabProps extends ThemeProps {
   mountOnEnter?: boolean;
   unmountOnExit?: boolean;
   toolbar?: React.ReactNode;
+  children?: React.ReactNode | Array<React.ReactNode>;
+  swipeable?: boolean;
+  onSelect?: (eventKey: string | number) => void;
 }
 
 class TabComponent extends React.PureComponent<TabProps> {
   contentDom: any;
+  touch: any = {};
+  touchStartTime: number;
   contentRef = (ref: any) => (this.contentDom = ref);
+
+  @autobind
+  onTouchStart(event: React.TouchEvent) {
+    this.touch.startX = event.touches[0].clientX;
+    this.touch.startY = event.touches[0].clientY;
+    this.touchStartTime = Date.now();
+  }
+
+  @autobind
+  onTouchMove(event: React.TouchEvent) {
+    const touch = event.touches[0];
+    const newState = {...this.touch};
+
+    newState.deltaX = touch.clientX < 0 ? 0 : touch.clientX - newState.startX;
+    newState.deltaY = touch.clientY - newState.startY;
+    newState.offsetX = Math.abs(newState.deltaX);
+    newState.offsetY = Math.abs(newState.deltaY);
+    this.touch = newState;
+  }
+
+  @autobind
+  onTouchEnd() {
+    const duration = Date.now() - this.touchStartTime;
+    const speed = this.touch.deltaX / duration;
+    const shouldSwipe = Math.abs(speed) > 0.25;
+    const {prevKey, nextKey, onSelect} = this.props;
+
+    if (shouldSwipe) {
+      if (this.touch.deltaX > 0) {
+        prevKey !== undefined && onSelect?.(prevKey);
+      } else {
+        nextKey && onSelect?.(nextKey);
+      }
+    }
+  }
 
   render() {
     const {
@@ -67,7 +110,9 @@ class TabComponent extends React.PureComponent<TabProps> {
       eventKey,
       activeKey,
       children,
-      className
+      className,
+      swipeable,
+      mobileUI
     } = this.props;
 
     return (
@@ -90,6 +135,10 @@ class TabComponent extends React.PureComponent<TabProps> {
                 'Tabs-pane',
                 className
               )}
+              onTouchStart={swipeable && mobileUI ? this.onTouchStart : noop}
+              onTouchMove={swipeable && mobileUI ? this.onTouchMove : noop}
+              onTouchEnd={swipeable && mobileUI ? this.onTouchEnd : noop}
+              onTouchCancel={swipeable && mobileUI ? this.onTouchEnd : noop}
             >
               {children}
             </div>
@@ -130,6 +179,7 @@ export interface TabsProps extends ThemeProps, LocaleProps {
   collapseOnExceed?: number;
   collapseBtnLabel?: string;
   popOverContainer?: any;
+  children?: React.ReactNode | Array<React.ReactNode>;
 }
 
 export interface IDragInfo {
@@ -237,11 +287,60 @@ export class Tabs extends React.Component<TabsProps, any> {
       );
   }
 
-  componentDidUpdate() {
+  componentDidUpdate(preProps: any) {
+    // 只有 key 变化或者 tab 改变，才会重新计算，避免多次计算导致 顶部标签 滚动问题
+    const isTabsModified = isObjectShallowModified(
+      {
+        activeKey: this.props.activeKey,
+        children: Array.isArray(this.props.children)
+          ? this.props.children!.map(item => ({
+              eventKey: (item as JSX.Element)?.props?.eventKey,
+              // 这里 title 可能是 React.ReactNode，只对比 string
+              title:
+                typeof (item as JSX.Element)?.props?.title === 'string'
+                  ? (item as JSX.Element).props.title
+                  : ''
+            }))
+          : []
+      },
+      {
+        activeKey: preProps.activeKey,
+        children: Array.isArray(preProps.children)
+          ? preProps.children!.map((item: any) => ({
+              eventKey: item?.props?.eventKey,
+              title:
+                typeof item?.props?.title === 'string' ? item.props.title : ''
+            }))
+          : []
+      }
+    );
+
     // 判断是否是由滚动触发的数据更新，如果是则不需要再次判断容器与内容的关系
-    if (!this.scroll && !this.draging) {
+    if (!this.scroll && !this.draging && isTabsModified) {
       this.computedWidth();
     }
+
+    // 移动端取消箭头切换，改为滚动切换激活项居中
+    const {classPrefix: ns, activeKey, mobileUI} = this.props;
+    if (mobileUI && preProps.activeKey !== activeKey) {
+      const {classPrefix: ns} = this.props;
+      const dom = findDOMNode(this) as HTMLElement;
+      const activeTab = dom.querySelector(
+        `.${ns}Tabs-link.is-active`
+      ) as HTMLElement;
+      const parentWidth = (activeTab.parentNode?.parentNode as any).offsetWidth;
+      const offsetLeft = activeTab.offsetLeft;
+      const offsetWidth = activeTab.offsetWidth;
+      if (activeTab.parentNode) {
+        (activeTab.parentNode as any).scrollLeft =
+          offsetLeft > parentWidth
+            ? (offsetLeft / parentWidth) * parentWidth -
+              parentWidth / 2 +
+              offsetWidth / 2
+            : offsetLeft - parentWidth / 2 + offsetWidth / 2;
+      }
+    }
+
     this.scroll = false;
   }
 
@@ -423,21 +522,25 @@ export class Tabs extends React.Component<TabsProps, any> {
       clientWidth: 0
     };
     if (type === 'left' && scrollLeft > 0) {
+      const newScrollLeft = scrollLeft - clientWidth;
+
       this.navMain.current?.scrollTo({
-        left: 0,
+        left: newScrollLeft > 0 ? newScrollLeft : 0,
         behavior: 'smooth'
       });
       this.setState({
         arrowRightDisabled: false,
-        arrowLeftDisabled: true
+        arrowLeftDisabled: newScrollLeft <= 0
       });
     } else if (type === 'right' && scrollWidth > scrollLeft + clientWidth) {
+      const newScrollLeft = scrollLeft + clientWidth;
+
       this.navMain.current?.scrollTo({
-        left: this.navMain.current?.scrollWidth,
+        left: newScrollLeft > scrollWidth ? scrollWidth : newScrollLeft,
         behavior: 'smooth'
       });
       this.setState({
-        arrowRightDisabled: true,
+        arrowRightDisabled: newScrollLeft > scrollWidth - clientWidth,
         arrowLeftDisabled: false
       });
     }
@@ -464,6 +567,11 @@ export class Tabs extends React.Component<TabsProps, any> {
     this.scroll = true;
   }
 
+  // 处理 hash 作为 key 时重复的问题
+  generateTabKey(hash: any, eventKey: any, index: number) {
+    return (hash === eventKey ? 'hash-' : '') + (eventKey ?? index);
+  }
+
   renderNav(child: any, index: number, showClose: boolean) {
     if (!child) {
       return;
@@ -488,7 +596,9 @@ export class Tabs extends React.Component<TabsProps, any> {
       title,
       toolbar,
       tabClassName,
-      closable: tabClosable
+      closable: tabClosable,
+      tip,
+      hash
     } = child.props;
 
     const {editingIndex, editInputText} = this.state;
@@ -496,7 +606,7 @@ export class Tabs extends React.Component<TabsProps, any> {
     const activeKey =
       activeKeyProp === undefined && index === 0 ? eventKey : activeKeyProp;
 
-    const iconElement = generateIcon(cx, icon, 'Icon');
+    const iconElement = <Icon cx={cx} icon={icon} className="Icon" />;
 
     const link = (
       <a title={typeof title === 'string' ? title : undefined}>
@@ -520,13 +630,11 @@ export class Tabs extends React.Component<TabsProps, any> {
             {icon ? (
               iconPosition === 'right' ? (
                 <>
-                  {title}
-                  {iconElement}
+                  {title} {iconElement}
                 </>
               ) : (
                 <>
-                  {iconElement}
-                  {title}
+                  {iconElement} {title}
                 </>
               )
             ) : (
@@ -546,16 +654,18 @@ export class Tabs extends React.Component<TabsProps, any> {
           disabled ? 'is-disabled' : '',
           tabClassName
         )}
-        key={eventKey ?? index}
+        key={this.generateTabKey(hash, eventKey, index)}
         onClick={() => (disabled ? '' : this.handleSelect(eventKey))}
         onDoubleClick={() => {
-          editable && this.handleStartEdit(index, title);
+          editable &&
+            typeof title === 'string' &&
+            this.handleStartEdit(index, title);
         }}
       >
         {showTip ? (
           <TooltipWrapper
             placement="top"
-            tooltip={title}
+            tooltip={tip ?? (typeof title === 'string' ? title : '')}
             trigger="hover"
             tooltipClassName={showTipClassName}
           >
@@ -596,14 +706,15 @@ export class Tabs extends React.Component<TabsProps, any> {
       return;
     }
 
+    const {hash, eventKey} = child?.props || {};
+
     const {activeKey: activeKeyProp, classnames} = this.props;
-    const eventKey = child.props.eventKey;
     const activeKey =
       activeKeyProp === undefined && index === 0 ? eventKey : activeKeyProp;
 
     return React.cloneElement(child, {
       ...child.props,
-      key: eventKey,
+      key: this.generateTabKey(hash, eventKey, index),
       classnames: classnames,
       activeKey: activeKey
     });
@@ -712,6 +823,7 @@ export class Tabs extends React.Component<TabsProps, any> {
       classnames: cx,
       contentClassName,
       className,
+      style,
       mode: dMode,
       tabsMode,
       children,
@@ -721,7 +833,8 @@ export class Tabs extends React.Component<TabsProps, any> {
       addable,
       draggable,
       sidePosition,
-      addBtnText
+      addBtnText,
+      mobileUI
     } = this.props;
 
     const {isOverflow} = this.state;
@@ -756,6 +869,7 @@ export class Tabs extends React.Component<TabsProps, any> {
           },
           className
         )}
+        style={style}
       >
         {!['vertical', 'sidebar', 'chrome'].includes(mode) ? (
           <div
@@ -771,10 +885,12 @@ export class Tabs extends React.Component<TabsProps, any> {
                 isOverflow && 'Tabs-linksContainer--overflow'
               )}
             >
-              {this.renderArrow('left')}
+              {!mobileUI ? this.renderArrow('left') : null}
               <div className={cx('Tabs-linksContainer-main')}>
                 <ul
-                  className={cx('Tabs-links', linksClassName)}
+                  className={cx('Tabs-links', linksClassName, {
+                    'is-mobile': mobileUI
+                  })}
                   role="tablist"
                   ref={this.navMain}
                 >
@@ -783,13 +899,18 @@ export class Tabs extends React.Component<TabsProps, any> {
                   {!isOverflow && toolButtons}
                 </ul>
               </div>
-              {this.renderArrow('right')}
+              {!mobileUI ? this.renderArrow('right') : null}
             </div>
             {isOverflow && toolButtons}
           </div>
         ) : (
           <div className={cx('Tabs-linksWrapper')}>
-            <ul className={cx('Tabs-links', linksClassName)} role="tablist">
+            <ul
+              className={cx('Tabs-links', linksClassName, {
+                'is-mobile': mobileUI
+              })}
+              role="tablist"
+            >
               {this.renderNavs()}
               {additionBtns}
               {toolbar}

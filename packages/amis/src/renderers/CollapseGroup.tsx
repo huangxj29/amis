@@ -1,11 +1,11 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import {Renderer, RendererProps, autobind, resolveEventData} from 'amis-core';
 import {BaseSchema, SchemaCollection, SchemaObject} from '../Schema';
 import {CollapseGroup} from 'amis-ui';
 
 /**
  * CollapseGroup 折叠渲染器，格式说明。
- * 文档：https://baidu.gitee.io/amis/docs/components/collapse
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/collapse
  */
 export interface CollapseGroupSchema extends BaseSchema {
   /**
@@ -44,6 +44,7 @@ export interface CollapseGroupProps
   children?: JSX.Element | ((props?: any) => JSX.Element);
 }
 
+export type CollapseGroupRenderEvent = 'collapseChange';
 export class CollapseGroupRender extends React.Component<
   CollapseGroupProps,
   {}
@@ -51,6 +52,28 @@ export class CollapseGroupRender extends React.Component<
   constructor(props: CollapseGroupProps) {
     super(props);
   }
+
+  @autobind
+  async handleCollapseChange(
+    activeKeys: Array<string | number>,
+    collapseId: string | number,
+    collapsed: boolean
+  ) {
+    const {dispatchEvent, onCollapse} = this.props;
+    const renderEvent = await dispatchEvent(
+      'change',
+      resolveEventData(this.props, {
+        activeKeys,
+        collapseId,
+        collapsed
+      })
+    );
+    if (renderEvent?.prevented) {
+      return;
+    }
+    onCollapse?.(activeKeys, collapseId, collapsed);
+  }
+
   render() {
     const {
       defaultActiveKey,
@@ -59,7 +82,9 @@ export class CollapseGroupRender extends React.Component<
       expandIconPosition,
       body,
       className,
-      render
+      style,
+      render,
+      mobileUI
     } = this.props;
     return (
       <CollapseGroup
@@ -68,6 +93,9 @@ export class CollapseGroupRender extends React.Component<
         expandIcon={expandIcon}
         expandIconPosition={expandIconPosition}
         className={className}
+        style={style}
+        mobileUI={mobileUI}
+        onCollapseChange={this.handleCollapseChange}
       >
         {render('body', body || '')}
       </CollapseGroup>

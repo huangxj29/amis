@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`EventAction:dialog 1`] = `
+exports[`1. EventAction:dialog args 1`] = `
 <div>
   <div
     class="cxd-Page"
@@ -13,9 +13,10 @@ exports[`EventAction:dialog 1`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>
@@ -57,9 +58,10 @@ exports[`EventAction:dialog 1`] = `
       </div>
       <div
         class="cxd-Modal-body"
+        role="dialog-body"
       >
         <button
-          class="cxd-Button cxd-Button--default"
+          class="cxd-Button cxd-Button--default cxd-Button--size-default"
           type="button"
         >
           <span>
@@ -67,7 +69,7 @@ exports[`EventAction:dialog 1`] = `
           </span>
         </button>
         <button
-          class="cxd-Button cxd-Button--default ml-2"
+          class="cxd-Button cxd-Button--default cxd-Button--size-default ml-2"
           type="button"
         >
           <span>
@@ -75,7 +77,7 @@ exports[`EventAction:dialog 1`] = `
           </span>
         </button>
         <button
-          class="cxd-Button cxd-Button--default ml-2"
+          class="cxd-Button cxd-Button--default cxd-Button--size-default ml-2"
           type="button"
         >
           <span>
@@ -83,7 +85,7 @@ exports[`EventAction:dialog 1`] = `
           </span>
         </button>
         <button
-          class="cxd-Button cxd-Button--default ml-2"
+          class="cxd-Button cxd-Button--default cxd-Button--size-default ml-2"
           type="button"
         >
           <span>
@@ -95,7 +97,7 @@ exports[`EventAction:dialog 1`] = `
         class="cxd-Modal-footer"
       >
         <button
-          class="cxd-Button cxd-Button--default"
+          class="cxd-Button cxd-Button--default cxd-Button--size-default"
           type="button"
         >
           <span>
@@ -103,7 +105,7 @@ exports[`EventAction:dialog 1`] = `
           </span>
         </button>
         <button
-          class="cxd-Button cxd-Button--primary"
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
           type="button"
         >
           <span>
@@ -116,7 +118,7 @@ exports[`EventAction:dialog 1`] = `
 </div>
 `;
 
-exports[`EventAction:dialog 2`] = `
+exports[`1. EventAction:dialog args 2`] = `
 <div>
   <div
     class="cxd-Page"
@@ -129,9 +131,10 @@ exports[`EventAction:dialog 2`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>
@@ -145,7 +148,7 @@ exports[`EventAction:dialog 2`] = `
 </div>
 `;
 
-exports[`EventAction:dialog 3`] = `
+exports[`1. EventAction:dialog args 3`] = `
 <div>
   <div
     class="cxd-Page"
@@ -158,9 +161,10 @@ exports[`EventAction:dialog 3`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>
@@ -174,7 +178,7 @@ exports[`EventAction:dialog 3`] = `
 </div>
 `;
 
-exports[`EventAction:dialog 4`] = `
+exports[`1. EventAction:dialog args 4`] = `
 <div>
   <div
     class="cxd-Page"
@@ -187,9 +191,10 @@ exports[`EventAction:dialog 4`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>
@@ -203,7 +208,7 @@ exports[`EventAction:dialog 4`] = `
 </div>
 `;
 
-exports[`EventAction:dialog 5`] = `
+exports[`1. EventAction:dialog args 5`] = `
 <div>
   <div
     class="cxd-Page"
@@ -216,9 +221,10 @@ exports[`EventAction:dialog 5`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>
@@ -232,7 +238,7 @@ exports[`EventAction:dialog 5`] = `
 </div>
 `;
 
-exports[`EventAction:dialog 6`] = `
+exports[`1. EventAction:dialog args 6`] = `
 <div>
   <div
     class="cxd-Page"
@@ -245,9 +251,10 @@ exports[`EventAction:dialog 6`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>
@@ -261,7 +268,7 @@ exports[`EventAction:dialog 6`] = `
 </div>
 `;
 
-exports[`EventAction:dialog 7`] = `
+exports[`1. EventAction:dialog args 7`] = `
 <div>
   <div
     class="cxd-Page"
@@ -274,9 +281,308 @@ exports[`EventAction:dialog 7`] = `
       >
         <div
           class="cxd-Page-body"
+          role="page-body"
         >
           <button
-            class="cxd-Button cxd-Button--default"
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 1`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div
+    class="amis-dialog-widget cxd-Modal cxd-Modal--1th"
+    role="dialog"
+  >
+    <div
+      class="cxd-Modal-overlay in"
+    />
+    <div
+      class="cxd-Modal-content in"
+    >
+      <div
+        class="cxd-Modal-header"
+      >
+        <a
+          class="cxd-Modal-close"
+          data-position="left"
+          data-tooltip="关闭"
+        >
+          <icon-mock
+            classname="icon icon-close"
+            icon="close"
+          />
+        </a>
+        <div
+          class="cxd-Modal-title"
+        >
+          模态弹窗
+        </div>
+      </div>
+      <div
+        class="cxd-Modal-body"
+        role="dialog-body"
+      >
+        <button
+          class="cxd-Button cxd-Button--default cxd-Button--size-default"
+          type="button"
+        >
+          <span>
+            打开子弹窗
+          </span>
+        </button>
+        <button
+          class="cxd-Button cxd-Button--default cxd-Button--size-default ml-2"
+          type="button"
+        >
+          <span>
+            关闭当前弹窗
+          </span>
+        </button>
+        <button
+          class="cxd-Button cxd-Button--default cxd-Button--size-default ml-2"
+          type="button"
+        >
+          <span>
+            触发确认
+          </span>
+        </button>
+        <button
+          class="cxd-Button cxd-Button--default cxd-Button--size-default ml-2"
+          type="button"
+        >
+          <span>
+            触发取消
+          </span>
+        </button>
+      </div>
+      <div
+        class="cxd-Modal-footer"
+      >
+        <button
+          class="cxd-Button cxd-Button--default cxd-Button--size-default"
+          type="button"
+        >
+          <span>
+            取消
+          </span>
+        </button>
+        <button
+          class="cxd-Button cxd-Button--primary cxd-Button--size-default"
+          type="button"
+        >
+          <span>
+            确认
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 2`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 3`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 4`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 5`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 6`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
+            type="button"
+          >
+            <span>
+              打开弹窗
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`2. EventAction:dialog 7`] = `
+<div>
+  <div
+    class="cxd-Page"
+  >
+    <div
+      class="cxd-Page-content"
+    >
+      <div
+        class="cxd-Page-main"
+      >
+        <div
+          class="cxd-Page-body"
+          role="page-body"
+        >
+          <button
+            class="cxd-Button cxd-Button--default cxd-Button--size-default"
             type="button"
           >
             <span>

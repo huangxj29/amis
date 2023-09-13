@@ -8,7 +8,7 @@ import {Link} from 'amis-ui';
 
 /**
  * Link 链接展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/link
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/link
  */
 export interface LinkSchema extends BaseSchema {
   /**
@@ -82,6 +82,7 @@ export class LinkCmpt extends React.Component<LinkProps, object> {
   render() {
     const {
       className,
+      style,
       body,
       href,
       classnames: cx,
@@ -104,6 +105,7 @@ export class LinkCmpt extends React.Component<LinkProps, object> {
     return (
       <Link
         className={className}
+        style={style}
         href={value}
         disabled={disabled}
         title={title}

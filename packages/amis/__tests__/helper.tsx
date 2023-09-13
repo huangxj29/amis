@@ -57,3 +57,77 @@ export const createMockMediaMatcher =
       return true;
     }
   });
+
+export function formatStyleObject(style: string | null, px2number = true) {
+  if (!style) {
+    return {};
+  }
+
+  // 去除注释 /* xx */
+  style = style.replace(/\/\*[^(\*\/)]*\*\//g, '');
+
+  const res: any = {};
+  style.split(';').forEach((item: string) => {
+    if (!item || !String(item).includes(':')) return;
+
+    const [key, value] = item.split(':');
+
+    res[String(key).trim()] =
+      px2number && value.endsWith('px')
+        ? Number(String(value).replace(/px$/, ''))
+        : String(value).trim();
+  });
+
+  return res;
+}
+
+/**
+ * This function searches for the every react-aria SSR ids in a given HTMLElement node and replace every attribute values with a static id
+ *
+ * This can be usefull when you're trying to generate a snapshot of components using react-aria under the hood
+ *
+ * @ex :
+ * ```
+ * const { container } = render(<Component />);
+ *
+ * replaceReactAriaIds(container);
+ * ```
+ *
+ * @param container The HTMLElement node to search for SSR ids
+ */
+export function replaceReactAriaIds(container: HTMLElement) {
+  const selectors = ['aria-labelledby'];
+  const ariaSelector = (el: string) => `[${el}]`;
+  const regexp = /downshift\-\d+-label/g;
+
+  container
+    .querySelectorAll(selectors.map(ariaSelector).join(', '))
+    .forEach(el => {
+      selectors.forEach(selector => {
+        const attr = el.getAttribute(selector);
+
+        if (attr?.match(regexp)) {
+          el.removeAttribute(selector);
+        }
+      });
+    });
+}
+
+// Mock IntersectionObserver
+class IntersectionObserver {
+  observe = jest.fn();
+  disconnect = jest.fn();
+  unobserve = jest.fn();
+}
+
+Object.defineProperty(window, 'IntersectionObserver', {
+  writable: true,
+  configurable: true,
+  value: IntersectionObserver
+});
+
+Object.defineProperty(global, 'IntersectionObserver', {
+  writable: true,
+  configurable: true,
+  value: IntersectionObserver
+});

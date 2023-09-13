@@ -7,12 +7,22 @@ export interface TimelineProps extends ThemeProps {
   direction?: 'vertical' | 'horizontal';
   reverse?: boolean;
   mode?: 'left' | 'right' | 'alternate';
+  iconClassName?: string;
+  timeClassName?: string;
+  titleClassName?: string;
+  detailClassName?: string;
 }
 
 export function Timeline(props: TimelineProps) {
   const {
     items,
+    style,
     classnames: cx,
+    className,
+    iconClassName,
+    timeClassName,
+    titleClassName,
+    detailClassName,
     direction = 'vertical',
     reverse = false,
     mode = 'right'
@@ -24,10 +34,23 @@ export function Timeline(props: TimelineProps) {
 
   return (
     <div
-      className={cx('Timeline', `Timeline-${direction}`, `Timeline-${mode}`)}
+      className={cx(
+        'Timeline',
+        `Timeline-${direction}`,
+        `Timeline-${mode}`,
+        className
+      )}
+      style={style}
     >
       {timelineDatasource?.map((item: TimelineItemProps, index: number) => (
-        <TimelineItem {...item} key={`TimelineItem-${index}`} />
+        <TimelineItem
+          {...item}
+          key={`TimelineItem-${index}`}
+          iconClassName={item.iconClassName || iconClassName}
+          timeClassName={item.timeClassName || timeClassName}
+          titleClassName={item.titleClassName || titleClassName}
+          detailClassName={item.detailClassName || detailClassName}
+        />
       ))}
     </div>
   );

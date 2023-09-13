@@ -1,7 +1,14 @@
 import React from 'react';
-import {AsideNav, Html, NotFound, Spinner} from 'amis-ui';
+import {
+  AsideNav,
+  Html,
+  Icon,
+  NotFound,
+  Spinner,
+  SpinnerExtraProps
+} from 'amis-ui';
 import {Layout} from 'amis-ui';
-import {Renderer, RendererProps, replaceText} from 'amis-core';
+import {Renderer, RendererProps, filter, replaceText} from 'amis-core';
 import {
   BaseSchema,
   SchemaApi,
@@ -10,12 +17,10 @@ import {
 } from '../Schema';
 import {IScopedContext, ScopedContext} from 'amis-core';
 import {AppStore, IAppStore} from 'amis-core';
-import {Api, SchemaNode} from 'amis-core';
 import {isApiOutdated, isEffectiveApi} from 'amis-core';
 import {autobind} from 'amis-core';
-import {generateIcon} from 'amis-core';
 
-export interface AppPage {
+export interface AppPage extends SpinnerExtraProps {
   /**
    * 菜单文字
    */
@@ -82,9 +87,9 @@ export interface AppPage {
 
 /**
  * App 渲染器，适合 JSSDK 用来做多页渲染。
- * 文档：https://baidu.gitee.io/amis/docs/components/app
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/app
  */
-export interface AppSchema extends BaseSchema {
+export interface AppSchema extends BaseSchema, SpinnerExtraProps {
   /**
    * 指定为 app 类型。
    */
@@ -190,6 +195,14 @@ export default class App extends React.Component<AppProps, object> {
   }
 
   async componentDidMount() {
+    const {data, dispatchEvent} = this.props;
+
+    const rendererEvent = await dispatchEvent('init', data, this);
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
     this.reload();
   }
 
@@ -215,9 +228,15 @@ export default class App extends React.Component<AppProps, object> {
     this.unWatchRouteChange?.();
   }
 
-  async reload(subpath?: any, query?: any, ctx?: any, silent?: boolean) {
+  async reload(
+    subpath?: any,
+    query?: any,
+    ctx?: any,
+    silent?: boolean,
+    replace?: boolean
+  ) {
     if (query) {
-      return this.receive(query);
+      return this.receive(query, undefined, replace);
     }
 
     const {
@@ -231,7 +250,11 @@ export default class App extends React.Component<AppProps, object> {
     if (isEffectiveApi(api, store.data)) {
       const json = await store.fetchInitData(api, store.data, {});
       if (env.replaceText) {
-        replaceText(json.data, env.replaceText, env.replaceTextIgnoreKeys);
+        json.data = replaceText(
+          json.data,
+          env.replaceText,
+          env.replaceTextIgnoreKeys
+        );
       }
 
       if (json?.data.pages) {
@@ -246,10 +269,10 @@ export default class App extends React.Component<AppProps, object> {
     }
   }
 
-  receive(values: object) {
+  receive(values: object, subPath?: string, replace?: boolean) {
     const {store} = this.props;
 
-    store.updateData(values);
+    store.updateData(values, undefined, replace);
     this.reload();
   }
 
@@ -263,7 +286,19 @@ export default class App extends React.Component<AppProps, object> {
   }
 
   renderHeader() {
-    const {classnames: cx, brandName, header, render, store, logo} = this.props;
+    const {
+      classnames: cx,
+      brandName,
+      header,
+      render,
+      store,
+      logo,
+      env
+    } = this.props;
+
+    if (!header && !logo && !brandName) {
+      return null;
+    }
 
     return (
       <>
@@ -277,10 +312,18 @@ export default class App extends React.Component<AppProps, object> {
 
           <div className={cx('Layout-brand')}>
             {logo && ~logo.indexOf('<svg') ? (
-              <Html className={cx('AppLogo-html')} html={logo} />
+              <Html
+                className={cx('AppLogo-html')}
+                html={logo}
+                filterHtml={env.filterHtml}
+              />
             ) : logo ? (
               <img className={cx('AppLogo')} src={logo} />
-            ) : null}
+            ) : (
+              <span className="visible-folded ">
+                {brandName?.substring(0, 1)}
+              </span>
+            )}
             <span className="hidden-folded m-l-sm">{brandName}</span>
           </div>
         </div>
@@ -302,7 +345,7 @@ export default class App extends React.Component<AppProps, object> {
   }
 
   renderAside() {
-    const {store, env, asideBefore, asideAfter, render} = this.props;
+    const {store, env, asideBefore, asideAfter, render, data} = this.props;
 
     return (
       <>
@@ -329,7 +372,12 @@ export default class App extends React.Component<AppProps, object> {
               );
             }
 
-            link.badge &&
+            const badge =
+              typeof link.badge === 'string'
+                ? filter(link.badge, data)
+                : link.badge;
+
+            badge != null &&
               children.push(
                 <b
                   key="badge"
@@ -338,12 +386,14 @@ export default class App extends React.Component<AppProps, object> {
                     link.badgeClassName || 'bg-info'
                   )}
                 >
-                  {link.badge}
+                  {badge}
                 </b>
               );
 
             if (!subHeader && link.icon) {
-              children.push(generateIcon(cx, link.icon, 'AsideNav-itemIcon'));
+              children.push(
+                <Icon cx={cx} icon={link.icon} className="AsideNav-itemIcon" />
+              );
             } else if (store.folded && depth === 1 && !subHeader) {
               children.push(
                 <i
@@ -358,7 +408,9 @@ export default class App extends React.Component<AppProps, object> {
 
             children.push(
               <span className={cx('AsideNav-itemLabel')} key="label">
-                {link.label}
+                {typeof link.label === 'string'
+                  ? filter(link.label, data)
+                  : link.label}
               </span>
             );
 
@@ -395,12 +447,11 @@ export default class App extends React.Component<AppProps, object> {
 
   render() {
     const {
-      className,
-      size,
       classnames: cx,
       store,
       render,
-      showBreadcrumb = true
+      showBreadcrumb = true,
+      loadingConfig
     } = this.props;
 
     return (
@@ -410,6 +461,7 @@ export default class App extends React.Component<AppProps, object> {
         footer={this.renderFooter()}
         folded={store.folded}
         offScreen={store.offScreen}
+        contentClassName={cx('AppContent')}
       >
         {store.activePage && store.schema ? (
           <>
@@ -433,17 +485,24 @@ export default class App extends React.Component<AppProps, object> {
               </ul>
             ) : null}
 
-            {render('page', store.schema, {
-              key: `${store.activePage?.id}-${store.schemaKey}`,
-              data: store.pageData
-            })}
+            <div className={cx('AppBody')}>
+              {render('page', store.schema, {
+                key: `${store.activePage?.id}-${store.schemaKey}`,
+                data: store.pageData
+              })}
+            </div>
           </>
         ) : store.pages && !store.activePage ? (
           <NotFound>
             <div className="text-center">页面不存在</div>
           </NotFound>
         ) : null}
-        <Spinner overlay show={store.loading || !store.pages} size="lg" />
+        <Spinner
+          loadingConfig={loadingConfig}
+          overlay
+          show={store.loading || !store.pages}
+          size="lg"
+        />
       </Layout>
     );
   }
@@ -468,7 +527,12 @@ export class AppRenderer extends App {
     super.componentWillUnmount();
   }
 
-  setData(values: object) {
-    return this.props.store.updateData(values);
+  setData(values: object, replace?: boolean) {
+    return this.props.store.updateData(values, undefined, replace);
+  }
+
+  getData() {
+    const {store} = this.props;
+    return store.data;
   }
 }

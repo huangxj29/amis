@@ -5,12 +5,13 @@
 
 import React from 'react';
 import {findDOMNode} from 'react-dom';
-import {RendererProps} from 'amis-core';
+import {RendererProps, getRendererByName, noop} from 'amis-core';
 import hoistNonReactStatic from 'hoist-non-react-statics';
 import {ActionObject} from 'amis-core';
 import keycode from 'keycode';
 import {Overlay} from 'amis-core';
 import {PopOver} from 'amis-core';
+import omit from 'lodash/omit';
 import {Icon} from 'amis-ui';
 import {SchemaCollection, SchemaObject} from '../Schema';
 
@@ -80,6 +81,7 @@ export interface QuickEditConfig {
   body?: any;
   focusable?: boolean;
   popOverClassName?: string;
+  isFormMode?: boolean;
   [propName: string]: any;
 }
 
@@ -119,8 +121,10 @@ export const HocQuickEdit =
         this.handleWindowKeyPress = this.handleWindowKeyPress.bind(this);
         this.handleWindowKeyDown = this.handleWindowKeyDown.bind(this);
         this.formRef = this.formRef.bind(this);
+        this.formItemRef = this.formItemRef.bind(this);
         this.handleInit = this.handleInit.bind(this);
         this.handleChange = this.handleChange.bind(this);
+        this.handleFormItemChange = this.handleFormItemChange.bind(this);
 
         this.state = {
           isOpened: false
@@ -148,6 +152,17 @@ export const HocQuickEdit =
           }
 
           quickEditFormRef(ref, colIndex, rowIndex);
+        }
+      }
+      formItemRef(ref: any) {
+        const {quickEditFormItemRef, rowIndex, colIndex} = this.props;
+
+        if (quickEditFormItemRef) {
+          while (ref && ref.getWrappedInstance) {
+            ref = ref.getWrappedInstance();
+          }
+
+          quickEditFormItemRef(ref, colIndex, rowIndex);
         }
       }
 
@@ -335,6 +350,17 @@ export const HocQuickEdit =
         );
       }
 
+      handleFormItemChange(value: any) {
+        const {onQuickChange, quickEdit, name} = this.props;
+
+        onQuickChange(
+          {[name!]: value},
+          (quickEdit as QuickEditConfig).saveImmediately,
+          false,
+          quickEdit as QuickEditConfig
+        );
+      }
+
       openQuickEdit() {
         currentOpened = this;
         this.setState({
@@ -384,7 +410,19 @@ export const HocQuickEdit =
             ]
           };
         } else if (quickEdit) {
-          if (
+          if (quickEdit?.isFormMode) {
+            schema = {
+              mode: 'normal',
+              type: 'form',
+              wrapWithPanel: false,
+              body: [
+                {
+                  ...omit(quickEdit, 'isFormMode'),
+                  label: false
+                }
+              ]
+            };
+          } else if (
             quickEdit.body &&
             !~['combo', 'group', 'panel', 'fieldSet', 'fieldset'].indexOf(
               (quickEdit as any).type
@@ -416,12 +454,15 @@ export const HocQuickEdit =
           }
         }
 
+        const isline = (quickEdit as QuickEditConfig).mode === 'inline';
+        const isFormMode = (quickEdit as QuickEditConfig)?.isFormMode;
+
         if (schema) {
           schema = {
             ...schema,
-            wrapWithPanel: (quickEdit as QuickEditConfig).mode !== 'inline',
+            wrapWithPanel: !(isline || isFormMode),
             actions:
-              (quickEdit as QuickEditConfig).mode === 'inline'
+              isline || isFormMode
                 ? []
                 : [
                     {
@@ -471,6 +512,7 @@ export const HocQuickEdit =
           >
             {render('quick-edit-form', this.buildSchema(), {
               value: undefined,
+              static: false,
               onSubmit: this.handleSubmit,
               onAction: this.handleAction,
               onChange: null,
@@ -490,7 +532,7 @@ export const HocQuickEdit =
             container={popOverContainer}
             target={() => this.target}
             onHide={this.closeQuickEdit}
-            placement="left-top right-top left-bottom right-bottom left-top"
+            placement="left-top right-top left-bottom right-bottom left-top left-top-right-top left-bottom-right-bottom"
             show
           >
             <PopOver
@@ -506,6 +548,51 @@ export const HocQuickEdit =
             </PopOver>
           </Overlay>
         );
+      }
+
+      renderInlineForm() {
+        const {
+          render,
+          classnames: cx,
+          canAccessSuperData,
+          disabled,
+          value,
+          name
+        } = this.props;
+
+        const schema: any = this.buildSchema();
+
+        // 有且只有一个表单项时，直接渲染表单项
+        if (
+          Array.isArray(schema.body) &&
+          schema.body.length === 1 &&
+          !schema.body[0].unique && // 唯一模式还不支持
+          !schema.body[0].value && // 不能有默认值表达式什么的情况
+          schema.body[0].name &&
+          schema.body[0].name === name &&
+          schema.body[0].type &&
+          getRendererByName(schema.body[0].type)?.isFormItem
+        ) {
+          return render('inline-form-item', schema.body[0], {
+            mode: 'normal',
+            value: value || '',
+            onChange: this.handleFormItemChange,
+            ref: this.formItemRef
+          });
+        }
+
+        return render('inline-form', schema, {
+          value: undefined,
+          wrapperComponent: 'div',
+          className: cx('Form--quickEdit'),
+          ref: this.formRef,
+          simpleMode: true,
+          onInit: this.handleInit,
+          onChange: this.handleChange,
+          formLazyChange: false,
+          canAccessSuperData,
+          disabled
+        });
       }
 
       render() {
@@ -524,28 +611,21 @@ export const HocQuickEdit =
         if (
           !quickEdit ||
           !onQuickChange ||
-          quickEditEnabled === false ||
-          noHoc ||
-          disabled
+          (!(typeof quickEdit === 'object' && quickEdit?.isQuickEditFormMode) &&
+            quickEditEnabled === false) ||
+          noHoc
+          // 此处的readOnly会导致组件值无法传递出去，如 value: "${a + b}" 这样的 value 变化需要同步到数据域
+          // || readOnly
         ) {
           return <Component {...this.props} />;
         }
 
-        if ((quickEdit as QuickEditConfig).mode === 'inline') {
+        if (
+          (quickEdit as QuickEditConfig).mode === 'inline' ||
+          (quickEdit as QuickEditConfig).isFormMode
+        ) {
           return (
-            <Component {...this.props}>
-              {render('inline-form', this.buildSchema(), {
-                value: undefined,
-                wrapperComponent: 'div',
-                className: cx('Form--quickEdit'),
-                ref: this.formRef,
-                simpleMode: true,
-                onInit: this.handleInit,
-                onChange: this.handleChange,
-                formLazyChange: false,
-                canAccessSuperData
-              })}
-            </Component>
+            <Component {...this.props}>{this.renderInlineForm()}</Component>
           );
         } else {
           return (
@@ -559,16 +639,18 @@ export const HocQuickEdit =
                   ? undefined
                   : '0'
               }
-              onKeyUp={this.handleKeyUp}
+              onKeyUp={disabled ? noop : this.handleKeyUp}
             >
-              <Component {...this.props} wrapperComponent={''} noHoc />
-              <span
-                key="edit-btn"
-                className={cx('Field-quickEditBtn')}
-                onClick={this.openQuickEdit}
-              >
-                <Icon icon="edit" className="icon" />
-              </span>
+              <Component {...this.props} contentsOnly noHoc />
+              {disabled ? null : (
+                <span
+                  key="edit-btn"
+                  className={cx('Field-quickEditBtn')}
+                  onClick={this.openQuickEdit}
+                >
+                  <Icon icon="edit" className="icon" />
+                </span>
+              )}
               {this.state.isOpened ? this.renderPopOver() : null}
             </Component>
           );

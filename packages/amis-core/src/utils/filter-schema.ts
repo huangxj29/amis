@@ -17,7 +17,7 @@ import cx from 'classnames';
 export function getExprProperties(
   schema: PlainObject,
   data: object = {},
-  blackList: Array<string> = ['addOn'],
+  blackList: Array<string> = ['addOn', 'ref'],
   props?: any
 ): PlainObject {
   const exprProps: PlainObject = {};
@@ -51,10 +51,11 @@ export function getExprProperties(
           });
         }
 
-        value =
-          parts[2] === 'On'
-            ? evalExpression(value, ctx || data)
-            : filter(value, ctx || data);
+        if (parts[2] === 'On') {
+          value = props?.[key] || evalExpression(value, ctx || data);
+        } else {
+          value = filter(value, ctx || data);
+        }
       }
 
       exprProps[key] = value;

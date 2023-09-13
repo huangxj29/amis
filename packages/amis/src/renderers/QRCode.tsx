@@ -26,7 +26,7 @@ export interface QRCodeImageSettings {
 
 /**
  * 二维码展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/qrcode
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/qrcode
  */
 export interface QRCodeSchema extends BaseSchema {
   type: 'qrcode' | 'qr-code';
@@ -122,6 +122,7 @@ export default class QRCode extends React.Component<QRCodeProps, any> {
   render() {
     const {
       className,
+      style,
       qrcodeClassName,
       codeSize,
       backgroundColor,
@@ -139,7 +140,7 @@ export default class QRCode extends React.Component<QRCodeProps, any> {
     );
 
     return (
-      <div className={cx(`${ns}QrCode`, className)}>
+      <div className={cx(`${ns}QrCode`, className)} style={style}>
         {!finalValue ? (
           <span className={`${ns}QrCode--placeholder`}>{placeholder}</span>
         ) : finalValue.length > 2953 ? (

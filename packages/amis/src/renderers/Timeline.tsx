@@ -1,15 +1,21 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
 import {
+  Renderer,
+  RendererProps,
+  filter,
+  isPureVariable,
+  resolveVariableAndFilter,
+  createObject
+} from 'amis-core';
+import {RemoteOptionsProps, withRemoteConfig, Timeline} from 'amis-ui';
+
+import type {
   BaseSchema,
   SchemaApi,
   SchemaCollection,
   SchemaTokenizeableString
 } from '../Schema';
-import {resolveVariable} from 'amis-core';
-import {Timeline} from 'amis-ui';
-import {filter} from 'amis-core';
-import {RemoteOptionsProps, withRemoteConfig} from 'amis-ui';
+import type {IconCheckedSchema} from 'amis-ui';
 
 export interface TimelineItemSchema extends Omit<BaseSchema, 'type'> {
   /**
@@ -45,7 +51,24 @@ export interface TimelineItemSchema extends Omit<BaseSchema, 'type'> {
   /**
    * 图标
    */
-  icon?: SchemaCollection;
+  icon?: string | IconCheckedSchema;
+
+  /**
+   * 图标的CSS类名
+   */
+  iconClassName?: string;
+  /**
+   * 节点时间的CSS类名（优先级高于统一配置的timeClassName）
+   */
+  timeClassName?: string;
+  /**
+   * 节点标题的CSS类名（优先级高于统一配置的titleClassName）
+   */
+  titleClassName?: string;
+  /**
+   * 节点详情的CSS类名（优先级高于统一配置的detailClassName）
+   */
+  detailClassName?: string;
 }
 
 export interface TimelineSchema extends BaseSchema {
@@ -78,6 +101,26 @@ export interface TimelineSchema extends BaseSchema {
    * 节点倒序
    */
   reverse?: boolean;
+  /**
+   * 节点title自定一展示模板
+   */
+  itemTitleSchema?: SchemaCollection;
+  /**
+   * 图标的CSS类名
+   */
+  iconClassName?: string;
+  /**
+   * 节点时间的CSS类名
+   */
+  timeClassName?: string;
+  /**
+   * 节点标题的CSS类名
+   */
+  titleClassName?: string;
+  /**
+   * 节点详情的CSS类名
+   */
+  detailClassName?: string;
 }
 
 export interface TimelineProps
@@ -85,22 +128,51 @@ export interface TimelineProps
     Omit<TimelineSchema, 'className'> {}
 
 export function TimelineCmpt(props: TimelineProps) {
-  const {items, mode, direction, reverse, data, config, source, render} = props;
-
-  // 获取源数据
-  const timelineItemsRow: Array<TimelineItemSchema> = config || items || [];
+  const {
+    items,
+    mode,
+    style,
+    direction,
+    reverse,
+    data,
+    itemTitleSchema,
+    className,
+    timeClassName,
+    titleClassName,
+    detailClassName,
+    render
+  } = props;
 
   // 渲染内容
   const resolveRender = (region: string, val?: SchemaCollection) =>
     typeof val === 'string' ? filter(val, data) : val && render(region, val);
 
   // 处理源数据
-  const resolveTimelineItems = timelineItemsRow?.map(
-    (timelineItem: TimelineItemSchema) => {
+  const resolveTimelineItems = (items || []).map(
+    (timelineItem: TimelineItemSchema, index: number) => {
+      const {
+        icon,
+        iconClassName,
+        title,
+        timeClassName,
+        titleClassName,
+        detailClassName
+      } = timelineItem;
+
       return {
         ...timelineItem,
-        icon: resolveRender('icon', timelineItem.icon),
-        title: resolveRender('title', timelineItem.title)
+        iconClassName,
+        timeClassName,
+        titleClassName,
+        detailClassName,
+        icon: isPureVariable(icon)
+          ? resolveVariableAndFilter(icon, data, '| raw')
+          : icon,
+        title: itemTitleSchema
+          ? render(`${index}/body`, itemTitleSchema, {
+              data: createObject(data, timelineItem)
+            })
+          : resolveRender('title', title)
       };
     }
   );
@@ -111,6 +183,11 @@ export function TimelineCmpt(props: TimelineProps) {
       direction={direction}
       reverse={reverse}
       mode={mode}
+      style={style}
+      className={className}
+      timeClassName={timeClassName}
+      titleClassName={titleClassName}
+      detailClassName={detailClassName}
     />
   );
 }
@@ -122,8 +199,18 @@ const TimelineWithRemoteConfig = withRemoteConfig({
     RemoteOptionsProps & React.ComponentProps<typeof TimelineCmpt>
   > {
     render() {
-      const {config, deferLoad, loading, updateConfig, ...rest} = this.props;
-      return <TimelineCmpt config={config} {...rest} />;
+      const {config, items, deferLoad, loading, updateConfig, ...rest} =
+        this.props;
+
+      let sourceItems: Array<TimelineItemSchema> = config
+        ? Array.isArray(config)
+          ? config
+          : Object.keys(config).map(key => ({
+              time: key,
+              title: config[key]
+            }))
+        : items || [];
+      return <TimelineCmpt items={sourceItems} {...rest} />;
     }
   }
 );

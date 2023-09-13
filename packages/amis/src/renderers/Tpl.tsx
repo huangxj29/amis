@@ -1,7 +1,13 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
-import {filter} from 'amis-core';
-import cx from 'classnames';
+import {
+  autobind,
+  createObject,
+  Renderer,
+  RendererProps,
+  CustomStyle
+} from 'amis-core';
+import {filter, asyncFilter} from 'amis-core';
+import isEmpty from 'lodash/isEmpty';
 import {anyChanged, getPropValue} from 'amis-core';
 import {escapeHtml} from 'amis-core';
 import {BaseSchema, SchemaTpl} from '../Schema';
@@ -15,7 +21,7 @@ export interface TplSchema extends BaseSchema {
   /**
    * 指定为模板渲染器。
    *
-   * 文档：https://baidu.gitee.io/amis/docs/concepts/template
+   * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/docs/concepts/template
    */
   type: 'tpl' | 'html';
 
@@ -28,6 +34,11 @@ export interface TplSchema extends BaseSchema {
    * 是否内联显示？
    */
   inline?: boolean;
+
+  /**
+   * 标签类型
+   */
+  wrapperComponent?: any;
 
   /**
    * 自定义样式
@@ -45,40 +56,54 @@ export interface TplSchema extends BaseSchema {
 export interface TplProps extends RendererProps, TplSchema {
   className?: string;
   value?: string;
-  wrapperComponent?: any;
-  inline?: boolean;
 }
 
-export class Tpl extends React.Component<TplProps, object> {
+interface TplState {
+  content: string;
+}
+
+export class Tpl extends React.Component<TplProps, TplState> {
   static defaultProps: Partial<TplProps> = {
     inline: true,
     placeholder: ''
   };
 
   dom: any;
+  mounted: boolean;
 
   constructor(props: TplProps) {
     super(props);
-    this.htmlRef = this.htmlRef.bind(this);
+    this.state = {
+      content: this.getContent()
+    };
+    this.mounted = true;
   }
 
-  componentDidUpdate(prevProps: TplProps) {
+  componentDidUpdate(prevProps: Readonly<TplProps>): void {
+    const checkProps = ['tpl', 'html', 'text', 'raw', 'data', 'placeholder'];
     if (
-      anyChanged(
-        ['data', 'tpl', 'html', 'text', 'raw', 'value'],
-        this.props,
-        prevProps
-      )
+      checkProps.some(key => prevProps[key] !== this.props[key]) ||
+      getPropValue(prevProps) !== getPropValue(this.props)
     ) {
-      this._render();
+      this.updateContent();
     }
   }
 
-  htmlRef(dom: any) {
-    this.dom = dom;
-    this._render();
+  componentDidMount() {
+    this.updateContent();
   }
 
+  componentWillUnmount() {
+    this.mounted = false;
+  }
+
+  @autobind
+  async updateContent() {
+    const content = await this.getAsyncContent();
+    this.mounted && this.setState({content});
+  }
+
+  @autobind
   getContent() {
     const {tpl, html, text, raw, data, placeholder} = this.props;
     const value = getPropValue(this.props);
@@ -100,14 +125,65 @@ export class Tpl extends React.Component<TplProps, object> {
     }
   }
 
-  _render() {
-    if (!this.dom) {
-      return;
+  @autobind
+  async getAsyncContent() {
+    const {tpl, html, text, data, raw, placeholder} = this.props;
+    const value = getPropValue(this.props);
+
+    if (raw) {
+      return raw;
+    } else if (html) {
+      return asyncFilter(html, data);
+    } else if (tpl) {
+      return asyncFilter(tpl, data);
+    } else if (text) {
+      return escapeHtml(await asyncFilter(text, data));
+    } else {
+      return value == null || value === ''
+        ? `<span class="text-muted">${placeholder}</span>`
+        : typeof value === 'string'
+        ? value
+        : JSON.stringify(value);
+    }
+  }
+
+  /**
+   * 过滤掉HTML标签, 仅提取文本内容, 用于HTML标签的title属性
+   */
+  @autobind
+  getTitle(content: string) {
+    const {showNativeTitle} = this.props;
+
+    if (!showNativeTitle) {
+      return '';
     }
 
-    this.dom.firstChild.innerHTML = this.props.env.filterHtml(
-      this.getContent()
-    );
+    let title = typeof content === 'string' ? content : '';
+    const tempDom = new DOMParser().parseFromString(content, 'text/html');
+
+    if (tempDom?.body?.textContent) {
+      title = tempDom.body.textContent;
+    }
+
+    return title;
+  }
+
+  @autobind
+  handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  @autobind
+  handleMouseEnter(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  @autobind
+  handleMouseLeave(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
   }
 
   render() {
@@ -117,22 +193,61 @@ export class Tpl extends React.Component<TplProps, object> {
       inline,
       classnames: cx,
       style,
+      maxLine,
       showNativeTitle,
-      data
+      data,
+      id,
+      wrapperCustomStyle,
+      env,
+      themeCss,
+      baseControlClassName
     } = this.props;
     const Component = wrapperComponent || (inline ? 'span' : 'div');
-    const content = this.getContent();
+    const {content} = this.state;
+
+    // 显示行数处理
+    let styles: React.CSSProperties = {};
+    let cln = '';
+    if (maxLine > 0) {
+      cln = 'max-line';
+      styles.WebkitLineClamp = +maxLine;
+    }
 
     return (
       <Component
-        ref={this.htmlRef}
-        className={cx('TplField', className)}
+        className={cx(
+          'TplField',
+          className,
+          baseControlClassName,
+          wrapperCustomStyle
+            ? `wrapperCustomStyle-${id?.replace('u:', '')}`
+            : ''
+        )}
         style={buildStyle(style, data)}
-        {...(showNativeTitle
-          ? {title: typeof content === 'string' ? content : ''}
-          : {})}
+        {...(showNativeTitle ? {title: this.getTitle(content)} : {})}
+        onClick={this.handleClick}
+        onMouseEnter={this.handleMouseEnter}
+        onMouseLeave={this.handleMouseLeave}
       >
-        <span>{content}</span>
+        <span
+          className={cln ? cx(cln) : undefined}
+          style={!isEmpty(styles) ? styles : undefined}
+          dangerouslySetInnerHTML={{__html: env.filterHtml(content)}}
+        ></span>
+        <CustomStyle
+          config={{
+            wrapperCustomStyle,
+            id,
+            themeCss,
+            classNames: [
+              {
+                key: 'baseControlClassName',
+                value: baseControlClassName
+              }
+            ]
+          }}
+          env={env}
+        />
       </Component>
     );
   }

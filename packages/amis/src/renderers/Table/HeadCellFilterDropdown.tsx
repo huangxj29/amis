@@ -1,5 +1,4 @@
 import React from 'react';
-import {Api} from 'amis-core';
 import {RendererProps} from 'amis-core';
 import {isApiOutdated, isEffectiveApi, normalizeApi} from 'amis-core';
 import {Icon} from 'amis-ui';
@@ -8,21 +7,34 @@ import {PopOver} from 'amis-core';
 import {findDOMNode} from 'react-dom';
 import {Checkbox} from 'amis-ui';
 import xor from 'lodash/xor';
-import {normalizeOptions} from 'amis-core';
-import {getVariable, createObject} from 'amis-core';
+import {
+  normalizeOptions,
+  getVariable,
+  createObject,
+  isNumeric
+} from 'amis-core';
+import type {Option} from 'amis-core';
 
 export interface QuickFilterConfig {
   options: Array<any>;
   // source: Api;
   multiple: boolean;
+  /* 是否开启严格对比模式 */
+  strictMode?: boolean;
   [propName: string]: any;
+  refreshOnOpen?: boolean; // 展开是否重新加载数据 当source配置api时才起作用
 }
 
 export interface HeadCellFilterProps extends RendererProps {
   data: any;
   name: string;
   filterable: QuickFilterConfig;
-  onQuery: (values: object) => void;
+  onQuery: (
+    values: object,
+    forceReload?: boolean,
+    replace?: boolean,
+    resetPage?: boolean
+  ) => void;
 }
 
 export class HeadCellFilterDropDown extends React.Component<
@@ -45,7 +57,7 @@ export class HeadCellFilterDropDown extends React.Component<
   }
 
   componentDidMount() {
-    const {filterable, name, store} = this.props;
+    const {filterable} = this.props;
 
     if (filterable.source) {
       this.fetchOptions();
@@ -60,6 +72,8 @@ export class HeadCellFilterDropDown extends React.Component<
     const name = this.props.name;
 
     const props = this.props;
+
+    this.sourceInvalid = false;
 
     if (
       prevProps.name !== props.name ||
@@ -115,9 +129,8 @@ export class HeadCellFilterDropDown extends React.Component<
     this.sourceInvalid && this.fetchOptions();
   }
 
-  fetchOptions() {
+  async fetchOptions() {
     const {env, filterable, data} = this.props;
-
     if (!isEffectiveApi(filterable.source, data)) {
       return;
     }
@@ -125,11 +138,10 @@ export class HeadCellFilterDropDown extends React.Component<
     const api = normalizeApi(filterable.source);
     api.cache = 3000; // 开启 3s 缓存，因为固顶位置渲染1次会额外多次请求。
 
-    env.fetcher(api, data).then(ret => {
-      let options = (ret.data && ret.data.options) || [];
-      this.setState({
-        filterOptions: ret && ret.data && this.alterOptions(options)
-      });
+    const ret = await env.fetcher(api, data);
+    let options = (ret.data && ret.data.options) || [];
+    this.setState({
+      filterOptions: ret && ret.data && this.alterOptions(options)
     });
   }
 
@@ -147,17 +159,37 @@ export class HeadCellFilterDropDown extends React.Component<
     } else {
       options = options.map(option => ({
         ...option,
-        selected: option.value == filterValue
+        selected: this.optionComparator(option, filterValue)
       }));
     }
     return options;
+  }
+
+  optionComparator(option: Option, selected: any) {
+    const {filterable} = this.props;
+
+    /**
+     * 无论是否严格模式，需要考虑CRUD开启syncLocation后，参数值会被转化为string的情况：
+     * 数字类需要特殊处理，如果两边都为数字类时才进行比较，否则不相等，排除 1 == true 这种情况
+     */
+    if (isNumeric(option.value)) {
+      return isNumeric(selected) ? option.value == selected : false;
+    }
+
+    return filterable?.strictMode === true
+      ? option.value === selected
+      : option.value == selected;
   }
 
   handleClickOutside() {
     this.close();
   }
 
-  open() {
+  async open() {
+    const {filterable} = this.props;
+    if (filterable.refreshOnOpen && filterable.source) {
+      await this.fetchOptions();
+    }
     this.setState({
       isOpened: true
     });
@@ -184,9 +216,14 @@ export class HeadCellFilterDropDown extends React.Component<
       return;
     }
 
-    onQuery({
-      [name]: value
-    });
+    onQuery(
+      {
+        [name]: value
+      },
+      false,
+      false,
+      true
+    );
     this.close();
   }
 
@@ -218,11 +255,29 @@ export class HeadCellFilterDropDown extends React.Component<
     });
   }
 
-  handleReset() {
-    const {name, onQuery} = this.props;
-    onQuery({
-      [name]: undefined
-    });
+  async handleReset() {
+    const {name, dispatchEvent, data, onQuery} = this.props;
+
+    const rendererEvent = await dispatchEvent(
+      'columnFilter',
+      createObject(data, {
+        filterName: name,
+        filterValue: undefined
+      })
+    );
+
+    if (rendererEvent?.prevented) {
+      return;
+    }
+
+    onQuery(
+      {
+        [name]: undefined
+      },
+      false,
+      false,
+      true
+    );
     this.close();
   }
 

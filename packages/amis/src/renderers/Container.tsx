@@ -1,11 +1,70 @@
 import React from 'react';
-import {Renderer, RendererProps} from 'amis-core';
+import merge from 'lodash/merge';
+import {
+  Renderer,
+  RendererProps,
+  autobind,
+  buildStyle,
+  isPureVariable,
+  resolveVariableAndFilter,
+  CustomStyle
+} from 'amis-core';
+import {DndContainer as DndWrapper} from 'amis-ui';
 import {BaseSchema, SchemaClassName, SchemaCollection} from '../Schema';
-import {buildStyle} from 'amis-core';
+
+/** 容器拖拽配置 */
+export interface ContainerDraggableConfig {
+  /**
+   * 可拖拽的方向, 默认为所有方向, 支持设置为X或Y轴
+   */
+  axis?: 'both' | 'x' | 'y';
+
+  /**
+   * 元素的起始位置
+   */
+  defaultPosition?: {x: number; y: number};
+
+  /**
+   * 拖拽的边界, 可以设置坐标, 也可以设置父级元素的选择器
+   */
+  bounds?:
+    | {
+        left?: number;
+        right?: number;
+        top?: number;
+        bottom?: number;
+      }
+    | string;
+
+  /**
+   * 以网格模式拖拽的步长
+   */
+  grid?: [number, number];
+
+  /**
+   * 初始化拖拽的选择器
+   */
+  handle?: string;
+
+  /**
+   * 禁止拖拽的选择器
+   */
+  cancel?: string;
+
+  /**
+   * 拖拽距离的缩放比, 默认为1
+   */
+  scale?: number;
+
+  /**
+   * 默认设置容器内部为'user-select:none', 可以设置true关闭
+   */
+  enableUserSelect?: boolean;
+}
 
 /**
  * Container 容器渲染器。
- * 文档：https://baidu.gitee.io/amis/docs/components/container
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/container
  */
 export interface ContainerSchema extends BaseSchema {
   /**
@@ -34,11 +93,26 @@ export interface ContainerSchema extends BaseSchema {
    * 使用的标签
    */
   wrapperComponent?: string;
+
+  /**
+   * 是否需要对body加一层div包裹，默认为 true
+   */
+  wrapperBody?: boolean;
+
+  /**
+   * 是否开启容器拖拽
+   */
+  draggable?: boolean | string;
+
+  /**
+   * 是否开启容器拖拽配置
+   */
+  draggableConfig: ContainerDraggableConfig | string;
 }
 
 export interface ContainerProps
   extends RendererProps,
-    Omit<ContainerSchema, 'type' | 'className'> {
+    Omit<ContainerSchema, 'type' | 'className' | 'style'> {
   children?: (props: any) => React.ReactNode;
 }
 
@@ -48,8 +122,31 @@ export default class Container<T> extends React.Component<
 > {
   static propsList: Array<string> = ['body', 'className'];
   static defaultProps = {
-    className: ''
+    className: '',
+    draggableConfig: {
+      axis: 'both' as ContainerDraggableConfig['axis'],
+      scale: 1,
+      enableUserSelect: false
+    }
   };
+
+  @autobind
+  handleClick(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  @autobind
+  handleMouseEnter(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  @autobind
+  handleMouseLeave(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
 
   renderBody(): JSX.Element | null {
     const {
@@ -58,20 +155,29 @@ export default class Container<T> extends React.Component<
       render,
       classnames: cx,
       bodyClassName,
-      disabled
+      disabled,
+      wrapperBody
     } = this.props;
 
-    return (
-      <div className={cx('Container-body', bodyClassName)}>
-        {children
-          ? typeof children === 'function'
-            ? ((children as any)(this.props) as JSX.Element)
-            : (children as unknown)
-          : body
-          ? (render('body', body as any, {disabled}) as JSX.Element)
-          : null}
-      </div>
-    );
+    const isWrapperBody = wrapperBody ?? true;
+
+    const containerBody = children
+      ? typeof children === 'function'
+        ? ((children as any)(this.props) as JSX.Element)
+        : (children as any)
+      : body
+      ? (render('body', body as any, {disabled}) as JSX.Element)
+      : null;
+
+    if (isWrapperBody) {
+      return (
+        <div className={cx('Container-body', bodyClassName)}>
+          {containerBody}
+        </div>
+      );
+    } else {
+      return containerBody;
+    }
   }
 
   render() {
@@ -81,19 +187,66 @@ export default class Container<T> extends React.Component<
       size,
       classnames: cx,
       style,
-      data
+      data,
+      draggable,
+      draggableConfig,
+      id,
+      wrapperCustomStyle,
+      env,
+      themeCss,
+      baseControlClassName
     } = this.props;
-
+    const finalDraggable: boolean = isPureVariable(draggable)
+      ? resolveVariableAndFilter(draggable, data, '| raw')
+      : draggable;
+    const finalDraggableConfig: ContainerDraggableConfig = merge(
+      Container.defaultProps.draggableConfig,
+      isPureVariable(draggableConfig)
+        ? resolveVariableAndFilter(draggableConfig, data, '| raw')
+        : draggableConfig
+    );
     const Component =
       (wrapperComponent as keyof JSX.IntrinsicElements) || 'div';
-
-    return (
+    const contentDom = (
       <Component
-        className={cx('Container', className)}
+        className={cx(
+          'Container',
+          size && size !== 'none' ? `Container--${size}` : '',
+          className,
+          baseControlClassName,
+          wrapperCustomStyle
+            ? `wrapperCustomStyle-${id?.replace('u:', '')}`
+            : ''
+        )}
+        onClick={this.handleClick}
+        onMouseEnter={this.handleMouseEnter}
+        onMouseLeave={this.handleMouseLeave}
         style={buildStyle(style, data)}
       >
         {this.renderBody()}
+        <CustomStyle
+          config={{
+            wrapperCustomStyle,
+            id,
+            themeCss,
+            classNames: [
+              {
+                key: 'baseControlClassName',
+                value: baseControlClassName
+              }
+            ]
+          }}
+          env={env}
+        />
       </Component>
+    );
+
+    return finalDraggable ? (
+      <DndWrapper {...finalDraggableConfig} draggable={true}>
+        {contentDom}
+      </DndWrapper>
+    ) : (
+      contentDom
     );
   }
 }

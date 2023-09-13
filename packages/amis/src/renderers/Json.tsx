@@ -1,13 +1,15 @@
 import React from 'react';
 import {Renderer, RendererProps} from 'amis-core';
 
-import JsonView, {InteractionProps} from 'react-json-view';
+import type {InteractionProps} from 'react-json-view';
 import {autobind, getPropValue, noop} from 'amis-core';
 import {BaseSchema} from '../Schema';
 import {resolveVariableAndFilter, isPureVariable} from 'amis-core';
+
+export const JsonView = React.lazy(() => import('react-json-view'));
 /**
  * JSON 数据展示控件。
- * 文档：https://baidu.gitee.io/amis/docs/components/json
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/json
  */
 export interface JsonSchema extends BaseSchema {
   /**
@@ -109,6 +111,7 @@ export class JSONField extends React.Component<JSONProps, object> {
   render() {
     const {
       className,
+      style,
       jsonTheme,
       classnames: cx,
       placeholder,
@@ -146,32 +149,34 @@ export class JSONField extends React.Component<JSONProps, object> {
     }
 
     // JsonView 只支持对象，所以不是对象格式需要转成对象格式。
-    if (data && ~['string', 'number'].indexOf(typeof data)) {
+    if (~['string', 'number', 'boolean'].indexOf(typeof data)) {
       data = {
         [typeof data]: data
       };
     }
 
     return (
-      <div className={cx('JsonField', className)}>
+      <div className={cx('JsonField', className)} style={style}>
         {typeof data === 'undefined' || data === null ? (
           placeholder
         ) : (
-          <JsonView
-            name={false}
-            src={data}
-            theme={(jsonThemeValue as any) ?? 'rjv-default'}
-            shouldCollapse={this.shouldExpandNode}
-            enableClipboard={enableClipboard}
-            displayDataTypes={displayDataTypes}
-            collapseStringsAfterLength={ellipsisThreshold}
-            iconStyle={iconStyle}
-            quotesOnKeys={quotesOnKeys}
-            sortKeys={sortKeys}
-            onEdit={name && mutable ? this.emitChange : false}
-            onDelete={name && mutable ? this.emitChange : false}
-            onAdd={name && mutable ? this.emitChange : false}
-          />
+          <React.Suspense fallback={<div>...</div>}>
+            <JsonView
+              name={false}
+              src={data}
+              theme={(jsonThemeValue as any) ?? 'rjv-default'}
+              shouldCollapse={this.shouldExpandNode}
+              enableClipboard={enableClipboard}
+              displayDataTypes={displayDataTypes}
+              collapseStringsAfterLength={ellipsisThreshold}
+              iconStyle={iconStyle}
+              quotesOnKeys={quotesOnKeys}
+              sortKeys={sortKeys}
+              onEdit={name && mutable ? this.emitChange : false}
+              onDelete={name && mutable ? this.emitChange : false}
+              onAdd={name && mutable ? this.emitChange : false}
+            />
+          </React.Suspense>
         )}
       </div>
     );

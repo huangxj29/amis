@@ -2,14 +2,16 @@
  * amis 运行时调试功能，为了避免循环引用，这个组件不要依赖 amis 里的组件
  */
 
-import React, {Component, useEffect, useRef, useState} from 'react';
+import React, {Component, useEffect, useRef, useState, version} from 'react';
 import cx from 'classnames';
-import {findDOMNode, render} from 'react-dom';
-import JsonView from 'react-json-view';
+import {findDOMNode, render, unmountComponentAtNode} from 'react-dom';
+// import {createRoot} from 'react-dom/client';
 import {autorun, observable} from 'mobx';
 import {observer} from 'mobx-react';
 import {uuidv4} from './helper';
 import position from './position';
+
+export const JsonView = React.lazy(() => import('react-json-view'));
 
 class Log {
   @observable cat = '';
@@ -83,16 +85,18 @@ const LogView = observer(({store}: {store: AMISDebugStore}) => {
               [{log.cat}] {log.msg}
             </div>
             {log.ext ? (
-              <JsonView
-                name={null}
-                theme="monokai"
-                src={JSON.parse(log.ext)}
-                collapsed={true}
-                enableClipboard={false}
-                displayDataTypes={false}
-                collapseStringsAfterLength={ellipsisThreshold}
-                iconStyle="square"
-              />
+              <React.Suspense fallback={<div>Loading...</div>}>
+                <JsonView
+                  name={null}
+                  theme="monokai"
+                  src={JSON.parse(log.ext)}
+                  collapsed={true}
+                  enableClipboard={false}
+                  displayDataTypes={false}
+                  collapseStringsAfterLength={ellipsisThreshold}
+                  iconStyle="square"
+                />
+              </React.Suspense>
             ) : null}
           </div>
         );
@@ -125,16 +129,18 @@ const AMISDebug = observer(({store}: {store: AMISDebugStore}) => {
       stackDataView.push(
         <div key={`data-${level}`}>
           <h3>Data Level-{level}</h3>
-          <JsonView
-            key={`dataview-${stack}`}
-            name={null}
-            theme="monokai"
-            src={stack}
-            collapsed={level === 0 ? false : true}
-            enableClipboard={false}
-            displayDataTypes={false}
-            iconStyle="square"
-          />
+          <React.Suspense fallback={<div>Loading...</div>}>
+            <JsonView
+              key={`dataview-${stack}`}
+              name={null}
+              theme="monokai"
+              src={stack}
+              collapsed={level === 0 ? false : true}
+              enableClipboard={false}
+              displayDataTypes={false}
+              iconStyle="square"
+            />
+          </React.Suspense>
         </div>
       );
       level += 1;
@@ -207,6 +213,8 @@ const AMISDebug = observer(({store}: {store: AMISDebugStore}) => {
           title="Close"
           onClick={() => {
             store.isExpanded = false;
+            store.activeId = '';
+            store.hoverId = '';
           }}
         >
           <i className="fas fa-times" />
@@ -316,7 +324,7 @@ function handleMouseclick(e: MouseEvent) {
   }
   const dom = e.target as HTMLElement;
   const target = dom.closest(`[data-debug-id]`);
-  if (target) {
+  if (target && !target.closest('.AMISDebug')) {
     store.activeId = target.getAttribute('data-debug-id')!;
     store.tab = 'inspect';
   }
@@ -339,6 +347,8 @@ autorun(() => {
     amisHoverBox.style.left = `${offset.left}px`;
     amisHoverBox.style.width = `${offset.width}px`;
     amisHoverBox.style.height = `${offset.height}px`;
+  } else {
+    amisHoverBox.style.top = '-999999px';
   }
 });
 
@@ -347,17 +357,21 @@ autorun(() => {
   const activeElement = document.querySelector(
     `[data-debug-id="${activeId}"]`
   ) as HTMLElement;
+
   if (activeElement) {
     const offset = position(activeElement, document.body);
     amisActiveBox.style.top = `${offset.top}px`;
     amisActiveBox.style.left = `${offset.left}px`;
     amisActiveBox.style.width = `${offset.width}px`;
     amisActiveBox.style.height = `${offset.height}px`;
+  } else {
+    amisActiveBox.style.top = '-999999px';
   }
 });
 
 // 页面中只能有一个实例
 let isEnabled = false;
+let unmount: () => void;
 
 export function enableDebug() {
   if (isEnabled) {
@@ -368,7 +382,21 @@ export function enableDebug() {
   const amisDebugElement = document.createElement('div');
   document.body.appendChild(amisDebugElement);
   const element = <AMISDebug store={store} />;
+
+  // if (parseInt(version.split('.')[0], 10) >= 18) {
+  //   const root = createRoot(amisDebugElement);
+  //   root.render(element);
+  //   unmount = () => {
+  //     root.unmount();
+  //     document.body.removeChild(amisDebugElement);
+  //   };
+  // } else {
   render(element, amisDebugElement);
+  unmount = () => {
+    unmountComponentAtNode(amisDebugElement);
+    document.body.removeChild(amisDebugElement);
+  };
+  // }
 
   document.body.appendChild(amisHoverBox);
   document.body.appendChild(amisActiveBox);
@@ -376,23 +404,51 @@ export function enableDebug() {
   document.addEventListener('click', handleMouseclick);
 }
 
+export function disableDebug() {
+  if (!isEnabled) {
+    return;
+  }
+  isEnabled = false;
+  unmount?.();
+  document.body.removeChild(amisHoverBox);
+  document.body.removeChild(amisActiveBox);
+  document.removeEventListener('mousemove', handleMouseMove);
+  document.removeEventListener('click', handleMouseclick);
+}
+
 interface DebugWrapperProps {
   renderer: any;
+  children?: React.ReactNode;
 }
 
 export class DebugWrapper extends Component<DebugWrapperProps> {
+  debugId: string = uuidv4();
   componentDidMount() {
     const root = findDOMNode(this) as HTMLElement;
     if (!root) {
       return;
     }
     const {renderer} = this.props;
-    const debugId = uuidv4();
-    root.setAttribute('data-debug-id', debugId);
-    ComponentInfo[debugId] = {
+    root.setAttribute('data-debug-id', this.debugId);
+    ComponentInfo[this.debugId] = {
       name: renderer.name,
       component: this.props.children
     };
+  }
+
+  componentDidUpdate(prevProps: DebugWrapperProps) {
+    const {renderer} = this.props;
+    if (!ComponentInfo[this.debugId]) {
+      return;
+    }
+    ComponentInfo[this.debugId] = {
+      name: renderer.name,
+      component: this.props.children
+    };
+  }
+
+  componentWillUnmount() {
+    delete ComponentInfo[this.debugId];
   }
 
   render() {
@@ -411,16 +467,17 @@ export function debug(cat: Category, msg: string, ext?: object) {
   if (!isEnabled) {
     return;
   }
+
+  console.groupCollapsed('[amis debug]', msg);
+  console.debug(ext);
+  console.groupEnd();
+
   const log = {
     cat,
     level: 'debug',
     msg: msg,
     ext: JSON.stringify(ext)
   };
-  console.groupCollapsed('amis debug', msg);
-  console.trace(log);
-  console.groupEnd();
-
   store.logs.push(log);
 }
 
@@ -444,4 +501,31 @@ export function warning(cat: Category, msg: string, ext?: object) {
   console.trace(log);
   console.groupEnd();
   store.logs.push(log);
+}
+
+// 辅助定位是因为什么属性变化导致了组件更新
+export function traceProps(props: any, prevProps: any, componentName: string) {
+  console.log(
+    componentName,
+    Object.keys(props)
+      .map(key => {
+        if (props[key] !== prevProps[key]) {
+          if (key === 'data') {
+            return `data[${Object.keys(props[key])
+              .map(item => {
+                if (props[key][item] !== prevProps[key][item]) {
+                  return `data.${item}`;
+                }
+                return '';
+              })
+              .filter(item => item)
+              .join(', ')}]`;
+          }
+
+          return key;
+        }
+        return '';
+      })
+      .filter(item => item)
+  );
 }

@@ -1,12 +1,23 @@
 import React from 'react';
-import {Renderer, RendererProps, filter} from 'amis-core';
+import {
+  Renderer,
+  RendererProps,
+  filter,
+  autobind,
+  createObject,
+  CustomStyle
+} from 'amis-core';
 import {BaseSchema, SchemaTpl} from '../Schema';
-import {BadgeObject, withBadge} from 'amis-ui';
-import {getIcon} from 'amis-ui/lib/components/icons';
+import {
+  BadgeObject,
+  withBadge,
+  Icon as IconUI,
+  IconCheckedSchema
+} from 'amis-ui';
 
 /**
- * Icon 图表渲染器
- * 文档：https://baidu.gitee.io/amis/docs/components/icon
+ * Icon 图标渲染器
+ * 文档：https://aisuda.bce.baidu.com/amis/zh-CN/components/icon
  */
 export interface IconSchema extends BaseSchema {
   type: 'icon';
@@ -14,7 +25,7 @@ export interface IconSchema extends BaseSchema {
   /**
    * 按钮类型
    */
-  icon: SchemaTpl;
+  icon: SchemaTpl | IconCheckedSchema;
 
   vendor?: 'iconfont' | 'fa' | '';
 
@@ -34,32 +45,63 @@ export class Icon extends React.Component<IconProps, object> {
     vendor: 'fa'
   };
 
+  @autobind
+  handleClick(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  @autobind
+  handleMouseEnter(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
+  @autobind
+  handleMouseLeave(e: React.MouseEvent<any>) {
+    const {dispatchEvent, data} = this.props;
+    dispatchEvent(e, data);
+  }
+
   render() {
-    const {vendor, classnames: cx, className, data} = this.props;
+    const {
+      classnames: cx,
+      className,
+      data,
+      id,
+      themeCss,
+      css,
+      env
+    } = this.props;
     let icon = this.props.icon;
 
-    icon = filter(icon, data);
-
-    let CustomIcon = getIcon(icon);
-    if (CustomIcon) {
-      return <CustomIcon className={cx(className, `icon-${icon}`)} />;
+    if (typeof icon === 'string') {
+      icon = filter(this.props.icon, data);
     }
 
-    const isURLIcon = icon?.indexOf('.') !== -1;
-    let iconPrefix = '';
-    if (vendor === 'iconfont') {
-      iconPrefix = `iconfont icon-${icon}`;
-    } else if (vendor === 'fa') {
-      //默认是fontawesome v4，兼容之前配置
-      iconPrefix = `${vendor} ${vendor}-${icon}`;
-    } else {
-      // 如果vendor为空，则不设置前缀,这样可以支持fontawesome v5、fontawesome v6或者其他框架
-      iconPrefix = `${icon}`;
-    }
-    return isURLIcon ? (
-      <img className={cx('Icon')} src={icon} />
-    ) : (
-      <i className={cx(iconPrefix, className)} />
+    return (
+      <>
+        <IconUI
+          {...this.props}
+          icon={icon}
+          onClick={this.handleClick}
+          onMouseEnter={this.handleMouseEnter}
+          onMouseLeave={this.handleMouseLeave}
+        />
+        <CustomStyle
+          config={{
+            themeCss: themeCss || css,
+            classNames: [
+              {
+                key: 'className',
+                value: className
+              }
+            ],
+            id
+          }}
+          env={env}
+        />
+      </>
     );
   }
 }

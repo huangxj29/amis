@@ -3,6 +3,8 @@ import {localeable, LocaleProps} from 'amis-core';
 import {themeable, ThemeProps} from 'amis-core';
 import {Icon} from './icons';
 
+import type {IconCheckedSchema} from 'amis-ui';
+
 export interface TimelineItemProps {
   /**
    * 时间点
@@ -37,7 +39,22 @@ export interface TimelineItemProps {
   /**
    * 图标
    */
-  icon?: string | ReactNode;
+  icon?: string | IconCheckedSchema | ReactNode;
+
+  /** ICON的CSS类名 */
+  iconClassName?: string;
+  /**
+   * 时间的CSS类名 （优先级高于外层titleClassName）
+   */
+  timeClassName?: string;
+  /**
+   * 节点标题的CSS类名（优先级高于外层titleClassName）
+   */
+  titleClassName?: string;
+  /**
+   * 节点详情的CSS类名（优先级高于外层detailClassName）
+   */
+  detailClassName?: string;
 }
 
 export interface TimelineItem
@@ -56,8 +73,13 @@ export function TimelineItem(props: TimelineItem) {
     detailExpandedText,
     color,
     icon,
+    iconClassName,
+    timeClassName,
+    titleClassName,
+    detailClassName,
     classnames: cx,
     translate: __,
+    classPrefix,
     key
   } = props;
 
@@ -90,7 +112,8 @@ export function TimelineItem(props: TimelineItem) {
               detailVisible
                 ? 'TimelineItem-detail-visible'
                 : 'TimelineItem-detail-invisible'
-            }`
+            }`,
+            detailClassName
           )}
         >
           {detail}
@@ -108,29 +131,28 @@ export function TimelineItem(props: TimelineItem) {
   return (
     <div className={cx('TimelineItem')} key={key}>
       <div className={cx('TimelineItem-axle')}>
-        <div
-          className={cx(
-            'TimelineItem-line',
-            icon ? 'TimelineItem-line-icon' : ''
-          )}
-        ></div>
+        <div className={cx('TimelineItem-line')}></div>
         {icon ? (
-          <div className={cx('TimelineItem-icon')}>
-            <Icon icon={icon} className="icon" />
+          <div className={cx('TimelineItem-icon', iconClassName)}>
+            <Icon
+              cx={cx}
+              icon={icon}
+              className="icon"
+              classPrefix={classPrefix}
+            />
           </div>
         ) : (
           <div
-            className={cx(
-              'TimelineItem-round',
-              levelColor && `TimelineItem-round--${levelColor}`
-            )}
+            className={cx('TimelineItem-round', iconClassName, {
+              [`TimelineItem-round--${levelColor}`]: !!levelColor
+            })}
             style={isColorVal ? {backgroundColor: color} : undefined}
           ></div>
         )}
       </div>
       <div className={cx('TimelineItem-content')}>
-        <div className={cx('TimelineItem-time')}>{time}</div>
-        <div className={cx('TimelineItem-title')}>{title}</div>
+        <div className={cx('TimelineItem-time', timeClassName)}>{time}</div>
+        <div className={cx('TimelineItem-title', titleClassName)}>{title}</div>
         {detail && (
           <div className={cx('TimelineItem-detail')}>
             {renderDetail(detail, detailCollapsedText, detailExpandedText)}

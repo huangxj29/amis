@@ -294,7 +294,10 @@ export function lexer(input: string, options?: LexerOptions) {
   }
 
   function openScript() {
-    if (mainState === mainStates.Template) {
+    if (
+      mainState === mainStates.Template ||
+      mainState === mainStates.EXPRESSION
+    ) {
       return null;
     }
 
@@ -333,9 +336,9 @@ export function lexer(input: string, options?: LexerOptions) {
       punctuator() ||
       char();
 
-    if (token?.value === '{') {
+    if (token?.value === '{' && token.type == 'Punctuator') {
       pushState(mainStates.BLOCK);
-    } else if (token?.value === '}') {
+    } else if (token?.value === '}' && token.type == 'Punctuator') {
       if (mainState === mainStates.Filter) {
         popState();
       }
@@ -363,7 +366,8 @@ export function lexer(input: string, options?: LexerOptions) {
     // filter 过滤器部分需要特殊处理
     if (
       mainState === mainStates.SCRIPT &&
-      token?.value === '|' &&
+      token?.type == 'Punctuator' &&
+      token.value === '|' &&
       allowFilter
     ) {
       pushState(mainStates.Filter);
@@ -373,7 +377,11 @@ export function lexer(input: string, options?: LexerOptions) {
         start: position(),
         end: position('|')
       };
-    } else if (mainState === mainStates.Filter && token?.value === '|') {
+    } else if (
+      mainState === mainStates.Filter &&
+      token?.value === '|' &&
+      token.type == 'Punctuator'
+    ) {
       return {
         type: TokenName[TokenEnum.OpenFilter],
         value: '|',
@@ -544,22 +552,27 @@ export function lexer(input: string, options?: LexerOptions) {
     return null;
   }
 
+  // substring(index, index + 4) 在某些情况会匹配错误
+  // 比如变量名称为 trueValue
+  // ${value2|isTrue:trueValue:falseValue}
   function literal() {
-    let keyword = input.substring(index, index + 4).toLowerCase();
+    // {4,10} 匹配长度就足够判断  ("true").length <= targetLength <= ("undefined").length + 1
+    const match = input.substring(index).match(/^\w{4,10}/);
+    if (!match) {
+      return null;
+    }
+
+    let keyword = match[0].toLowerCase();
     let value: any = keyword;
     let isLiteral = false;
+
     if (keyword === 'true' || keyword === 'null') {
       isLiteral = true;
       value = keyword === 'true' ? true : null;
-    } else if (
-      (keyword = input.substring(index, index + 5).toLowerCase()) === 'false'
-    ) {
+    } else if (keyword === 'false') {
       isLiteral = true;
       value = false;
-    } else if (
-      (keyword = input.substring(index, index + 9).toLowerCase()) ===
-      'undefined'
-    ) {
+    } else if (keyword === 'undefined') {
       isLiteral = true;
       value = undefined;
     }
@@ -720,7 +733,7 @@ export function lexer(input: string, options?: LexerOptions) {
     // 所以纯变量模式支持纯数字作为变量名
     const reg = options?.variableMode
       ? /^[\u4e00-\u9fa5A-Za-z0-9_$@][\u4e00-\u9fa5A-Za-z0-9_\-$@]*/
-      : /^(?:[\u4e00-\u9fa5A-Za-z_$@]([\u4e00-\u9fa5A-Za-z0-9_\-$@]|\\(?:\.|\[|\]|\(|\)|\{|\}|\s|=|!|>|<|\||&|\+|-|\*|\/|\^|~|%|&|\?|:|;|,))*|\d+[\u4e00-\u9fa5A-Za-z_$@](?:[\u4e00-\u9fa5A-Za-z0-9_\-$@]|\\(?:\.|\[|\]|\(|\)|\{|\}|\s|=|!|>|<|\||&|\+|-|\*|\/|\^|~|%|&|\?|:|;|,))*)/;
+      : /^(?:[\u4e00-\u9fa5A-Za-z_$@]([\u4e00-\u9fa5A-Za-z0-9_$@]|\\(?:\.|\[|\]|\(|\)|\{|\}|\s|=|!|>|<|\||&|\+|-|\*|\/|\^|~|%|&|\?|:|;|,))*|\d+[\u4e00-\u9fa5A-Za-z_$@](?:[\u4e00-\u9fa5A-Za-z0-9_$@]|\\(?:\.|\[|\]|\(|\)|\{|\}|\s|=|!|>|<|\||&|\+|-|\*|\/|\^|~|%|&|\?|:|;|,))*)/;
 
     const match = reg.exec(
       input.substring(index, index + 256) // 变量长度不能超过 256
