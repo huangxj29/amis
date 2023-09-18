@@ -818,7 +818,6 @@ export class Select extends React.Component<SelectProps, SelectState> {
         if (index === maxVisibleCount) {
           return (
             <TooltipWrapper
-              container={container || popOverContainer}
               key={selection.length}
               container={popOverContainer}
               tooltip={{

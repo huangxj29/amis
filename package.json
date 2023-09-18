@@ -25,7 +25,7 @@
     "release": "npm run build --workspaces && lerna publish from-package --registry=https://registry.npmjs.org --ignore-scripts",
     "revision": "ts-node ./scripts/generate-revision.ts",
     "publish-to-internal": "sh ./publish-to-internal.sh",
-    "stylelint": "npx stylelint 'packages/**/*.scss'",
+    "stylelint": "npx stylelint packages/**/*.scss",
     "typecheck": "tsc --noEmit",
     "dist": "sh build/build.sh"
   },
