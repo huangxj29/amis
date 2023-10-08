@@ -3,6 +3,12 @@ set -e
 
 export NODE_ENV=production
 
+echo "===amis==="
+npm run build --workspace amis-formula
+npm run build --workspace amis-core
+npm run build --workspace amis-ui
+npm run dist --workspace amis
+
 # 生成 dist
 echo "===fis dist==="
 rm -rf build/dist && ./node_modules/.bin/fis3 release -c -f fis-conf-dist.js

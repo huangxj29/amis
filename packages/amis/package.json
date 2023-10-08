@@ -14,7 +14,8 @@
     "build-esm": "npm run clean-dist && NODE_ENV=production rollup -c rollup.esm.config.js",
     "prettier": "prettier --write '{src,scss,examples}/**/**/*.{js,jsx,ts,tsx,scss,json}'",
     "build-schemas": "ts-node -O '{\"target\":\"es6\"}' ../../scripts/build-schemas.ts",
-    "clean-dist": "rimraf lib/** esm/**"
+    "clean-dist": "rimraf lib/** esm/**",
+    "dist": "rollup -c"
   },
   "repository": {
     "type": "git",

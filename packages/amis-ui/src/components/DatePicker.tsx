@@ -361,7 +361,6 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
 
   constructor(props: DateProps) {
     super(props);
-    this.inputValueCache = this.state.inputValue || '';
     this.inputRef = React.createRef();
     this.handleChange = this.handleChange.bind(this);
     this.selectShortcut = this.selectShortcut.bind(this);
@@ -421,6 +420,7 @@ export class DatePicker extends React.Component<DateProps, DatePickerState> {
       curTimeFormat,
       curDateFormat
     } as DatePickerState;
+    this.inputValueCache = this.state.inputValue || '';
   }
 
   dom: HTMLDivElement;

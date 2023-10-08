@@ -1,7 +1,9 @@
-import {theme} from 'amis-core';
+import {theme, ClassNamesFn, makeClassnames} from 'amis-core';
+export const classPrefix: string = 'antd-';
+export const classnames: ClassNamesFn = makeClassnames(classPrefix);
 
 theme('antd', {
-  classPrefix: 'antd-',
+  classPrefix: classPrefix,
   components: {
     toast: {
       closeButton: true

@@ -4,6 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const package = require('./packages/amis/package.json');
+const transformNodeEnvInline = require('./scripts/transform-node-env-inline');
 
 // 配置只编译哪些文件。
 fis
@@ -16,7 +17,8 @@ fis
     'lib/**',
     'sdk/**',
     'build/dist/**',
-    '.*/**'
+    '.*/**',
+    'node_modules/**'
   );
 fis.set('project.files', ['build/sdk-placeholder.html']);
 
@@ -98,9 +100,11 @@ fis.match('icons/**.svg', {
   }
 });
 
-fis.match('/node_modules/**.js', {
-  isMod: true
+fis.match('/node_modules/**.{js,cjs}', {
+  isMod: true,
+  rExt: 'js'
 });
+fis.set('project.fileType.text', 'cjs');
 
 fis.match('*.min.js', {
   optimizer: null
@@ -144,7 +148,7 @@ fis.match('*.html:jsx', {
 
 // 这些用了 esm
 fis.match(
-  '{echarts/extension/**.js,zrender/**.js,ansi-to-react/lib/index.js,markdown-it-html5-media/**.js}',
+  '{echarts/**.js,zrender/**.js,echarts-wordcloud/**.js,markdown-it-html5-media/**.js,react-hook-form/**.js,qrcode.react/**.js,axios/**.js}',
   {
     parser: fis.plugin('typescript', {
       sourceMap: false,
@@ -156,6 +160,11 @@ fis.match(
   }
 );
 
+// 过滤掉 process.env.NODE_ENV 分支中无关代码
+// 避免被分析成依赖，因为 fis 中是通过正则分析 require 语句的
+fis.on('process:start', transformNodeEnvInline);
+
+fis.unhook('components');
 fis.hook('node_modules', {
   shimProcess: false,
   shimGlobal: false,
@@ -164,7 +173,7 @@ fis.hook('node_modules', {
 });
 fis.hook('commonjs', {
   sourceMap: false,
-  extList: ['.js', '.jsx', '.tsx', '.ts'],
+  extList: ['.js', '.jsx', '.tsx', '.ts', '.cjs'],
   paths: {
     'monaco-editor': '/examples/loadMonacoEditor'
   }
@@ -236,6 +245,12 @@ fis.on('compile:end', function (file) {
     file.subpath === '/build/loader.ts'
   ) {
     file.setContent(file.getContent().replace(/@version/g, package.version));
+  } else if (file.subpath === '/packages/amis-core/src/index.tsx') {
+    file.setContent(
+      file
+        .getContent()
+        .replace(/__buildVersion/g, JSON.stringify(package.version))
+    );
   }
 });
 
@@ -297,8 +312,10 @@ fis.match('::package', {
       '!zrender/**',
       '!echarts/**',
       '!echarts-stat/**',
+      '!echarts-wordcloud/**',
       '!papaparse/**',
       '!exceljs/**',
+      '!xlsx/**',
       '!docsearch.js/**',
       '!monaco-editor/**.css',
       '!amis-ui/lib/components/RichText.js',
@@ -309,6 +326,7 @@ fis.match('::package', {
       '!reactcss/**',
       '!tinycolor2/**',
       '!cropperjs/**',
+      '!react-json-view/**',
       '!react-cropper/**',
       '!jsbarcode/**',
       '!amis-ui/lib/components/BarCode.js',
@@ -322,7 +340,10 @@ fis.match('::package', {
       '!uc.micro/**',
       '!markdown-it/**',
       '!markdown-it-html5-media/**',
-      '!punycode/**'
+      '!punycode/**',
+      '!office-viewer/**',
+      '!fflate/**',
+      '!amis-formula/lib/doc.js'
     ],
 
     'rich-text.js': ['amis-ui/lib/components/RichText.js', 'froala-editor/**'],
@@ -333,6 +354,8 @@ fis.match('::package', {
     'papaparse.js': ['papaparse/**'],
 
     'exceljs.js': ['exceljs/**'],
+
+    'xlsx.js': ['xlsx/**'],
 
     'markdown.js': [
       'amis-ui/lib/components/Markdown.js',
@@ -358,7 +381,16 @@ fis.match('::package', {
 
     'barcode.js': ['src/components/BarCode.tsx', 'jsbarcode/**'],
 
-    'charts.js': ['zrender/**', 'echarts/**', 'echarts-stat/**'],
+    'charts.js': [
+      'zrender/**',
+      'echarts/**',
+      'echarts-stat/**',
+      'echarts-wordcloud/**'
+    ],
+
+    'office-viewer.js': ['office-viewer/**', 'fflate/**'],
+    'json-view.js': 'react-json-view/**',
+    'fomula-doc.js': 'amis-formula/lib/doc.js',
 
     'rest.js': [
       '*.js',
@@ -371,8 +403,10 @@ fis.match('::package', {
       '!amis-ui/lib/components/RichText.js',
       '!zrender/**',
       '!echarts/**',
+      '!echarts-wordcloud/**',
       '!papaparse/**',
       '!exceljs/**',
+      '!xlsx/**',
       '!highlight.js/**',
       '!argparse/**',
       '!entities/**',
@@ -380,7 +414,9 @@ fis.match('::package', {
       '!mdurl/**',
       '!uc.micro/**',
       '!markdown-it/**',
-      '!markdown-it-html5-media/**'
+      '!markdown-it-html5-media/**',
+      '!office-viewer/**',
+      '!fflate/**'
     ]
   }),
   postpackager: [
