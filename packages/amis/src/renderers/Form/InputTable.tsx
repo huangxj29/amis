@@ -309,15 +309,17 @@ export default class FormTable extends React.Component<TableProps, TableState> {
     this.emitValue = this.emitValue.bind(this);
   }
 
-  componentDidUpdate(nextProps: TableProps) {
+  componentDidUpdate(prevProps: TableProps) {
     const props = this.props;
     let toUpdate: any = null;
 
     // 如果static为true 或 disabled为true，
     // 则删掉正在新增 或 编辑的那一行
+    // Form会向FormItem下发disabled属性，disbaled 属性值也需要同步到
     if (
-      props.$schema.disabled !== nextProps.$schema.disabled ||
-      props.$schema.static !== nextProps.$schema.static
+      prevProps.disabled !== props.disabled ||
+      props.$schema.disabled !== prevProps.$schema.disabled ||
+      props.$schema.static !== prevProps.$schema.static
     ) {
       const items = this.state.items.filter(item => !item.__isPlaceholder);
       toUpdate = {
@@ -328,14 +330,14 @@ export default class FormTable extends React.Component<TableProps, TableState> {
       };
     }
 
-    if (props.columns !== nextProps.columns) {
+    if (props.columns !== prevProps.columns) {
       toUpdate = {
         ...toUpdate,
         columns: this.buildColumns(props)
       };
     }
 
-    if (props.value !== nextProps.value) {
+    if (props.value !== prevProps.value) {
       toUpdate = {
         ...toUpdate,
         items: Array.isArray(props.value) ? props.value.concat() : [],
@@ -495,11 +497,12 @@ export default class FormTable extends React.Component<TableProps, TableState> {
         if (isEffectiveApi(addApi, ctx)) {
           const payload = await env.fetcher(addApi, ctx);
           if (payload && !payload.ok) {
-            env.notify(
-              'error',
-              (addApi as ApiObject)?.messages?.failed ??
-                (payload.msg || __('fetchFailed'))
-            );
+            !(addApi as ApiObject)?.silent &&
+              env.notify(
+                'error',
+                (addApi as ApiObject)?.messages?.failed ??
+                  (payload.msg || __('fetchFailed'))
+              );
             return;
           } else if (payload && payload.ok) {
             toAdd = payload.data;
@@ -783,7 +786,8 @@ export default class FormTable extends React.Component<TableProps, TableState> {
     }
 
     if (remote && !remote.ok) {
-      env.notify('error', apiMsg ?? (remote.msg || __('saveFailed')));
+      !((isNew ? addApi : updateApi) as ApiObject)?.silent &&
+        env.notify('error', apiMsg ?? (remote.msg || __('saveFailed')));
       const failEventName = isNew ? 'addFail' : 'editFail';
       this.dispatchEvent(failEventName, {
         index: this.state.editIndex,
@@ -876,10 +880,11 @@ export default class FormTable extends React.Component<TableProps, TableState> {
       const result = await env.fetcher(deleteApi, ctx);
 
       if (!result.ok) {
-        env.notify(
-          'error',
-          (deleteApi as ApiObject)?.messages?.failed ?? __('deleteFailed')
-        );
+        !(deleteApi as ApiObject)?.silent &&
+          env.notify(
+            'error',
+            (deleteApi as ApiObject)?.messages?.failed ?? __('deleteFailed')
+          );
         this.dispatchEvent('deleteFail', {index, item, error: result});
         return;
       }
@@ -1688,11 +1693,12 @@ export class TableControlRenderer extends FormTable {
         if (isEffectiveApi(addApi, ctx)) {
           const payload = await env.fetcher(addApi, ctx);
           if (payload && !payload.ok) {
-            env.notify(
-              'error',
-              (addApi as ApiObject)?.messages?.failed ??
-                (payload.msg || __('fetchFailed'))
-            );
+            !(addApi as ApiObject)?.silent &&
+              env.notify(
+                'error',
+                (addApi as ApiObject)?.messages?.failed ??
+                  (payload.msg || __('fetchFailed'))
+              );
             return;
           } else if (payload && payload.ok) {
             toAdd = payload.data;
@@ -1783,11 +1789,12 @@ export class TableControlRenderer extends FormTable {
           createObject(ctx, {deletedItems})
         );
         if (payload && !payload.ok) {
-          env.notify(
-            'error',
-            (deleteApi as ApiObject)?.messages?.failed ??
-              (payload.msg || __('fetchFailed'))
-          );
+          !(deleteApi as ApiObject)?.silent &&
+            env.notify(
+              'error',
+              (deleteApi as ApiObject)?.messages?.failed ??
+                (payload.msg || __('fetchFailed'))
+            );
           return;
         }
       }

@@ -68,6 +68,8 @@ import isPlainObject from 'lodash/isPlainObject';
 import omit from 'lodash/omit';
 import ColGroup from './ColGroup';
 import debounce from 'lodash/debounce';
+import AutoFilterForm from './AutoFilterForm';
+import Cell from './Cell';
 
 /**
  * 表格列，不指定类型时默认为文本类型。
@@ -340,6 +342,11 @@ export interface TableSchema extends BaseSchema {
    * 表格自动计算高度
    */
   autoFillHeight?: boolean | AutoFillHeightObject;
+
+  /**
+   * table layout
+   */
+  tableLayout?: 'fixed' | 'auto';
 }
 
 export interface TableProps extends RendererProps, SpinnerExtraProps {
@@ -529,6 +536,15 @@ export default class Table extends React.Component<TableProps, object> {
     leading: false
   });
 
+  updateAutoFillHeightLazy = debounce(
+    this.updateAutoFillHeight.bind(this),
+    250,
+    {
+      trailing: true,
+      leading: false
+    }
+  );
+
   constructor(props: TableProps, context: IScopedContext) {
     super(props);
 
@@ -539,7 +555,6 @@ export default class Table extends React.Component<TableProps, object> {
     this.tableRef = this.tableRef.bind(this);
     this.affixedTableRef = this.affixedTableRef.bind(this);
     this.updateTableInfo = this.updateTableInfo.bind(this);
-    this.updateTableInfoRef = this.updateTableInfoRef.bind(this);
     this.handleAction = this.handleAction.bind(this);
     this.handleCheck = this.handleCheck.bind(this);
     this.handleCheckAll = this.handleCheckAll.bind(this);
@@ -587,7 +602,8 @@ export default class Table extends React.Component<TableProps, object> {
       autoGenerateFilter,
       loading,
       canAccessSuperData,
-      lazyRenderAfter
+      lazyRenderAfter,
+      tableLayout
     } = props;
 
     let combineNum = props.combineNum;
@@ -619,7 +635,8 @@ export default class Table extends React.Component<TableProps, object> {
       maxKeepItemSelectionLength,
       loading,
       canAccessSuperData,
-      lazyRenderAfter
+      lazyRenderAfter,
+      tableLayout
     });
 
     if (
@@ -665,7 +682,7 @@ export default class Table extends React.Component<TableProps, object> {
     }
 
     updateRows && store.initRows(rows, props.getEntryId, props.reUseRow);
-    typeof props.selected !== 'undefined' &&
+    Array.isArray(props.selected) &&
       store.updateSelected(props.selected, props.valueField);
     return updateRows;
   }
@@ -674,22 +691,19 @@ export default class Table extends React.Component<TableProps, object> {
     const currentNode = findDOMNode(this) as HTMLElement;
 
     if (this.props.autoFillHeight) {
-      let frame: number;
-      let fn = () => {
-        cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(this.updateAutoFillHeight);
-      };
-      this.toDispose.push(resizeSensor(currentNode.parentElement!, fn));
+      this.toDispose.push(
+        resizeSensor(
+          currentNode.parentElement!,
+          this.updateAutoFillHeightLazy,
+          false,
+          'height'
+        )
+      );
       this.updateAutoFillHeight();
     }
 
     this.toDispose.push(
-      resizeSensor(
-        currentNode.parentElement!,
-        this.updateTableInfoLazy,
-        false,
-        'width'
-      )
+      resizeSensor(currentNode, this.updateTableInfoLazy, false, 'width')
     );
     const {store, autoGenerateFilter, onSearchableFromInit} = this.props;
 
@@ -788,7 +802,9 @@ export default class Table extends React.Component<TableProps, object> {
 
     const tableContentHeight = heightValue
       ? `${heightValue}px`
-      : `${viewportHeight - tableContentTop - tableContentBottom}px`;
+      : `${Math.round(
+          viewportHeight - tableContentTop - tableContentBottom
+        )}px`;
 
     tableContent.style[heightField] = tableContentHeight;
   }
@@ -817,7 +833,8 @@ export default class Table extends React.Component<TableProps, object> {
         'loading',
         'canAccessSuperData',
         'lazyRenderAfter',
-        'isCombineSelect'
+        'isCombineSelect',
+        'tableLayout'
       ],
       prevProps,
       props,
@@ -868,6 +885,7 @@ export default class Table extends React.Component<TableProps, object> {
     this.toDispose = [];
 
     this.updateTableInfoLazy.cancel();
+    this.updateAutoFillHeightLazy.cancel();
     formItem && isAlive(formItem) && formItem.setSubStore(null);
     clearTimeout(this.timer);
 
@@ -1225,16 +1243,9 @@ export default class Table extends React.Component<TableProps, object> {
     if (this.resizeLine) {
       return;
     }
-    this.props.store.syncTableWidth();
+    this.props.store.initTableWidth();
     this.handleOutterScroll();
     callback && setTimeout(callback, 20);
-  }
-
-  updateTableInfoRef(ref: any) {
-    if (!ref) {
-      return;
-    }
-    this.updateTableInfo();
   }
 
   // 当表格滚动是，需要让 affixHeader 部分的表格也滚动
@@ -1552,7 +1563,7 @@ export default class Table extends React.Component<TableProps, object> {
     const store = this.props.store;
     const index = parseInt(this.resizeLine!.getAttribute('data-index')!, 10);
     const column = store.columns[index];
-    this.lineStartWidth = column.width;
+    this.lineStartWidth = column.realWidth || column.width;
     this.resizeLine!.classList.add('is-resizing');
 
     document.addEventListener('mousemove', this.handleColResizeMouseMove);
@@ -1593,168 +1604,30 @@ export default class Table extends React.Component<TableProps, object> {
       onSearchableFromSubmit,
       onSearchableFromInit,
       classnames: cx,
-      autoGenerateFilter,
       translate: __,
       query,
-      data
+      data,
+      autoGenerateFilter
     } = this.props;
-    const {columnsNum, showBtnToolbar} =
-      typeof autoGenerateFilter === 'boolean'
-        ? {
-            columnsNum: 3,
-            showBtnToolbar: true
-          }
-        : autoGenerateFilter;
-    const searchableColumns = store.searchableColumns;
-    const activedSearchableColumns = store.activedSearchableColumns;
 
+    const searchableColumns = store.searchableColumns;
     if (!searchableColumns.length) {
       return null;
     }
-
-    const body: Array<any> = padArr(activedSearchableColumns, columnsNum).map(
-      group => ({
-        type: 'group',
-        body: group.map((column: any) => ({
-          ...(column.searchable === true
-            ? {
-                type: 'input-text',
-                name: column.name,
-                label: column.label
-              }
-            : {
-                type: 'input-text',
-                name: column.name,
-                ...column.searchable
-              }),
-          name: column.searchable?.name ?? column.name,
-          label: column.searchable?.label ?? column.label
-        }))
-      })
-    );
-
-    let showExpander = searchableColumns.length >= columnsNum;
-
-    // todo 以后做动画
-    if (!store.searchFormExpanded && body.length) {
-      body.splice(1, body.length - 1);
-      body[0].body.splice(columnsNum - 1, body[0].body.length - columnsNum + 1);
-    }
-
-    let lastGroup = body[body.length - 1];
-    if (
-      !Array.isArray(lastGroup?.body) ||
-      lastGroup.body.length >= columnsNum
-    ) {
-      lastGroup = {
-        type: 'group',
-        body: []
-      };
-      body.push(lastGroup);
-    }
-
-    let count = Math.max(columnsNum - lastGroup.body.length - 1);
-    while (count-- > 0) {
-      lastGroup.body.push({
-        type: 'tpl',
-        tpl: ''
-      });
-    }
-    lastGroup.body.push({
-      type: 'container',
-      className: 'ButtonToolbar text-right block',
-      wrapperBody: false,
-      body: [
-        {
-          type: 'dropdown-button',
-          label: __('Table.searchFields'),
-          className: cx('Table-searchableForm-dropdown', 'mr-2'),
-          level: 'link',
-          trigger: 'click',
-          size: 'sm',
-          align: 'right',
-          visible: showBtnToolbar,
-          buttons: searchableColumns.map(column => {
-            return {
-              type: 'checkbox',
-              label: false,
-              className: cx('Table-searchableForm-checkbox'),
-              inputClassName: cx('Table-searchableForm-checkbox-inner'),
-              name: `${
-                column.searchable.strategy === 'jsonql' ? '' : '__search_'
-              }${column.searchable?.name ?? column.name}`,
-              option: column.searchable?.label ?? column.label,
-              value: column.enableSearch,
-              badge: {
-                offset: [-10, 5],
-                visibleOn: `${
-                  column.toggable && !column.toggled && column.enableSearch
-                }`
-              },
-              onChange: (value: boolean) => {
-                column.setEnableSearch(value);
-                store.setSearchFormExpanded(true);
-              }
-            };
-          })
-        },
-
-        {
-          type: 'submit',
-          label: __('search'),
-          level: 'primary',
-          className: 'w-18'
-        },
-        {
-          type: 'reset',
-          label: __('reset'),
-          className: 'w-18'
-        },
-
-        showExpander
-          ? {
-              children: () => (
-                <a
-                  className={cx(
-                    'Table-SFToggler',
-                    store.searchFormExpanded ? 'is-expanded' : ''
-                  )}
-                  onClick={store.toggleSearchFormExpanded}
-                >
-                  {__(store.searchFormExpanded ? 'collapse' : 'expand')}
-                  <span className={cx('Table-SFToggler-arrow')}>
-                    <Icon icon="right-arrow-bold" className="icon" />
-                  </span>
-                </a>
-              )
-            }
-          : null
-      ].filter(item => item)
-    });
-
-    return render(
-      'searchable-form',
-      {
-        type: 'form',
-        api: null,
-        title: '',
-        mode: 'horizontal',
-        submitText: __('search'),
-        body: body,
-        actions: [],
-        canAccessSuperData: false
-      },
-      {
-        key: 'searchable-form',
-        panelClassName: cx('Table-searchableForm'),
-        actionsClassName: cx('Table-searchableForm-footer'),
-        onReset: onSearchableFromReset,
-        onSubmit: onSearchableFromSubmit,
-        onInit: onSearchableFromInit,
-        formStore: undefined,
-        data: query ? createObject(data, query) : data,
-        popOverContainer: this.getPopOverContainer
-      }
+    return (
+      <AutoFilterForm
+        store={store}
+        query={query}
+        data={data}
+        translate={__}
+        classnames={cx}
+        render={render}
+        autoGenerateFilter={autoGenerateFilter}
+        onSearchableFromReset={onSearchableFromReset}
+        onSearchableFromSubmit={onSearchableFromSubmit}
+        onSearchableFromInit={onSearchableFromInit}
+        popOverContainer={this.getPopOverContainer}
+      />
     );
   }
 
@@ -1962,7 +1835,30 @@ export default class Table extends React.Component<TableProps, object> {
       );
     }
 
-    let affix = [];
+    const prefix: Array<JSX.Element> = [];
+    const affix: Array<JSX.Element> = [];
+
+    if (column.isPrimary && store.isNested) {
+      (store.footable &&
+        (store.footable.expandAll === false || store.footable.accordion)) ||
+        (store.expandConfig &&
+          (store.expandConfig.expandAll === false ||
+            store.expandConfig.accordion)) ||
+        prefix.push(
+          <a
+            key="expandBtn"
+            className={cx(
+              'Table-expandBtn2',
+              store.allExpanded ? 'is-active' : ''
+            )}
+            // data-tooltip="展开/收起全部"
+            // data-position="top"
+            onClick={store.toggleExpandAll}
+          >
+            <Icon icon="right-arrow-bold" className="icon" />
+          </a>
+        );
+    }
 
     if (column.searchable && column.name && !autoGenerateFilter) {
       affix.push(
@@ -2082,9 +1978,11 @@ export default class Table extends React.Component<TableProps, object> {
           'Table-operationCell': column.type === 'operation'
         })}
       >
+        {prefix}
         <div
+          key="content"
           className={cx(
-            `${ns}TableCell--title`,
+            `TableCell--title`,
             column.pristine.className,
             column.pristine.labelClassName
           )}
@@ -2124,162 +2022,33 @@ export default class Table extends React.Component<TableProps, object> {
       classnames: cx,
       checkOnItemClick,
       popOverContainer,
-      itemBadge
+      canAccessSuperData,
+      itemBadge,
+      isCombineSelect
     } = this.props;
 
-    if (column.name && item.rowSpans[column.name] === 0) {
-      return null;
-    }
-
-    const style: any = {...column.pristine.style};
-    const [stickyStyle, stickyClassName] = store.getStickyStyles(
-      column,
-      store.filteredColumns
-    );
-    Object.assign(style, stickyStyle);
-
-    if (column.type === '__checkme') {
-      if (this.props.isCombineSelect) {
-        return item.rowSpans['__checkme'] > 0 ? (
-          <td
-            style={style}
-            key={props.key}
-            className={cx(column.pristine.className, stickyClassName)}
-            rowSpan={item.rowSpans['__checkme']}
-          >
-            <Checkbox
-              classPrefix={ns}
-              type={multiple ? 'checkbox' : 'radio'}
-              checked={item.checked}
-              disabled={item.checkdisable || !item.checkable}
-              onChange={this.handleCheck.bind(this, item)}
-            />
-          </td>
-        ) : null;
-      } else {
-        return (
-          <td
-            style={style}
-            key={props.key}
-            className={cx(column.pristine.className, stickyClassName)}
-          >
-            <Checkbox
-              classPrefix={ns}
-              type={multiple ? 'checkbox' : 'radio'}
-              checked={item.checked}
-              disabled={item.checkdisable || !item.checkable}
-              onChange={this.handleCheck.bind(this, item)}
-            />
-          </td>
-        );
-      }
-    } else if (column.type === '__dragme') {
-      return (
-        <td
-          style={style}
-          key={props.key}
-          className={cx(column.pristine.className, stickyClassName, {
-            'is-dragDisabled': !item.draggable
-          })}
-        >
-          {item.draggable ? <Icon icon="drag" className="icon" /> : null}
-        </td>
-      );
-    } else if (column.type === '__expandme') {
-      return (
-        <td
-          style={style}
-          key={props.key}
-          className={cx(column.pristine.className, stickyClassName)}
-        >
-          {item.depth > 2
-            ? Array.from({length: item.depth - 2}).map((_, index) => (
-                <i key={index} className={cx('Table-divider-' + (index + 1))} />
-              ))
-            : null}
-
-          {item.depth > 1 ? <i className={cx('Table-divider2')} /> : null}
-          {item.depth > 1 ? <i className={cx('Table-divider3')} /> : null}
-
-          {item.expandable ? (
-            <a
-              className={cx(
-                'Table-expandBtn',
-                item.expanded ? 'is-active' : ''
-              )}
-              // data-tooltip="展开/收起"
-              // data-position="top"
-              onClick={item.toggleExpanded}
-            >
-              <Icon icon="right-arrow-bold" className="icon" />
-            </a>
-          ) : null}
-        </td>
-      );
-    }
-
-    let prefix: React.ReactNode = null;
-
-    if (
-      !ignoreDrag &&
-      column.isPrimary &&
-      store.isNested &&
-      store.draggable &&
-      item.draggable
-    ) {
-      prefix = (
-        <a
-          draggable
-          onDragStart={this.handleDragStart}
-          className={cx('Table-dragBtn')}
-        >
-          <Icon icon="drag" className="icon" />
-        </a>
-      );
-    }
-
-    const canAccessSuperData =
-      column.pristine.canAccessSuperData ?? this.props.canAccessSuperData;
-    const subProps: any = {
-      ...props,
-      // 操作列不下发loading，否则会导致操作栏里面的所有按钮都出现loading
-      loading: column.type === 'operation' ? false : props.loading,
-      btnDisabled: store.dragging,
-      data: item.locals,
-      value: column.name
-        ? resolveVariable(
-            column.name,
-            canAccessSuperData ? item.locals : item.data
-          )
-        : column.value,
-      popOverContainer: this.getPopOverContainer,
-      rowSpan: item.rowSpans[column.name as string],
-      quickEditFormRef: this.subFormRef,
-      cellPrefix: prefix,
-      onImageEnlarge: this.handleImageEnlarge,
-      canAccessSuperData,
-      row: item,
-      itemBadge,
-      showBadge:
-        !props.isHead &&
-        itemBadge &&
-        store.firstToggledColumnIndex === props.colIndex,
-      onQuery: undefined,
-      style,
-      className: cx(column.pristine.className, stickyClassName),
-      /** 给子节点的设置默认值，避免取到env.affixHeader的默认值，导致表头覆盖首行 */
-      affixOffsetTop: 0
-    };
-    delete subProps.label;
-
-    return render(
-      region,
-      {
-        ...column.pristine,
-        column: column.pristine,
-        type: 'cell'
-      },
-      subProps
+    return (
+      <Cell
+        key={props.key}
+        region={region}
+        column={column}
+        item={item}
+        props={props}
+        ignoreDrag={ignoreDrag}
+        render={render}
+        store={store}
+        multiple={multiple}
+        canAccessSuperData={canAccessSuperData}
+        classnames={cx}
+        classPrefix={ns}
+        itemBadge={itemBadge}
+        onCheck={this.handleCheck}
+        onDragStart={this.handleDragStart}
+        popOverContainer={this.getPopOverContainer}
+        quickEditFormRef={this.subFormRef}
+        onImageEnlarge={this.handleImageEnlarge}
+        isCombineSelect={isCombineSelect}
+      />
     );
   }
 
@@ -2310,9 +2079,30 @@ export default class Table extends React.Component<TableProps, object> {
             <div className={cx('Table-wrapper')}>
               <table
                 ref={this.affixedTableRef}
-                className={cx(tableClassName, 'is-layout-fixed')}
+                className={cx(
+                  tableClassName,
+                  store.tableLayout === 'fixed' ? 'is-layout-fixed' : ''
+                )}
               >
-                <ColGroup columns={store.filteredColumns} store={store} />
+                <colgroup>
+                  {store.filteredColumns.map(column => {
+                    const style: any = {
+                      width: `var(--Table-column-${column.index}-width)`
+                    };
+
+                    if (store.tableLayout === 'auto') {
+                      style.minWidth = style.width;
+                    }
+
+                    return (
+                      <col
+                        data-index={column.index}
+                        style={style}
+                        key={column.id}
+                      />
+                    );
+                  })}
+                </colgroup>
                 <thead>
                   {columnsGroup.length ? (
                     <tr>
@@ -2936,13 +2726,6 @@ export default class Table extends React.Component<TableProps, object> {
           onMouseLeave={this.handleMouseLeave}
         >
           {this.renderTableContent()}
-
-          {
-            // 利用这个将 table-layout: auto 转成 table-layout: fixed
-            store.columnWidthReady ? null : (
-              <span ref={this.updateTableInfoRef} />
-            )
-          }
         </div>
 
         {footer}

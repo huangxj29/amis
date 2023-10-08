@@ -48,7 +48,7 @@ export const eventTypes = [
   'onWsFetched'
 ] as const;
 
-export type ProviderEventType = typeof eventTypes[number];
+export type ProviderEventType = (typeof eventTypes)[number];
 
 export type DataProviderCollection = Partial<
   Record<ProviderEventType, DataProvider>
@@ -218,7 +218,10 @@ export default class Service extends React.Component<ServiceProps> {
       }
     }
 
-    isApiOutdated(prevProps.api, props.api, prevProps.data, props.data) &&
+    if (
+      isApiOutdated(prevProps.api, props.api, prevProps.data, props.data) &&
+      isEffectiveApi(props.api, store.data)
+    ) {
       store
         .fetchData(props.api as Api, store.data, {
           successMessage: fetchSuccess,
@@ -228,13 +231,17 @@ export default class Service extends React.Component<ServiceProps> {
           this.runDataProvider('onApiFetched');
           this.afterDataFetch(res);
         });
+    }
 
-    isApiOutdated(
-      prevProps.schemaApi,
-      props.schemaApi,
-      prevProps.data,
-      props.data
-    ) &&
+    if (
+      isApiOutdated(
+        prevProps.schemaApi,
+        props.schemaApi,
+        prevProps.data,
+        props.data
+      ) &&
+      isEffectiveApi(props.schemaApi, store.data)
+    ) {
       store
         .fetchSchema(props.schemaApi as Api, store.data, {
           successMessage: fetchSuccess,
@@ -244,6 +251,7 @@ export default class Service extends React.Component<ServiceProps> {
           this.runDataProvider('onSchemaApiFetched');
           this.afterSchemaFetch(res);
         });
+    }
 
     if (props.ws && prevProps.ws !== props.ws) {
       if (this.socket) {

@@ -729,8 +729,13 @@ export default class TreeSelectControl extends React.Component<
       env,
       loadingConfig
     } = this.props;
-
     const {isOpened} = this.state;
+    const resultValue = multiple
+      ? selectedOptions
+      : selectedOptions.length
+      ? this.renderItem(selectedOptions[0])
+      : '';
+
     return (
       <div ref={this.container} className={cx(`TreeSelectControl`, className)}>
         <ResultBox
@@ -750,13 +755,7 @@ export default class TreeSelectControl extends React.Component<
             'is-opened': this.state.isOpened,
             'is-disabled': disabled
           })}
-          result={
-            multiple
-              ? selectedOptions
-              : selectedOptions.length
-              ? this.renderItem(selectedOptions[0])
-              : ''
-          }
+          result={resultValue}
           onResultClick={this.handleOutClick}
           value={this.state.inputValue}
           onChange={this.handleInputChange}

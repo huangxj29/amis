@@ -5,7 +5,9 @@ import {
   FormControlProps,
   FormBaseControl,
   resolveEventData,
-  CustomStyle
+  CustomStyle,
+  formatInputThemeCss,
+  setThemeClassName
 } from 'amis-core';
 import cx from 'classnames';
 import {NumberInput, Select, Button} from 'amis-ui';
@@ -440,7 +442,16 @@ export default class NumberControl extends React.Component<
           <Button className={cx(`${ns}prefix-button`)}>{prefix}</Button>
         ) : null}
         <NumberInput
-          inputControlClassName={inputControlClassName}
+          inputControlClassName={cx(
+            inputControlClassName,
+            setThemeClassName(inputControlClassName, id, themeCss || css),
+            setThemeClassName(
+              inputControlClassName,
+              id,
+              themeCss || css,
+              'inner'
+            )
+          )}
           inputRef={this.inputRef}
           value={finalValue}
           resetValue={resetValue}
@@ -496,15 +507,44 @@ export default class NumberControl extends React.Component<
             classNames: [
               {
                 key: 'inputControlClassName',
-                value: inputControlClassName,
                 weights: {
                   active: {
-                    pre: `${inputControlClassName}.focused, `
+                    pre: `inputControlClassName-${id?.replace(
+                      'u:',
+                      ''
+                    )}.focused, `
                   }
                 }
               }
             ],
             id
+          }}
+          env={env}
+        />
+        <CustomStyle
+          config={{
+            themeCss: formatInputThemeCss(themeCss || css),
+            classNames: [
+              {
+                key: 'inputControlClassName',
+                weights: {
+                  default: {
+                    inner: 'input'
+                  },
+                  hover: {
+                    inner: 'input'
+                  },
+                  active: {
+                    pre: `inputControlClassName-${id?.replace(
+                      'u:',
+                      ''
+                    )}.focused, `,
+                    inner: 'input'
+                  }
+                }
+              }
+            ],
+            id: id && id + '-inner'
           }}
           env={env}
         />

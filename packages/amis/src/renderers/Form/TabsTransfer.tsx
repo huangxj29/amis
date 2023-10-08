@@ -77,9 +77,9 @@ export class BaseTabsTransferRenderer<
       valueField,
       env,
       data,
+      searchApi,
       translate: __
     } = this.props;
-    const {searchApi} = option;
 
     if (searchApi) {
       try {
@@ -114,7 +114,7 @@ export class BaseTabsTransferRenderer<
         });
       } catch (e) {
         if (!env.isCancel(e)) {
-          env.notify('error', e.message);
+          !searchApi.silent && env.notify('error', e.message);
         }
 
         return [];
@@ -289,6 +289,8 @@ export class TabsTransferRenderer extends BaseTabsTransferRenderer<TabsTransferP
       sortable,
       loading,
       searchResultMode,
+      selectMode,
+      searchable,
       showArrow,
       deferLoad,
       leftDeferLoad,
@@ -325,6 +327,8 @@ export class TabsTransferRenderer extends BaseTabsTransferRenderer<TabsTransferP
           onLeftDeferLoad={leftDeferLoad}
           selectTitle={selectTitle}
           resultTitle={resultTitle}
+          selectMode={selectMode}
+          searchable={searchable}
           optionItemRender={menuTpl ? this.optionItemRender : undefined}
           resultItemRender={valueTpl ? this.resultItemRender : undefined}
           onTabChange={this.onTabChange}
