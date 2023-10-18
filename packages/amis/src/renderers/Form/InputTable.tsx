@@ -1023,7 +1023,7 @@ export default class FormTable extends React.Component<TableProps, TableState> {
                       ...quickEdit,
                       saveImmediately: true,
                       mode: 'inline',
-                      disabled,
+                      disabled: disabled || column.disabled,
                       static: isStatic
                     }
                   })
@@ -1051,7 +1051,7 @@ export default class FormTable extends React.Component<TableProps, TableState> {
                 isQuickEditFormMode: !!render?.isFormItem,
                 saveImmediately: true,
                 mode: 'inline',
-                disabled
+                disabled: disabled || column.disabled
               }
             };
       });
