@@ -133,12 +133,14 @@ import WizardPage from './WizardPage';
 
 import {Switch} from 'react-router-dom';
 import {navigations2route} from './App';
+import config from './Custom';
 
 export const examples = [
   {
     // prefix: ({classnames: cx}) => <li className={cx('AsideNav-divider')} />,
     label: '示例',
     children: [
+      config,
       {
         label: '页面',
         icon: 'fa fa-th',

@@ -41,9 +41,9 @@
     ]
   },
   "dependencies": {
+    "path-to-regexp": "^6.2.0",
     "postcss": "^8.4.14",
-    "qs": "6.9.7",
-    "path-to-regexp": "^6.2.0"
+    "qs": "6.9.7"
   },
   "devDependencies": {
     "@babel/generator": "^7.22.9",

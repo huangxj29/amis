@@ -1,0 +1,432 @@
+:root {
+  // 参考 @import "~amis/scss/_properties.scss";
+  --fontSizeBase: 13px;
+  --fontSizeMd: 14px;
+  --fontSizeLg: 18px;
+  --fontSizeXl: 22px;
+  --fontSizeSm: 12px;
+  --fontSizeXs: 11px;
+
+  --Panel-bodyPadding: 0px;
+  --Pagination-height: var(--Crud-toolbar-height);
+
+  --Form-control-widthBase: 13rem;
+  --Modal-widthMd: 60rem;
+
+  --drawer-content-paddingRight: 1rem;
+  --drawer-content-paddingBottom: 1rem;
+  --drawer-content-paddingLeft: 1rem;
+  --drawer-content-paddingTop: 1rem;
+}
+
+/************************************ 表格 ************************************/
+// 条件筛选框
+.amis-scope .antd-Form-item--inline {
+  margin: calc(var(--Form-item-gap) / 4) calc(var(--Form-item-gap) / 2)
+    calc(var(--Form-item-gap) / 4) 0;
+}
+.amis-scope
+  .antd-Crud-filter
+  .antd-Form-item--inline
+  .antd-ButtonGroup
+  .antd-Button {
+  margin: 0 calc(var(--Form-item-gap) / 2) 0 0;
+}
+.amis-scope .antd-Crud-filter .antd-Panel-body {
+  padding: 10px;
+}
+.amis-scope .antd-Crud-filter .antd-Form-control {
+  width: var(--Form-control-widthBase);
+
+  & > div:first-child {
+    height: var(--Form-input-height);
+  }
+
+  & .antd-ResultBox {
+    .antd-ResultBox-value-wrap {
+      display: block;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .antd-ResultBox-singleValue {
+      white-space: nowrap;
+    }
+  }
+}
+
+.amis-scope .antd-Crud-filter .antd-DateControl .antd-DatePicker {
+  width: var(--Form-control-widthBase);
+  min-width: var(--Form-control-widthBase);
+}
+
+.antd-DateControl .antd-DatePicker {
+  padding: var(--Form-input-paddingY) var(--Form-input-paddingX);
+  svg polyline,
+  svg circle {
+    stroke: var(--DatePicker-onHover-iconColor);
+  }
+}
+
+@media (max-width: 767px) {
+  .amis-scope .antd-Crud-filter .antd-Form-control,
+  .amis-scope .antd-Crud-filter .antd-DateControl .antd-DatePicker {
+    width: auto;
+  }
+  .amis-scope .antd-Crud-toolbar-item {
+    height: auto;
+  }
+  .amis-scope .antd-Pagination-wrap .antd-Pagination-inputGroup {
+    display: none;
+  }
+}
+
+.amis-scope .antd-Crud-filter .form-item-range {
+  padding: 0;
+  margin: 0;
+  display: inline-block;
+
+  .antd-Form-control {
+    width: 5.9rem;
+    margin: 0;
+  }
+  .form-item-rangeLine {
+    display: inline-block;
+    width: 0.45rem;
+    height: calc(var(--Form-input-height) / 2);
+    margin: calc((var(--Form-item-gap) - var(--borderWidth)) / 2)
+      calc(var(--Form-item-gap) / 2)
+      calc((var(--Form-item-gap) - var(--borderWidth)) / 2) 0;
+  }
+  .antd-TplField {
+    padding: 0;
+    margin: 8px 6px 0 0;
+  }
+}
+
+.amis-scope .antd-Table-toolbar {
+  padding: 0;
+  margin: 0 var(--Table-toolbar-marginX) var(--Table-toolbar-marginY);
+}
+
+// 表格
+.amis-scope .antd-Table-table {
+  border-top: var(--Table-thead-borderWidth) solid
+    var(--Table-thead-borderColor);
+
+  &:not(.antd-Table-table--affixHeader) {
+    white-space: nowrap;
+  }
+
+  & > tbody > tr > td,
+  & > thead > tr > th {
+    border-right: var(--Table-thead-borderWidth) solid
+      var(--Table-thead-borderColor);
+    &:first-child {
+      border-left: var(--Table-thead-borderWidth) solid
+        var(--Table-thead-borderColor);
+    }
+  }
+
+  & .is-sticky-first-right {
+    border-left: 0.1px solid var(--Table-thead-borderColor);
+  }
+
+  thead > tr > th,
+  .antd-Table-tr--even:not(.is-checked) td {
+    background: var(--Table-thead-bg) padding-box;
+  }
+
+  tbody > tr:hover,
+  tbody > tr.is-hovered {
+    background: transparent;
+
+    td {
+      background: var(--Table-onHover-bg) padding-box;
+    }
+  }
+
+  .antd-Table-placeholder {
+    height: 40px;
+  }
+}
+
+.amis-scope
+  .antd-Table
+  .antd-Checkbox--button--disabled--unchecked.antd-Checkbox--checkbox {
+  background: inherit;
+}
+
+.amis-scope .antd-Table-placeholder-empty-icon.icon {
+  display: none;
+}
+
+// list
+.amis-scope .antd-ListItem-fieldValue {
+  width: auto;
+}
+
+/************************************ 详情 ************************************/
+.amis-scope .antd-Panel .antd-Panel-heading {
+  height: 2.8rem;
+  padding: var(--Panel-headingPadding);
+  background-color: #f5f5f5;
+  border-color: var(--Panel--default-headingBorderColor);
+
+  &:hover {
+    background-color: #f5f5f5;
+  }
+
+  .antd-Panel-title {
+    line-height: 1.73rem;
+  }
+}
+.amis-scope .antd-Panel .antd-Panel-body {
+  .antd-Crud-filter {
+    margin: var(--gap-base);
+
+    & ~ div {
+      margin: auto var(--gap-base);
+    }
+  }
+  .antd-Property {
+    tbody > tr {
+      border-bottom: 1px solid var(--borderColor);
+      &:last-child {
+        border: 0;
+      }
+
+      & > th,
+      & > td {
+        border: 0;
+        border-right: 1px solid var(--borderColor);
+
+        &:last-child {
+          border: 0;
+        }
+      }
+    }
+    .antd-TplField {
+      word-break: break-all;
+    }
+  }
+}
+// 附件样式
+.amis-scope .antd-Panel .antd-ImagesField {
+  padding: 10px;
+}
+.amis-scope .antd-ImagesField .antd-Images .antd-Image-thumbWrap {
+  height: auto;
+}
+.amis-scope .antd-Image .antd-Image-info {
+  width: 9.875rem;
+  text-align: center;
+}
+// 底部按钮样式
+.detail-footer-btn {
+  justify-content: center;
+  display: flex;
+  .antd-Button {
+    margin: 0 20px;
+    height: 2.15rem;
+    padding: calc(
+        (
+            2.15rem - var(--Button-borderWidth) * 2 - var(--Button-lineHeight) *
+              var(--Button-fontSize)
+          ) / 2
+      )
+      var(--Button-paddingX);
+    min-width: 5rem;
+  }
+}
+.antd-Image-origin--contain > img.w-auto-imp {
+  width: auto !important;
+}
+
+/************************************ 表单 ************************************/
+.amis-scope .antd-DateRangePicker-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 图片上传
+.amis-scope .antd-Image-thumb {
+  width: 9.875rem;
+  height: 8rem;
+}
+.amis-scope .antd-ImageControl-addBtn,
+.amis-scope .antd-ImageControl-item {
+  width: 10.5rem;
+  height: 8.625rem;
+  margin-right: 0.5rem;
+}
+.amis-scope .antd-ImageControl-itemInfo {
+  width: 10rem;
+  height: 8.125rem;
+}
+.amis-scope .antd-ImageControl-addBtn {
+  border-style: dashed;
+}
+
+// 隐藏 InputTable 外层报错
+.amis-scope .antd-InputTable + .antd-Form-feedback {
+  display: none;
+}
+
+// input
+.amis-scope .antd-TextControl-input {
+  padding-left: var(--gap-xs);
+
+  .antd-TextControl-clear {
+    width: 1.375rem;
+    height: 1.375rem;
+  }
+}
+.amis-scope .antd-TextControl.is-disabled > .antd-TextControl-input > input {
+  color: var(--text--muted-color);
+}
+
+// select
+.amis-scope .antd-Select {
+  vertical-align: baseline;
+
+  .antd-Select-valueWrap {
+    overflow: hidden;
+  }
+}
+
+.amis-scope
+  .antd-Select--multi
+  .antd-Select-valueWrap
+  .antd-Select-placeholder {
+  margin-left: var(--gap-xs);
+}
+
+.amis-scope .antd-Select--multi .antd-Select-valueWrap {
+  height: 100%;
+
+  .antd-Select-value {
+    margin-top: calc(var(--gap-xs) / 2);
+    margin-bottom: calc(var(--gap-xs) / 2);
+
+    .antd-Select-valueLabel {
+      font-size: var(--Form-input-fontSize);
+    }
+  }
+}
+
+// antd-TreeSelect|select(tree,chain)
+.amis-scope .antd-Form-value .antd-Form-control .antd-ResultBox {
+  padding: var(--gap-xs) var(--Form-input-paddingX) var(--gap-xs)
+    var(--Form-select-paddingX);
+
+  .antd-ResultBox-value-wrap {
+    position: relative;
+
+    .antd-ResultBox-value {
+      margin-top: calc(var(--gap-xs) / 2);
+      margin-bottom: calc(var(--gap-xs) / 2);
+      padding: 0;
+      max-width: 100%;
+      min-height: auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: var(--Form-select-value-bgColor);
+      line-height: calc(
+        var(--Form-input-lineHeight) * var(--Form-input-fontSize) - 0.125rem
+      );
+
+      .antd-ResultBox-valueLabel {
+        display: inline-block;
+        max-width: var(--Form-valueLabel-maxWidth);
+        padding: 0 var(--gap-xs);
+        overflow: hidden;
+        vertical-align: top;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      a {
+        margin-left: 0;
+        padding-right: 5px;
+        color: var(--Form-select-valueIcon-color);
+      }
+    }
+
+    .antd-ResultBox-singleValue {
+      line-height: calc(var(--Form-input-height) - var(--gap-xs) * 2);
+    }
+
+    .antd-Spinner-icon {
+      position: absolute;
+      right: 0;
+    }
+  }
+}
+
+/************************************ 弹窗 ************************************/
+.amis-scope .antd-Drawer .antd-Drawer-footer {
+  justify-content: flex-end;
+}
+.amis-scope .antd-Modal-footer {
+  justify-content: center;
+}
+
+.amis-scope .antd-Modal {
+  .antd-Modal-body {
+    height: 12rem;
+    overflow: auto;
+  }
+  &.antd-Modal--md .antd-Modal-body,
+  &.antd-Modal--lg .antd-Modal-body {
+    height: 36rem;
+  }
+  &.antd-Modal--sm .antd-Modal-body {
+    height: auto;
+    max-height: 12rem;
+  }
+
+  &.antd-Confirm .antd-Modal-body {
+    height: auto;
+  }
+}
+
+.amis-scope .antd-Modal-footer .antd-Dialog-info,
+.amis-scope .antd-Drawer-footer .antd-Drawer-info {
+  display: none;
+}
+
+/* ------------------------------- 修改antd默认样式 */
+
+.ant-notification.ant-notification-topRight {
+  z-index: 9999;
+}
+.ant-message {
+  z-index: 99999 !important;
+}
+.ant-modal-wrap {
+  z-index: 999999 !important;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.amis-scope .antd-Table-table .antd-Button {
+  user-select: text;
+}
+
+// 折叠器
+.amis-scope .antd-Collapse-content {
+  padding: 0;
+}
+
+// tabs
+.amis-scope .antd-Tabs--line > .antd-Tabs-content {
+  padding: 0.75rem 0;
+}
+
+.amis-scope .antd-Tabs-pane {
+  padding: 0;
+}
+// table
+.amis-scope .rdt table {
+  border-collapse: separate;
+}

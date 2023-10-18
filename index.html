@@ -37,9 +37,9 @@
       }
     </style>
     <script type="module">
-      let theme = localStorage.getItem('amis-theme') || 'cxd';
+      let theme = localStorage.getItem('amis-theme') || 'antd';
       if (theme === 'default') {
-        theme = 'cxd';
+        theme = 'antd';
       }
 
       ['ang', 'cxd', 'antd'].forEach(key => {
@@ -69,7 +69,7 @@
     <!-- <link rel="stylesheet" href="./packages/amis-ui/scss/helper.scss" /> -->
   </head>
 
-  <body>
+  <body class="amis-scope">
     <div id="root" class="app-wrapper"></div>
     <script type="text/javascript">
       if (location.hostname !== 'localhost') {
