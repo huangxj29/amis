@@ -98,10 +98,6 @@
     border-bottom: var(--Modal-body-borderTop);
     border-top-left-radius: var(--Modal-content-borderRadius);
     border-top-right-radius: var(--Modal-content-borderRadius);
-
-    .Dialog-close {
-      content: var(--dialog-icon-icon);
-    }
   }
 
   &-title {
@@ -118,6 +114,10 @@
     text-decoration: none;
     vertical-align: middle;
     z-index: calc(#{$zindex-spinner-overlay} + 1);
+
+    .Dialog-close {
+      content: var(--dialog-icon-icon);
+    }
 
     svg {
       width: var(--dialog-icon-size);
@@ -190,7 +190,7 @@
 }
 
 @include media-breakpoint-up(sm) {
-  .#{$ns}Modal-content {
+  .#{$ns}Modal-content:not(.#{$ns}Modal-content-custom) {
     max-width: var(--dialog-size-normal-width);
     border-width: var(--dialog-default-border-width);
   }

@@ -1566,8 +1566,9 @@ export function chainEvents(props: any, schema: any) {
 
 export function mapObject(
   value: any,
-  fn: Function,
-  skipFn?: (value: any) => boolean
+  valueMapper: (value: any) => any,
+  skipFn?: (value: any) => boolean,
+  keyMapper?: (key: string) => string
 ): any {
   // 如果value值满足skipFn条件则不做map操作
   skipFn =
@@ -1582,25 +1583,29 @@ export function mapObject(
           return false;
         };
 
-  if (!!skipFn(value)) {
+  if (skipFn(value)) {
     return value;
   }
 
   if (Array.isArray(value)) {
-    return value.map(item => mapObject(item, fn));
+    return value.map(item => mapObject(item, valueMapper, skipFn, keyMapper));
   }
 
   if (isObject(value)) {
-    let tmpValue = {...value};
-    Object.keys(tmpValue).forEach(key => {
-      (tmpValue as PlainObject)[key] = mapObject(
-        (tmpValue as PlainObject)[key],
-        fn
+    let tmpValue = {};
+    Object.keys(value).forEach(key => {
+      const newKey = keyMapper ? keyMapper(key) : key;
+
+      (tmpValue as PlainObject)[newKey] = mapObject(
+        (value as PlainObject)[key],
+        valueMapper,
+        skipFn,
+        keyMapper
       );
     });
     return tmpValue;
   }
-  return fn(value);
+  return valueMapper(value);
 }
 
 export function loadScript(src: string) {
@@ -1741,7 +1746,7 @@ function resolveValueByName(
   canAccessSuper?: boolean
 ) {
   return isPureVariable(name)
-    ? resolveVariableAndFilter(name, data)
+    ? resolveVariableAndFilter(name, data, '|raw')
     : resolveVariable(name, data, canAccessSuper);
 }
 
@@ -2173,4 +2178,9 @@ export function evalTrackExpression(
       return evalExpression(item.value, data);
     })
     .join('');
+}
+
+// 很奇怪的问题，react-json-view import 有些情况下 mod.default 才是 esModule
+export function importLazyComponent(mod: any) {
+  return mod.default.__esModule ? mod.default : mod;
 }

@@ -411,7 +411,8 @@ export class BaseTransferRenderer<
           return !!(
             (Array.isArray(option.children) && option.children.length) ||
             !!matchSorter([option].concat(paths), term, {
-              keys: [labelField || 'label', valueField || 'value']
+              keys: [labelField || 'label', valueField || 'value'],
+              threshold: matchSorter.rankings.CONTAINS
             }).length
           );
         },

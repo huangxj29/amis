@@ -2,7 +2,13 @@ import React from 'react';
 import isEqual from 'lodash/isEqual';
 import pickBy from 'lodash/pickBy';
 import omitBy from 'lodash/omitBy';
-import {Renderer, RendererProps, filterTarget, mapTree} from 'amis-core';
+import {
+  Renderer,
+  RendererProps,
+  evalExpressionWithConditionBuilder,
+  filterTarget,
+  mapTree
+} from 'amis-core';
 import {SchemaNode, Schema, ActionObject, PlainObject} from 'amis-core';
 import {CRUDStore, ICRUDStore} from 'amis-core';
 import {
@@ -309,7 +315,11 @@ export interface CRUDCommonSchema extends BaseSchema, SpinnerExtraProps {
   loadDataOnce?: boolean;
 
   /**
-   * 在开启loadDataOnce时，filter时是否去重新请求api
+   * 在开启loadDataOnce时，当修改过滤条件时是否重新请求api
+   *
+   * 如果没有配置，当查询条件表单触发的会重新请求 api，当是列过滤或者是 search-box 触发的则不重新请求 api
+   * 如果配置为 true，则不管是什么触发都会重新请求 api
+   * 如果配置为 false 则不管是什么触发都不会重新请求 api
    */
   loadDataOnceFetchOnFilter?: boolean;
 
@@ -473,7 +483,6 @@ export default class CRUD extends React.Component<CRUDProps, any> {
     filterTogglable: false,
     filterDefaultVisible: true,
     loadDataOnce: false,
-    loadDataOnceFetchOnFilter: true,
     autoFillHeight: false,
     alwaysShowPagination: false,
     perPage: 20
@@ -998,7 +1007,7 @@ export default class CRUD extends React.Component<CRUDProps, any> {
         undefined,
         undefined,
         undefined,
-        loadDataOnceFetchOnFilter,
+        loadDataOnceFetchOnFilter !== false,
         isInit
       );
   }
@@ -1191,7 +1200,6 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       pickerMode,
       env,
       loadDataOnce,
-      loadDataOnceFetchOnFilter,
       source,
       columns,
       dispatchEvent,
@@ -1230,7 +1238,6 @@ export default class CRUD extends React.Component<CRUDProps, any> {
             autoAppend: true,
             forceReload,
             loadDataOnce,
-            loadDataOnceFetchOnFilter,
             source,
             silent,
             pageField,
@@ -1673,11 +1680,18 @@ export default class CRUD extends React.Component<CRUDProps, any> {
 
   handleQuery(
     values: object,
-    forceReload: boolean = false,
+    forceReload?: boolean,
     replace?: boolean,
     resetPage?: boolean
   ) {
-    const {store, syncLocation, env, pageField, perPageField} = this.props;
+    const {
+      store,
+      syncLocation,
+      env,
+      pageField,
+      perPageField,
+      loadDataOnceFetchOnFilter
+    } = this.props;
     store.updateQuery(
       resetPage
         ? {
@@ -1693,7 +1707,12 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       perPageField,
       replace
     );
-    this.search(undefined, undefined, replace, forceReload);
+    this.search(
+      undefined,
+      undefined,
+      replace,
+      forceReload ?? loadDataOnceFetchOnFilter === true
+    );
   }
 
   reload(
@@ -1917,20 +1936,16 @@ export default class CRUD extends React.Component<CRUDProps, any> {
       | 'popOverContainerSelector'
       | 'total'
       | 'perPageAvailable'
+      | 'showPerPage'
     > = {};
 
     /** 优先级：showPageInput显性配置 > (lastPage > 9) */
     if (typeof toolbar !== 'string') {
+      Object.assign(extraProps, toolbar);
       const showPageInput = (toolbar as Schema).showPageInput;
 
       extraProps.showPageInput =
         showPageInput === true || (lastPage > 9 && showPageInput == null);
-      extraProps.maxButtons = (toolbar as Schema).maxButtons;
-      extraProps.layout = (toolbar as Schema).layout;
-      extraProps.popOverContainerSelector = (
-        toolbar as Schema
-      ).popOverContainerSelector;
-      extraProps.perPageAvailable = (toolbar as Schema).perPageAvailable;
       extraProps.total = resolveVariableAndFilter(
         (toolbar as Schema).total,
         store.data
@@ -2620,26 +2635,57 @@ export class CRUDRenderer extends CRUD {
     scoped.close(target);
   }
 
-  setData(
+  async setData(
     values: {
       items?: any[];
       rows?: any[];
       total?: number;
       count?: number;
     },
-    replace?: boolean
+    replace?: boolean,
+    index?: number | string,
+    condition?: any
   ) {
     const {store} = this.props;
-    const total = values?.total || values?.count;
-    if (total !== undefined) {
-      store.updateTotal(parseInt(total as any, 10));
-    }
+    const len = store.data.items.length;
 
-    return store.updateData(
-      {...values, items: values.rows ?? values.items}, // 做个兼容
-      undefined,
-      replace
-    );
+    if (index !== undefined) {
+      let items = [...store.data.items];
+      const indexs = String(index).split(',');
+      indexs.forEach(i => {
+        const intIndex = Number(i);
+        items.splice(intIndex, 1, values);
+      });
+      // 更新指定行记录，只需要提供行记录即可
+      return store.updateData({...values, items}, undefined, replace);
+    } else if (condition !== undefined) {
+      let items = [...store.data.items];
+      for (let i = 0; i < len; i++) {
+        const item = items[i];
+        const isUpdate = await evalExpressionWithConditionBuilder(
+          condition,
+          item
+        );
+
+        if (isUpdate) {
+          items.splice(i, 1, values);
+        }
+      }
+
+      // 更新指定行记录，只需要提供行记录即可
+      return store.updateData({...values, items}, undefined, replace);
+    } else {
+      const total = values?.total || values?.count;
+      if (total !== undefined) {
+        store.updateTotal(parseInt(total as any, 10));
+      }
+
+      return store.updateData(
+        {...values, items: values.rows ?? values.items}, // 做个兼容
+        undefined,
+        replace
+      );
+    }
   }
 
   getData() {
