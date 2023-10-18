@@ -264,7 +264,11 @@ export function embed(
       ...props,
       scopeRef: (ref: any) => {
         if (ref) {
-          Object.assign(scoped, ref);
+          Object.assign(scoped, ref, {
+            getComponentById(id: string) {
+              return ref.getComponentById(id);
+            }
+          });
           callback?.();
         }
       }
