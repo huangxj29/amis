@@ -214,7 +214,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
 
         selected.forEach((item, index) => {
           const matched = findTree(
-            filteredOptions,
+            [...filteredOptions, ...self.searchFilteredOptions],
             optionValueCompare(item, valueField),
             {
               resolve: getOptionValueBindField(valueField),
@@ -589,6 +589,14 @@ export const FormItemStore = StoreNode.named('FormItemStore')
 
         onChange(value);
       }
+    }
+
+    // 单选输入框显示value 而不是 label的问题
+    function setSearchFilteredOptions(options: any) {
+      let result = [];
+      if (Array.isArray(options)) result = [...options];
+      else result = [options];
+      self.searchFilteredOptions = [...self.selectedOptions, ...result];
     }
 
     let loadCancel: Function | null = null;
@@ -1378,6 +1386,7 @@ export const FormItemStore = StoreNode.named('FormItemStore')
       changeEmitedValue,
       addSubFormItem,
       removeSubFormItem,
+      setSearchFilteredOptions,
       loadAutoUpdateData,
       setIsControlled
     };

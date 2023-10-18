@@ -1335,7 +1335,6 @@ export function registerOptionsControl(config: OptionsConfig) {
           loading={formItem ? formItem.loading : false}
           setLoading={this.setLoading}
           setOptions={this.setOptions}
-          setSearchFilteredOptions={this.setSearchFilteredOptions}
           syncOptions={this.syncOptions}
           reloadOptions={this.reload}
           deferLoad={this.deferLoad}

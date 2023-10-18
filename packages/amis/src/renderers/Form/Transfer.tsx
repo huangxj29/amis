@@ -306,6 +306,10 @@ export class BaseTransferRenderer<
       setOptions(newOptions, true);
     }
 
+    if (this.props.searchApi) {
+      this.props.formItem?.setSearchFilteredOptions(value);
+    }
+
     // 触发渲染器事件
     const rendererEvent = await dispatchEvent(
       'change',
@@ -360,7 +364,7 @@ export class BaseTransferRenderer<
           throw new Error(__('CRUD.invalidArray'));
         }
 
-        return mapTree(result, item => {
+        let res = mapTree(result, item => {
           let resolved: any = null;
           const value = item[valueField || 'value'];
 
@@ -377,6 +381,8 @@ export class BaseTransferRenderer<
 
           return resolved || item;
         });
+        this.props.setOptions(res);
+        return res;
       } catch (e) {
         if (!env.isCancel(e) && !searchApi.silent) {
           env.notify('error', e.message);
