@@ -615,7 +615,7 @@ export default class NestedSelectControl extends React.Component<
     let style = {};
     if (width) {
       style = {
-        width: width / depth
+        width: Math.max(width / depth, 150)
       };
     }
     return style;
