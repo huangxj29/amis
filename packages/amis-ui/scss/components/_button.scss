@@ -749,6 +749,7 @@
   }
 
   &--link {
+    height: auto;
     @include button-variant(
       var(--button-link-default-bg-color),
       var(--button-link-default-font-color),

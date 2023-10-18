@@ -16,7 +16,7 @@ $Table-strip-bg: transparent;
   --secondary-onHover: var(--colors-neutral-text-6);
   --secondary-onActive: var(--colors-neutral-text-4);
 
-  --success: var(--colors-success-5);
+  --success: var(--colors-success-6);
   --success-onHover: var(--colors-success-6);
   --success-onActive: var(--colors-success-4);
 
@@ -92,7 +92,7 @@ $Table-strip-bg: transparent;
 
   --gap-xs: var(--sizes-size-3);
   --gap-sm: var(--sizes-size-5);
-  --gap-base: var(--sizes-size-7);
+  --gap-base: var(--sizes-base-6);
   --gap-md: var(--sizes-size-9);
   --gap-lg: var(--sizes-base-10);
   --gap-xl: var(--sizes-base-12);
@@ -606,6 +606,7 @@ $Table-strip-bg: transparent;
 
   --Panel--default-badgeBg: var(--colors-neutral-fill-3);
   --Panel--default-badgeColor: var(--colors-neutral-fill-10);
+  --Panel--default-headingBorderColor: var(--borderColor);
 
   --Picker-iconColor: var(--icon-color);
   --Picker-onHover-iconColor: var(--icon-onHover-color);

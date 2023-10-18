@@ -46,6 +46,10 @@
         position: absolute;
       }
     }
+
+    .#{$ns}Table-table {
+      table-layout: fixed;
+    }
   }
 
   &-heading {
@@ -152,6 +156,7 @@
 
   &-contentWrap {
     position: relative;
+    margin-bottom: var(--Table-toolbar-marginY);
   }
 
   &-actions {

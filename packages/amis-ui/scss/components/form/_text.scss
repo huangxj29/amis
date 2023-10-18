@@ -72,10 +72,10 @@
         var(--input-default-hover-top-right-border-radius)
         var(--input-default-hover-bottom-right-border-radius)
         var(--input-default-hover-bottom-left-border-radius);
-      padding: var(--input-default-hover-paddingTop)
-        var(--input-default-hover-paddingRight)
-        var(--input-default-hover-paddingBottom)
-        var(--input-default-hover-paddingLeft);
+      // padding: var(--input-default-hover-paddingTop)
+      //   var(--input-default-hover-paddingRight)
+      //   var(--input-default-hover-paddingBottom)
+      //   var(--input-default-hover-paddingLeft);
       background: var(--input-default-hover-bg-color);
     }
   }
@@ -98,10 +98,10 @@
       var(--input-default-active-top-right-border-radius)
       var(--input-default-active-bottom-right-border-radius)
       var(--input-default-active-bottom-left-border-radius);
-    padding: var(--input-default-active-paddingTop)
-      var(--input-default-active-paddingRight)
-      var(--input-default-active-paddingBottom)
-      var(--input-default-active-paddingLeft);
+    // padding: var(--input-default-active-paddingTop)
+    //   var(--input-default-active-paddingRight)
+    //   var(--input-default-active-paddingBottom)
+    //   var(--input-default-active-paddingLeft);
     background: var(--input-default-active-bg-color);
     box-shadow: var(--input-default-active-shadow);
   }
