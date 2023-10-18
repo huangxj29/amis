@@ -111,7 +111,7 @@ export default class TinymceEditor extends React.Component<TinymceEditorProps> {
         'bullist numlist outdent indent | link image | preview media | ' +
         'fontfamily fontsize forecolor backcolor emoticons | print help',
       quickbars_selection_toolbar: 'bold italic | link h2 h3 blockquote',
-      quickbars_insert_toolbar: 'quickimage quicktable',
+      // quickbars_insert_toolbar: 'quickimage quicktable',
       menu: {
         file: {
           title: 'File',
